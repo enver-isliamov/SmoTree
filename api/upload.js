@@ -1,15 +1,12 @@
 import { handleUpload } from '@vercel/blob/client';
 
-export const config = {
-  runtime: 'edge',
-};
-
-export default async function handler(request) {
-  const body = await request.json();
+// Switch to Node.js runtime
+export default async function handler(req, res) {
+  const body = req.body;
   try {
     const jsonResponse = await handleUpload({
       body,
-      request,
+      request: req,
       onBeforeGenerateToken: async (pathname) => {
         // Authenticate user here if needed
         return {
@@ -25,8 +22,8 @@ export default async function handler(request) {
       },
     });
 
-    return new Response(JSON.stringify(jsonResponse), { status: 200 });
+    return res.status(200).json(jsonResponse);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+    return res.status(400).json({ error: error.message });
   }
 }
