@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Project, ProjectAsset, User } from '../types';
-import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon } from 'lucide-react';
+import { upload } from '@vercel/blob/client';
 
 interface ProjectViewProps {
   project: Project;
@@ -10,17 +11,9 @@ interface ProjectViewProps {
   onUpdateProject: (project: Project) => void;
 }
 
-// Sample videos for upload simulation
-const SAMPLE_VIDEOS = [
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4'
-];
-
 export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   
   // Share / Team View State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -45,48 +38,38 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      simulateUpload(files[0]);
+      handleRealUpload(files[0]);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      simulateUpload(e.target.files[0]);
+      handleRealUpload(e.target.files[0]);
     }
   };
 
-  const simulateUpload = (file: File) => {
+  // Real Upload to Vercel Blob
+  const handleRealUpload = async (file: File) => {
     setIsUploading(true);
-    setUploadProgress(0);
 
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          finishUpload(file);
-          return 100;
-        }
-        return prev + Math.random() * 10;
+    try {
+      const newBlob = await upload(file.name, file, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
       });
-    }, 200);
-  };
 
-  const finishUpload = (file: File) => {
-    setTimeout(() => {
-      setIsUploading(false);
-      setUploadProgress(0);
-
+      // Once uploaded, add to project assets
       const newAsset: ProjectAsset = {
         id: `a-${Date.now()}`,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        thumbnail: `https://images.unsplash.com/photo-1574717024653-61fd2cf4d44c?w=600&q=80`,
+        thumbnail: `https://images.unsplash.com/photo-1574717024653-61fd2cf4d44c?w=600&q=80`, // Placeholder thumb, real thumbnail gen requires server
         currentVersionIndex: 0,
         versions: [
           {
             id: `v-${Date.now()}`,
             versionNumber: 1,
             filename: file.name,
-            url: SAMPLE_VIDEOS[Math.floor(Math.random() * SAMPLE_VIDEOS.length)],
+            url: newBlob.url, // Real URL from Vercel Blob
             uploadedAt: 'Just now',
             comments: []
           }
@@ -101,7 +84,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       
       onUpdateProject(updatedProject);
 
-    }, 500);
+    } catch (error) {
+      console.error("Upload failed", error);
+      alert("Upload failed. Make sure Vercel Blob is configured.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleShareProject = () => {
@@ -110,7 +98,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   };
 
   const handleShareAsset = (e: React.MouseEvent, asset: ProjectAsset) => {
-    e.stopPropagation(); // Prevent opening player
+    e.stopPropagation(); 
     setShareTarget({ type: 'asset', id: asset.id, name: asset.title });
     setIsShareModalOpen(true);
   };
@@ -132,7 +120,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950" onDragOver={handleDragOver} onDrop={handleDrop}>
-      {/* Unified Header - Consistent with Dashboard & Player */}
+      {/* Unified Header */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
           <button onClick={onBack} className="text-zinc-400 hover:text-white shrink-0 p-1 mr-1">
@@ -156,7 +144,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          {/* Team Avatars */}
           <div 
             onClick={() => setIsParticipantsModalOpen(true)}
             className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -206,7 +193,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                 </div>
             </div>
 
-            {/* Asset Grid - Compact */}
+            {/* Asset Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {project.assets.map((asset) => (
                 <div 
@@ -215,24 +202,26 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                     className="group cursor-pointer bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800 hover:border-indigo-500/50 transition-all shadow-sm"
                 >
                     <div className="aspect-video bg-zinc-950 relative overflow-hidden">
+                    {/* Fallback for thumbnail if not generated */}
                     <img 
                         src={asset.thumbnail} 
                         alt={asset.title} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&q=80'; // Dark abstract fallback
+                        }}
                     />
                     
-                    {/* Share Button Overlay */}
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
                         <button 
                             onClick={(e) => handleShareAsset(e, asset)}
                             className="p-1.5 bg-black/60 hover:bg-indigo-600 text-white rounded-md backdrop-blur-sm transition-colors"
                             title="Share Link"
                         >
-                            <Share2 size={12} />
+                            <LinkIcon size={12} />
                         </button>
                     </div>
 
-                    {/* Version Badge */}
                     <div className="absolute bottom-2 left-2 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-white font-mono backdrop-blur-sm">
                         v{asset.versions.length}
                     </div>
@@ -251,7 +240,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                 </div>
                 ))}
 
-                {/* Drop Zone */}
                 <div 
                 onClick={() => fileInputRef.current?.click()}
                 onDragLeave={handleDragLeave}
@@ -269,7 +257,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           </div>
       </div>
 
-      {/* Modals */}
+      {/* Share Modal */}
       {(isShareModalOpen || isParticipantsModalOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl relative p-6">
@@ -284,7 +272,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                 <>
                   <h2 className="text-lg font-bold text-white mb-1">Share {shareTarget.type === 'project' ? 'Project' : 'Asset'}</h2>
                   <p className="text-sm font-medium text-indigo-400 mb-2 truncate">{shareTarget.name}</p>
-                  <p className="text-xs text-zinc-400 mb-4">Anyone with the link can comment.</p>
+                  <p className="text-xs text-zinc-400 mb-4">Anyone with the link can view and comment.</p>
                   <div className="bg-zinc-950 border border-zinc-800 rounded p-1.5 flex items-center gap-2 mb-2">
                     <input 
                       type="text" 
