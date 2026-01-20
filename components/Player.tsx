@@ -43,6 +43,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   // Local File Fallback State
   const [videoError, setVideoError] = useState(false);
   const [localFileSrc, setLocalFileSrc] = useState<string | null>(null);
+  const [localFileName, setLocalFileName] = useState<string | null>(null);
   const localFileRef = useRef<HTMLInputElement>(null);
 
   // Comments & Local State
@@ -99,6 +100,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setMarkerOutPoint(null);
     setVideoError(false);
     setLocalFileSrc(null);
+    setLocalFileName(null);
     setShowVoiceModal(false);
     setIsFpsDetected(false);
     setIsVerticalVideo(false);
@@ -108,7 +110,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     }
   }, [currentVersionIdx]);
 
-  // Fullscreen Listener
+  // Fullscreen Listener & Auto-Landscape Logic
   useEffect(() => {
     const handleFsChange = () => {
         const isFs = !!document.fullscreenElement;
@@ -117,8 +119,34 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             setShowVoiceModal(false); // Auto-close modal when exiting fullscreen
         }
     };
+
+    const handleOrientationChange = () => {
+        const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        if (isMobile) {
+            if (isLandscape) {
+                if (!document.fullscreenElement) {
+                    playerContainerRef.current?.requestFullscreen().catch(() => {
+                        // Silent catch: User interaction is often required, but this works if user has interacted with page
+                    });
+                }
+            } else {
+                 // Optional: Exit fullscreen on portrait? 
+                 // Usually better to let user decide or leave it, but per requirement "should start fs mode" implies orientation triggers state.
+            }
+        }
+    };
+
     document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange); // Fallback for some devices
+
+    return () => {
+        document.removeEventListener('fullscreenchange', handleFsChange);
+        window.removeEventListener('orientationchange', handleOrientationChange);
+        window.removeEventListener('resize', handleOrientationChange);
+    };
   }, []);
 
   // --- Auto-Detect FPS Logic ---
@@ -201,6 +229,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
         setLocalFileSrc(url);
+        setLocalFileName(file.name);
         setVideoError(false);
     }
   };
@@ -589,10 +618,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             
             {(!isSearchOpen || window.innerWidth > 768) && (
               <div className="truncate flex-1">
-                <h2 className="font-semibold text-sm md:text-base truncate leading-tight">{asset.title}</h2>
+                <h2 className="font-semibold text-sm md:text-base truncate leading-tight">
+                    {localFileName || asset.title}
+                </h2>
                 <div className="flex items-center gap-2 text-[10px] text-zinc-400 leading-none">
                    <span className="bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded">v{version.versionNumber}</span>
                    {videoError && <span className="text-red-400 flex items-center gap-1"><Flag size={8}/> Source Missing</span>}
+                   {localFileName && <span className="text-green-400 flex items-center gap-1">Local File</span>}
                 </div>
               </div>
             )}
@@ -948,7 +980,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     </p>
                     <input 
                         type="file" 
-                        accept="video/*" 
+                        accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime"
                         className="hidden" 
                         ref={localFileRef}
                         onChange={handleLocalFileSelect}
