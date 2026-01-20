@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Project, ProjectAsset, User } from '../types';
+import { Project, ProjectAsset, User, UserRole } from '../types';
 import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 
@@ -22,10 +22,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isClient = currentUser.role === UserRole.CLIENT;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    if (!isClient) setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -36,6 +37,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    
+    // Prevent client uploads
+    if (isClient) return;
+
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       handleRealUpload(files[0]);
@@ -123,9 +128,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       {/* Unified Header */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
-          <button onClick={onBack} className="text-zinc-400 hover:text-white shrink-0 p-1 mr-1">
-            <ChevronLeft size={24} />
-          </button>
+          {/* Hide Back Button for Clients to prevent navigation to Dashboard */}
+          {!isClient && (
+            <button onClick={onBack} className="text-zinc-400 hover:text-white shrink-0 p-1 mr-1">
+                <ChevronLeft size={24} />
+            </button>
+          )}
           
           <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-lg shrink-0 border border-zinc-700">
              <Clapperboard size={16} className="text-zinc-400" />
@@ -174,23 +182,27 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
             {/* Action Bar */}
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm md:text-base font-semibold text-zinc-200">Assets <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
-                <div>
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="video/*"
-                    onChange={handleFileSelect}
-                />
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors text-xs md:text-sm font-medium border border-zinc-700"
-                >
-                    {isUploading ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14} />}
-                    {isUploading ? 'Uploading...' : 'Upload Asset'}
-                </button>
-                </div>
+                
+                {/* Hide Upload Controls for Clients */}
+                {!isClient && (
+                    <div>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="video/*"
+                        onChange={handleFileSelect}
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors text-xs md:text-sm font-medium border border-zinc-700"
+                    >
+                        {isUploading ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14} />}
+                        {isUploading ? 'Uploading...' : 'Upload Asset'}
+                    </button>
+                    </div>
+                )}
             </div>
 
             {/* Asset Grid */}
@@ -240,19 +252,22 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                 </div>
                 ))}
 
-                <div 
-                onClick={() => fileInputRef.current?.click()}
-                onDragLeave={handleDragLeave}
-                className={`border border-dashed rounded-lg flex flex-col items-center justify-center gap-2 transition-all cursor-pointer aspect-video
-                    ${isDragging 
-                    ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' 
-                    : 'border-zinc-800 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/50'
-                    }
-                `}
-                >
-                <Upload size={24} />
-                <span className="font-medium text-xs text-center">Drop video</span>
-                </div>
+                {/* Hide Drop Zone for Clients */}
+                {!isClient && (
+                    <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragLeave={handleDragLeave}
+                    className={`border border-dashed rounded-lg flex flex-col items-center justify-center gap-2 transition-all cursor-pointer aspect-video
+                        ${isDragging 
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' 
+                        : 'border-zinc-800 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/50'
+                        }
+                    `}
+                    >
+                    <Upload size={24} />
+                    <span className="font-medium text-xs text-center">Drop video</span>
+                    </div>
+                )}
             </div>
           </div>
       </div>
