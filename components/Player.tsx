@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge } from 'lucide-react';
 
 interface PlayerProps {
   asset: ProjectAsset;
@@ -31,12 +31,14 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [videoFps, setVideoFps] = useState(30); // Default, will auto-detect
+  const [videoFps, setVideoFps] = useState(30); 
   const [isFpsDetected, setIsFpsDetected] = useState(false);
+  const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   
   // Scrubbing State
   const [isScrubbing, setIsScrubbing] = useState(false);
   const scrubStartDataRef = useRef<{ x: number, time: number, wasPlaying: boolean } | null>(null);
+  const isDragRef = useRef(false); // Distinguish between click and drag
   
   // Local File Fallback State
   const [videoError, setVideoError] = useState(false);
@@ -99,6 +101,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setLocalFileSrc(null);
     setShowVoiceModal(false);
     setIsFpsDetected(false);
+    setIsVerticalVideo(false);
     if (videoRef.current) {
         videoRef.current.currentTime = 0;
         videoRef.current.load();
@@ -135,29 +138,24 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           const delta = now - fpsDetectionRef.current.lastTime;
           fpsDetectionRef.current.lastTime = now;
           
-          // Skip first frame or unrealistic deltas
           if (delta > 5 && delta < 100) {
               fpsDetectionRef.current.frames.push(delta);
           }
 
-          // Once we have enough samples (approx 1 sec or 30 frames)
           if (fpsDetectionRef.current.frames.length > 30) {
               const avgDelta = fpsDetectionRef.current.frames.reduce((a, b) => a + b, 0) / fpsDetectionRef.current.frames.length;
               const estimatedFps = 1000 / avgDelta;
               
-              // Find closest standard FPS
               const closest = VALID_FPS.reduce((prev, curr) => 
                 Math.abs(curr - estimatedFps) < Math.abs(prev - estimatedFps) ? curr : prev
               );
 
-              console.log(`Detected FPS: ${estimatedFps.toFixed(2)} -> Snapped to: ${closest}`);
               setVideoFps(closest);
               setIsFpsDetected(true);
               fpsDetectionRef.current.active = false;
           }
       }
 
-      // Sync compare video if needed
       if (compareVideoRef.current && Math.abs(compareVideoRef.current.currentTime - videoRef.current.currentTime) > 0.1) {
          compareVideoRef.current.currentTime = videoRef.current.currentTime;
       }
@@ -187,14 +185,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     return c.text.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  // --- Overlay Comments Logic ---
   const activeOverlayComments = comments.filter(c => {
       const startTime = c.timestamp;
       const endTime = c.duration ? (startTime + c.duration) : (startTime + 4);
       return currentTime >= startTime && currentTime <= endTime;
   });
 
-  // --- Local File Handling ---
   const handleVideoError = () => {
     setVideoError(true);
     setIsPlaying(false);
@@ -203,30 +199,23 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleLocalFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
         const file = e.target.files[0];
-        if (file.name !== version.filename) {
-            if (!confirm(`Warning: The filename "${file.name}" does not match the original "${version.filename}". \n\nTimecodes may not align if this is a different cut. Continue?`)) {
-                return;
-            }
-        }
         const url = URL.createObjectURL(file);
         setLocalFileSrc(url);
         setVideoError(false);
     }
   };
 
-  // --- Voice Recognition ---
   const startListening = () => {
      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       alert("Voice input is not supported in this browser.");
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = navigator.language || 'en-US';
     recognition.continuous = false;
-    recognition.interimResults = true; // Use interim to show text while speaking
+    recognition.interimResults = true;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -261,12 +250,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (isListening) {
       stopListening();
     } else {
-      if (isPlaying) togglePlay(); // Ensure paused when manual toggle
+      if (isPlaying) togglePlay(); 
       startListening();
     }
   };
-
-  // --- Video Controls ---
 
   const handleTimeUpdate = () => {
     if (!isPlaying && videoRef.current && !isScrubbing) {
@@ -314,7 +301,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const cycleFps = () => {
       const idx = VALID_FPS.indexOf(videoFps);
       setVideoFps(VALID_FPS[(idx + 1) % VALID_FPS.length]);
-      setIsFpsDetected(true); // Manually set means we stop detecting
+      setIsFpsDetected(true);
   };
 
   // --- Pointer / Scrubbing Logic ---
@@ -328,6 +315,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         time: currentTime,
         wasPlaying: isPlaying
     };
+    isDragRef.current = false; // Reset drag state
 
     if (isPlaying) {
         setIsPlaying(false);
@@ -341,8 +329,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.PointerEvent).clientX;
     const diffX = clientX - scrubStartDataRef.current.x;
 
-    if (!isScrubbing && Math.abs(diffX) > 5) {
-        setIsScrubbing(true);
+    if (Math.abs(diffX) > 5) {
+        isDragRef.current = true;
+        if (!isScrubbing) setIsScrubbing(true);
     }
 
     if (isScrubbing) {
@@ -362,14 +351,19 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handlePointerUp = (e: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
     if (!scrubStartDataRef.current) return;
 
-    if (!isScrubbing) {
+    if (!isDragRef.current) {
+        // It was a tap/click, not a drag
         togglePlay();
+    } else {
+        // It was a drag/scrub
+        // Resume play only if it was playing before and we were just scrubbing
+        // (Optional: usually scrubbing pauses, so we might want to stay paused)
     }
 
     setIsScrubbing(false);
     scrubStartDataRef.current = null;
+    isDragRef.current = false;
   };
-
 
   const formatTimecode = (seconds: number) => {
     const fps = videoFps;
@@ -381,27 +375,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     return `${hh}:${mm}:${ss}:${ff}`;
   };
 
-  // Sync comment selection
-  useEffect(() => {
-    if (selectedCommentId) {
-      const comment = comments.find(c => c.id === selectedCommentId);
-      if (comment) {
-        if (videoRef.current) {
-          if (Math.abs(videoRef.current.currentTime - comment.timestamp) > 0.05) {
-             videoRef.current.currentTime = comment.timestamp;
-             setCurrentTime(comment.timestamp);
-          }
-          setIsPlaying(false);
-          videoRef.current.pause();
-          if (compareVideoRef.current) {
-             compareVideoRef.current.currentTime = comment.timestamp;
-             compareVideoRef.current.pause();
-          }
-        }
-      }
-    }
-  }, [selectedCommentId, comments]);
-
   // --- Comment Management ---
   const handleSetInPoint = () => {
     setMarkerInPoint(currentTime);
@@ -411,9 +384,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleSetOutPoint = () => {
-    // Determine the out point
     const outTime = currentTime;
-    
     if (markerInPoint !== null && outTime > markerInPoint) {
       setMarkerOutPoint(outTime);
     } else {
@@ -421,35 +392,26 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setMarkerOutPoint(outTime);
     }
 
-    if (isPlaying) togglePlay(); // Pause
-
-    // Trigger Voice/Comment Input
+    if (isPlaying) togglePlay();
     if (isFullscreen) {
         setShowVoiceModal(true);
     } else {
-        // In normal view, focus the sidebar input
         setTimeout(() => sidebarInputRef.current?.focus(), 100);
     }
-    
-    startListening(); // Auto-start mic in both modes
+    startListening(); 
   };
   
   const handleQuickMarker = () => {
-      // Set IN point only (point marker)
       setMarkerInPoint(currentTime);
       setMarkerOutPoint(null);
-
       if (isPlaying) togglePlay();
 
-      // Trigger Voice/Comment Input
       if (isFullscreen) {
           setShowVoiceModal(true);
       } else {
-          // In normal view, focus the sidebar input
           setTimeout(() => sidebarInputRef.current?.focus(), 100);
       }
-      
-      startListening(); // Auto-start mic in both modes
+      startListening();
   };
 
   const closeVoiceModal = (save: boolean) => {
@@ -506,7 +468,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setMarkerInPoint(null);
     setMarkerOutPoint(null);
     
-    // Scroll to bottom after add
     setTimeout(() => {
         commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
@@ -555,7 +516,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       if (!confirm(`Mark ${filteredComments.filter(c => c.status === CommentStatus.OPEN).length} comments as resolved?`)) return;
       
       const updated = comments.map(c => {
-          // Only resolve currently filtered/visible comments
           const isVisible = filteredComments.some(fc => fc.id === c.id);
           if (isVisible && c.status === CommentStatus.OPEN) {
               return { ...c, status: CommentStatus.RESOLVED };
@@ -618,7 +578,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const getAuthor = (userId: string) => users.find(u => u.id === userId) || currentUser;
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-zinc-950 overflow-hidden select-none">
+    <div className="flex flex-col h-[100dvh] bg-zinc-950 overflow-hidden select-none fixed inset-0">
       {/* Header */}
       {!isFullscreen && (
         <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
@@ -704,10 +664,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       )}
 
       {/* Main Content */}
-      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
         
         {/* VIDEO AREA WRAPPER (Includes Controls for Fullscreen) */}
-        <div ref={playerContainerRef} className="flex-1 flex flex-col bg-black relative lg:border-r border-zinc-800 group/fullscreen">
+        <div ref={playerContainerRef} className="flex-1 flex flex-col bg-black relative lg:border-r border-zinc-800 group/fullscreen overflow-hidden">
           
           {/* Viewer Container */}
           <div className="flex-1 relative w-full h-full flex items-center justify-center bg-zinc-950 overflow-hidden group/player">
@@ -718,7 +678,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              </div>
 
              {/* ON-VIDEO COMMENTS OVERLAY (Danmaku / Stream Style) */}
-             <div className="absolute bottom-8 left-4 z-20 flex flex-col items-start gap-2 pointer-events-none w-[80%] md:w-[60%] lg:w-[40%]">
+             <div className="absolute bottom-24 lg:bottom-12 left-4 z-20 flex flex-col items-start gap-2 pointer-events-none w-[80%] md:w-[60%] lg:w-[40%]">
                  {activeOverlayComments.map(c => {
                     const author = getAuthor(c.userId);
                     return (
@@ -734,8 +694,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              {showVoiceModal && isFullscreen && (
                  <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="w-full max-w-md md:max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-2xl flex flex-col md:flex-row md:items-stretch gap-4 md:gap-6 max-h-[90vh] overflow-y-auto">
-                        
-                        {/* LEFT SIDE (Mobile: Top) - Visuals */}
                         <div className="flex flex-col items-center justify-center md:w-1/3 shrink-0">
                             <h3 className="text-base md:text-lg font-bold text-white mb-2 text-center">
                                 {markerOutPoint ? 'Range Comment' : 'Point Marker'}
@@ -749,8 +707,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                     </>
                                 )}
                             </div>
-
-                            {/* Mic Animation - Centered and Visible */}
                             <div 
                                 className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer ${isListening ? 'bg-red-500/20 ring-4 ring-red-500/20 scale-110' : 'bg-zinc-800 hover:bg-zinc-700'}`}
                                 onClick={toggleListening}
@@ -758,21 +714,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 <Mic size={24} className={`md:w-8 md:h-8 ${isListening ? 'text-red-500 animate-pulse' : 'text-zinc-400'}`} />
                             </div>
                         </div>
-                        
-                        {/* RIGHT SIDE (Mobile: Bottom) - Input */}
                         <div className="flex flex-col justify-center flex-1 w-full">
                             <p className="text-[10px] md:text-xs text-zinc-500 mb-2 uppercase tracking-wider text-center md:text-left">
                                 {isListening ? 'Listening...' : 'Transcript'}
                             </p>
-                            
                             <textarea 
                                 value={newCommentText}
                                 onChange={(e) => setNewCommentText(e.target.value)}
                                 placeholder={isListening ? "Speak now..." : "Type or record a comment..."}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white text-sm focus:border-indigo-500 outline-none h-24 md:h-32 mb-4 resize-none"
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white text-base md:text-sm focus:border-indigo-500 outline-none h-24 md:h-32 mb-4 resize-none"
                                 autoFocus
                             />
-
                             <div className="flex w-full gap-3">
                                 <button 
                                     onClick={() => closeVoiceModal(false)}
@@ -799,7 +751,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                  className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
                >
                  <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-xl animate-in fade-in zoom-in duration-200">
-                    <Play size={32} fill="white" className="ml-1 text-white" />
+                     {isPlaying ? <Pause size={32} fill="white" className="text-white"/> : <Play size={32} fill="white" className="ml-1 text-white" />}
                  </div>
                </div>
              )}
@@ -821,7 +773,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                   onLoadedMetadata={(e) => {
                       setDuration(e.currentTarget.duration);
                       setVideoError(false);
-                      setIsFpsDetected(false); // Reset FPS detection on new video
+                      setIsFpsDetected(false); 
+                      setIsVerticalVideo(e.currentTarget.videoHeight > e.currentTarget.videoWidth);
                   }}
                   onError={handleVideoError}
                   onEnded={() => setIsPlaying(false)}
@@ -829,22 +782,22 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                   controls={false}
                 />
                 
-                {/* Touch/Pointer Overlay for Scrubbing */}
+                {/* Touch/Pointer Overlay for Scrubbing and Clicking */}
                 <div 
-                   className="absolute inset-0 z-30"
+                   className="absolute inset-0 z-30 touch-none"
                    onPointerDown={handlePointerDown}
                    onPointerMove={handlePointerMove}
                    onPointerUp={handlePointerUp}
                    onPointerLeave={handlePointerUp}
-                   onTouchStart={(e) => handlePointerDown(e)}
-                   onTouchMove={(e) => handlePointerMove(e)}
-                   onTouchEnd={(e) => handlePointerUp(e)}
                 ></div>
              </div>
           </div>
 
-          {/* Controls Bar - REFACTORED FOR VISIBILITY */}
-          <div className="bg-zinc-900 border-t border-zinc-800 p-2 lg:p-4 shrink-0 pb-6 lg:pb-4 transition-transform duration-300">
+          {/* Controls Bar - Adaptive for Vertical Video */}
+          <div className={`
+             ${isVerticalVideo ? 'absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black via-black/80 to-transparent pb-6 pt-10' : 'bg-zinc-900 border-t border-zinc-800 pb-6'} 
+             p-2 lg:p-4 shrink-0 transition-transform duration-300
+          `}>
              {/* Scrubber */}
              <div className="relative h-8 group cursor-pointer mb-2 flex items-center touch-none">
                 <input
@@ -856,7 +809,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                   onChange={handleSeek}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
                 />
-                <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden relative">
+                <div className="w-full h-1.5 bg-zinc-700/50 rounded-full overflow-hidden relative">
                    <div className="h-full bg-indigo-500" style={{ width: `${(currentTime / duration) * 100}%` }} />
                 </div>
                 {filteredComments.map(c => {
@@ -895,13 +848,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              </div>
 
              {/* Playback Buttons & Controls Row - FLEXBOX FOR STABILITY */}
-             <div className="flex items-center justify-between h-10 w-full gap-2">
+             <div className="flex items-center justify-between h-10 w-full gap-2 relative z-50">
                 
                 {/* Left: FPS Only */}
                 <div className="flex-1 flex justify-start items-center gap-2">
                       <button 
                         onClick={cycleFps} 
-                        className={`text-[10px] cursor-pointer font-mono border px-2 py-1 rounded flex items-center gap-1 transition-colors ${isFpsDetected ? 'text-indigo-400 border-indigo-500/50 bg-indigo-500/10' : 'text-zinc-500 border-zinc-800 bg-zinc-950 hover:text-white'}`}
+                        className={`text-[10px] cursor-pointer font-mono border px-2 py-1 rounded flex items-center gap-1 transition-colors ${isFpsDetected ? 'text-indigo-400 border-indigo-500/50 bg-indigo-500/10' : 'text-zinc-500 border-zinc-800 bg-zinc-950/50 hover:text-white'}`}
                         title={isFpsDetected ? "Auto-Detected FPS" : "Manually Set FPS"}
                       >
                         {isFpsDetected && <Gauge size={10} />}
@@ -911,7 +864,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
                 {/* Center: Rewind - IN - OUT - Forward */}
                 <div className="flex-0 flex items-center gap-1 md:gap-2">
-                    <div className="flex items-center bg-zinc-950 rounded-lg p-1 border border-zinc-800 shadow-md transform scale-90 md:scale-100 origin-bottom">
+                    <div className="flex items-center bg-zinc-950/80 backdrop-blur rounded-lg p-1 border border-zinc-800 shadow-md transform scale-90 md:scale-100 origin-bottom">
                         
                         {/* Quick Marker (Single Point) */}
                         <button 
@@ -1103,7 +1056,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 {isEditing ? (
                                     <div className="mt-2" onClick={e => e.stopPropagation()}>
                                     <textarea 
-                                        className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm text-white focus:border-indigo-500 outline-none mb-2"
+                                        className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-base md:text-sm text-white focus:border-indigo-500 outline-none mb-2"
                                         value={editText}
                                         onChange={e => setEditText(e.target.value)}
                                         rows={3}
@@ -1144,7 +1097,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         <div className="relative flex-1">
                             <input
                             ref={sidebarInputRef}
-                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-10 py-3 md:py-2.5 text-sm text-white focus:border-indigo-500 outline-none"
+                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-10 py-3 md:py-2.5 text-base md:text-sm text-white focus:border-indigo-500 outline-none"
                             placeholder={isListening ? "Listening..." : "Add a comment..."}
                             value={newCommentText}
                             onChange={e => setNewCommentText(e.target.value)}

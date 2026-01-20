@@ -2,8 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>SmoTree - Video Collaboration</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /* Custom scrollbar for dark theme */
@@ -21,6 +25,10 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #52525b; 
       }
+      /* Prevent pull-to-refresh on mobile to feel native */
+      body {
+        overscroll-behavior-y: none;
+      }
     </style>
   <script type="importmap">
 {
@@ -34,7 +42,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-zinc-950 text-zinc-100 antialiased">
+  <body class="bg-zinc-950 text-zinc-100 antialiased overflow-hidden">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
