@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film } from 'lucide-react';
+import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 
 interface PlayerProps {
   asset: ProjectAsset;
@@ -40,6 +41,14 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const scrubStartDataRef = useRef<{ x: number, time: number, wasPlaying: boolean } | null>(null);
   const isDragRef = useRef(false); // Distinguish between click and drag
   
+  // Floating Controls State
+  const [controlsPos, setControlsPos] = useState({ x: 0, y: 0 });
+  const isDraggingControls = useRef(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+
+  // Export State
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   // Local File Fallback State
   const [videoError, setVideoError] = useState(false);
   const [localFileSrc, setLocalFileSrc] = useState<string | null>(null);
@@ -102,6 +111,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setShowVoiceModal(false);
     setIsFpsDetected(false);
     setIsVerticalVideo(false);
+    setControlsPos({ x: 0, y: 0 }); // Reset floating controls
 
     // Check if we have a persisted local file in the version state
     if (version.localFileUrl) {
@@ -328,9 +338,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const toggleFullScreen = (forceEnter?: boolean) => {
-    // Detect iOS to force CSS fullscreen instead of standard API
-    // Standard API on iOS works only for <video> element (not div wrappers)
-    // and invokes Apple's native player, breaking our custom UI.
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     
     if (!isIOS && document.fullscreenEnabled) {
@@ -340,7 +347,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             document.exitFullscreen();
         }
     } else {
-        // Fallback for iOS and unsupported browsers: CSS Fullscreen
         setIsFullscreen(prev => forceEnter ? true : !prev);
     }
   };
@@ -360,16 +366,55 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (viewMode !== 'single' && compareVideoRef.current) compareVideoRef.current.currentTime = time;
   };
 
-  const cycleFps = () => {
+  const cycleFps = (e: React.MouseEvent) => {
+      e.stopPropagation(); // prevent drag if in floating bar
       const idx = VALID_FPS.indexOf(videoFps);
       setVideoFps(VALID_FPS[(idx + 1) % VALID_FPS.length]);
       setIsFpsDetected(true);
+  };
+
+  // --- Floating Controls Drag Logic ---
+  const handleDragStart = (e: React.PointerEvent) => {
+    isDraggingControls.current = true;
+    dragStartPos.current = { x: e.clientX - controlsPos.x, y: e.clientY - controlsPos.y };
+    (e.target as Element).setPointerCapture(e.pointerId);
+  };
+
+  const handleDragMove = (e: React.PointerEvent) => {
+    if (!isDraggingControls.current) return;
+    const newX = e.clientX - dragStartPos.current.x;
+    const newY = e.clientY - dragStartPos.current.y;
+    setControlsPos({ x: newX, y: newY });
+  };
+
+  const handleDragEnd = (e: React.PointerEvent) => {
+    isDraggingControls.current = false;
+    (e.target as Element).releasePointerCapture(e.pointerId);
+  };
+
+  // --- Export Handlers ---
+  const handleExport = (type: 'edl' | 'csv' | 'xml') => {
+      const filename = asset.title.replace(/\s+/g, '_');
+      if (type === 'edl') {
+          const content = generateEDL(project.name, version.versionNumber, comments);
+          downloadFile(`${filename}_v${version.versionNumber}.edl`, content, 'text/plain');
+      } else if (type === 'csv') {
+          const content = generateCSV(comments);
+          downloadFile(`${filename}_v${version.versionNumber}.csv`, content, 'text/csv');
+      } else if (type === 'xml') {
+          const content = generateResolveXML(project.name, version.versionNumber, comments);
+          downloadFile(`${filename}_v${version.versionNumber}.xml`, content, 'text/xml');
+      }
+      setShowExportMenu(false);
   };
 
   // --- Pointer / Scrubbing Logic ---
   const handlePointerDown = (e: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
     if (videoError || showVoiceModal) return;
     
+    // Check if clicking inside floating controls, if so, ignore seek logic
+    if ((e.target as HTMLElement).closest('.floating-controls')) return;
+
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.PointerEvent).clientX;
     
     scrubStartDataRef.current = {
@@ -414,12 +459,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (!scrubStartDataRef.current) return;
 
     if (!isDragRef.current) {
-        // It was a tap/click, not a drag
         togglePlay();
-    } else {
-        // It was a drag/scrub
-        // Resume play only if it was playing before and we were just scrubbing
-        // (Optional: usually scrubbing pauses, so we might want to stay paused)
     }
 
     setIsScrubbing(false);
@@ -438,14 +478,16 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   // --- Comment Management ---
-  const handleSetInPoint = () => {
+  const handleSetInPoint = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setMarkerInPoint(currentTime);
     if (markerOutPoint !== null && markerOutPoint <= currentTime) {
       setMarkerOutPoint(null);
     }
   };
 
-  const handleSetOutPoint = () => {
+  const handleSetOutPoint = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const outTime = currentTime;
     if (markerInPoint !== null && outTime > markerInPoint) {
       setMarkerOutPoint(outTime);
@@ -463,7 +505,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     startListening(); 
   };
   
-  const handleQuickMarker = () => {
+  const handleQuickMarker = (e: React.MouseEvent) => {
+      e.stopPropagation();
       setMarkerInPoint(currentTime);
       setMarkerOutPoint(null);
       if (isPlaying) togglePlay();
@@ -742,9 +785,21 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           {/* Viewer Container */}
           <div className="flex-1 relative w-full h-full flex items-center justify-center bg-zinc-950 overflow-hidden group/player">
              
-             {/* Timecode Overlay */}
-             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm px-3 py-1 rounded border border-white/10 text-white font-mono text-lg tracking-widest z-30 pointer-events-none select-none shadow-lg">
-                {formatTimecode(currentTime)}
+             {/* Timecode & FPS Overlay - Updated to include FPS */}
+             <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-px bg-black/50 backdrop-blur-sm rounded-lg border border-white/10 shadow-lg z-30 select-none overflow-hidden">
+                <div className="px-3 py-1 text-white font-mono text-lg tracking-widest">
+                    {formatTimecode(currentTime)}
+                </div>
+                <div className="h-6 w-px bg-white/20"></div>
+                <button 
+                    onClick={cycleFps}
+                    className="px-2 py-1 hover:bg-white/10 transition-colors flex items-center gap-1.5 group/fps"
+                    title="Toggle FPS"
+                >
+                     <span className={`text-[10px] font-mono font-bold ${isFpsDetected ? 'text-indigo-400' : 'text-zinc-400 group-hover/fps:text-zinc-200'}`}>
+                        {Number.isInteger(videoFps) ? videoFps : videoFps.toFixed(2)} FPS
+                     </span>
+                </button>
              </div>
 
              {/* ON-VIDEO COMMENTS OVERLAY (Danmaku / Stream Style) */}
@@ -833,6 +888,80 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                  </div>
              )}
 
+             {/* --- FLOATING TRANSPORT CONTROLS --- */}
+             <div 
+                className="absolute z-50 floating-controls touch-none"
+                style={{ 
+                    transform: `translate(${controlsPos.x}px, ${controlsPos.y}px)`,
+                    bottom: '80px', // Initial offset
+                    left: '50%', // Initial offset
+                    marginLeft: '-110px' // Center approximate width
+                }}
+             >
+                <div className="flex items-center gap-1 bg-zinc-950/90 backdrop-blur-md rounded-xl p-1.5 border border-zinc-800 shadow-2xl ring-1 ring-white/5">
+                    
+                    {/* Drag Handle */}
+                    <div 
+                        onPointerDown={handleDragStart}
+                        onPointerMove={handleDragMove}
+                        onPointerUp={handleDragEnd}
+                        className="p-1.5 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing border-r border-zinc-800 mr-1"
+                    >
+                        <GripVertical size={14} />
+                    </div>
+
+                    {/* Quick Marker */}
+                    <button 
+                        onClick={handleQuickMarker}
+                        className="text-zinc-400 hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                        title="Quick Marker"
+                    >
+                        <MapPin size={18} />
+                    </button>
+
+                    {/* Rewind */}
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); seek(-10); }} 
+                        className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                    >
+                        <RotateCcw size={18} />
+                    </button>
+
+                    <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
+
+                    {/* IN / OUT */}
+                    <button 
+                        onClick={handleSetInPoint} 
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                    >
+                        IN
+                    </button>
+                    <button 
+                        onClick={handleSetOutPoint}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                    >
+                        OUT
+                    </button>
+
+                    <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
+
+                    {/* Forward */}
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); seek(10); }} 
+                        className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                    >
+                        <RotateCw size={18} />
+                    </button>
+
+                     {/* Clear Markers (if active) */}
+                    {(markerInPoint !== null || markerOutPoint !== null) && (
+                        <button onClick={clearMarkers} className="ml-1 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors border-l border-zinc-800">
+                            <XIcon size={14} />
+                        </button>
+                    )}
+                </div>
+             </div>
+
              {/* Video & Interaction Layer */}
              <div className="relative w-full h-full flex items-center justify-center cursor-col-resize select-none">
                 <video
@@ -917,83 +1046,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 )}
              </div>
 
-             {/* Playback Buttons & Controls Row - FLEXBOX FOR STABILITY */}
+             {/* Playback Buttons & Controls Row - Minimal */}
              <div className="flex items-center justify-between h-10 w-full gap-2 relative z-50">
-                
-                {/* Left: FPS Only */}
-                <div className="flex-1 flex justify-start items-center gap-2">
-                      <button 
-                        onClick={cycleFps} 
-                        className={`text-[10px] cursor-pointer font-mono border px-2 py-1 rounded flex items-center gap-1 transition-colors ${isFpsDetected ? 'text-indigo-400 border-indigo-500/50 bg-indigo-500/10' : 'text-zinc-500 border-zinc-800 bg-zinc-950/50 hover:text-white'}`}
-                        title={isFpsDetected ? "Auto-Detected FPS" : "Manually Set FPS"}
-                      >
-                        {isFpsDetected && <Gauge size={10} />}
-                        {Number.isInteger(videoFps) ? videoFps : videoFps.toFixed(3)} fps
-                      </button>
-                </div>
+                <div className="flex-1"></div> {/* Spacer */}
 
-                {/* Center: Rewind - IN - OUT - Forward */}
-                <div className="flex-0 flex items-center gap-1 md:gap-2">
-                    <div className="flex items-center bg-zinc-950/80 backdrop-blur rounded-lg p-1 border border-zinc-800 shadow-md transform scale-90 md:scale-100 origin-bottom">
-                        
-                        {/* Quick Marker (Single Point) */}
-                        <button 
-                            onClick={handleQuickMarker}
-                            className="text-zinc-400 hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-800 rounded-md transition-colors"
-                            title="Quick Marker (Pause & Comment)"
-                        >
-                            <MapPin size={16} />
-                        </button>
-
-                        <div className="w-px h-3 bg-zinc-800 mx-1"></div>
-
-                        {/* Rewind */}
-                        <button 
-                            onClick={() => seek(-10)} 
-                            className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-md transition-colors"
-                            title="-10s"
-                        >
-                            <RotateCcw size={16} />
-                        </button>
-
-                        <div className="w-px h-3 bg-zinc-800 mx-1"></div>
-
-                        <button 
-                            onClick={handleSetInPoint} 
-                            className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                            title="Set In Point (I)"
-                        >
-                            IN
-                        </button>
-                        <div className="w-px h-3 bg-zinc-800 mx-1"></div>
-                        <button 
-                            onClick={handleSetOutPoint}
-                                className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                                title="Set Out Point (O)"
-                        >
-                            OUT
-                        </button>
-
-                        <div className="w-px h-3 bg-zinc-800 mx-1"></div>
-
-                        {/* Forward */}
-                        <button 
-                            onClick={() => seek(10)} 
-                            className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-md transition-colors"
-                            title="+10s"
-                        >
-                            <RotateCw size={16} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Right: Clear Markers & Fullscreen */}
+                {/* Right: Fullscreen Only (Others moved to floating) */}
                 <div className="flex-1 flex justify-end items-center gap-2">
-                   {(markerInPoint !== null || markerOutPoint !== null) && (
-                        <button onClick={clearMarkers} className="p-2 text-zinc-500 hover:text-red-400 transition-colors bg-zinc-950/50 rounded hover:bg-zinc-900 border border-zinc-800/50" title="Clear Markers">
-                            <XIcon size={16} />
-                        </button>
-                    )}
                     <button onClick={() => toggleFullScreen()} className="p-2 text-zinc-400 hover:text-white transition-colors" title="Toggle Fullscreen">
                         {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
                     </button>
@@ -1037,16 +1095,52 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900 sticky top-0 z-10">
                     <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Comments ({filteredComments.length})</span>
                     
-                    {/* Bulk Actions */}
-                    {isOwnerOrAdmin && filteredComments.some(c => c.status === CommentStatus.OPEN) && (
-                        <button 
-                            onClick={handleBulkResolve}
-                            className="flex items-center gap-1 text-[10px] bg-green-900/20 text-green-400 border border-green-900/50 hover:bg-green-900/40 px-2 py-1 rounded transition-colors"
-                        >
-                            <CheckSquare size={12} />
-                            Resolve All
-                        </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                         {/* EXPORT MENU */}
+                         {isOwnerOrAdmin && (
+                             <div className="relative">
+                                 <button 
+                                     onClick={() => setShowExportMenu(!showExportMenu)}
+                                     className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+                                     title="Export Markers"
+                                 >
+                                     <Download size={16} />
+                                 </button>
+                                 
+                                 {showExportMenu && (
+                                     <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
+                                         <button onClick={() => handleExport('xml')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
+                                             <Film size={14} className="text-indigo-400" />
+                                             DaVinci Resolve (.xml)
+                                         </button>
+                                         <button onClick={() => handleExport('csv')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
+                                             <FileSpreadsheet size={14} className="text-green-400" />
+                                             Premiere Pro (.csv)
+                                         </button>
+                                          <button onClick={() => handleExport('edl')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
+                                             <FileText size={14} className="text-orange-400" />
+                                             EDL Generic (.edl)
+                                         </button>
+                                     </div>
+                                 )}
+                                 
+                                 {showExportMenu && (
+                                     <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)}></div>
+                                 )}
+                             </div>
+                         )}
+
+                        {/* Bulk Actions */}
+                        {isOwnerOrAdmin && filteredComments.some(c => c.status === CommentStatus.OPEN) && (
+                            <button 
+                                onClick={handleBulkResolve}
+                                className="flex items-center gap-1 text-[10px] bg-green-900/20 text-green-400 border border-green-900/50 hover:bg-green-900/40 px-2 py-1 rounded transition-colors"
+                            >
+                                <CheckSquare size={12} />
+                                Resolve All
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Comments List */}
