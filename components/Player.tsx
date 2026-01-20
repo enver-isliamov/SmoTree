@@ -74,6 +74,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const compareVideoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null); // Wraps video + controls
   const commentsEndRef = useRef<HTMLDivElement>(null);
+  const sidebarInputRef = useRef<HTMLInputElement>(null);
   
   // Animation Frame Ref for Smooth Timecode
   const animationFrameRef = useRef<number | null>(null);
@@ -106,7 +107,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   // Fullscreen Listener
   useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFsChange = () => {
+        const isFs = !!document.fullscreenElement;
+        setIsFullscreen(isFs);
+        if (!isFs) {
+            setShowVoiceModal(false); // Auto-close modal when exiting fullscreen
+        }
+    };
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
@@ -414,10 +421,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setMarkerOutPoint(outTime);
     }
 
-    // AUTO-TRIGGER VOICE MODAL
     if (isPlaying) togglePlay(); // Pause
-    setShowVoiceModal(true);
-    startListening(); // Auto-start mic
+
+    // Trigger Voice/Comment Input
+    if (isFullscreen) {
+        setShowVoiceModal(true);
+    } else {
+        // In normal view, focus the sidebar input
+        setTimeout(() => sidebarInputRef.current?.focus(), 100);
+    }
+    
+    startListening(); // Auto-start mic in both modes
   };
   
   const handleQuickMarker = () => {
@@ -425,10 +439,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setMarkerInPoint(currentTime);
       setMarkerOutPoint(null);
 
-      // Trigger Modal
       if (isPlaying) togglePlay();
-      setShowVoiceModal(true);
-      startListening();
+
+      // Trigger Voice/Comment Input
+      if (isFullscreen) {
+          setShowVoiceModal(true);
+      } else {
+          // In normal view, focus the sidebar input
+          setTimeout(() => sidebarInputRef.current?.focus(), 100);
+      }
+      
+      startListening(); // Auto-start mic in both modes
   };
 
   const closeVoiceModal = (save: boolean) => {
@@ -709,8 +730,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                  })}
              </div>
 
-             {/* VOICE NOTE / COMMENT MODAL OVERLAY - REFACTORED FOR RESPONSIVENESS */}
-             {showVoiceModal && (
+             {/* VOICE NOTE / COMMENT MODAL OVERLAY - ONLY IN FULLSCREEN */}
+             {showVoiceModal && isFullscreen && (
                  <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="w-full max-w-md md:max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-2xl flex flex-col md:flex-row md:items-stretch gap-4 md:gap-6 max-h-[90vh] overflow-y-auto">
                         
@@ -1122,6 +1143,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     <div className="flex gap-2 items-center pb-[env(safe-area-inset-bottom)]">
                         <div className="relative flex-1">
                             <input
+                            ref={sidebarInputRef}
                             className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-10 py-3 md:py-2.5 text-sm text-white focus:border-indigo-500 outline-none"
                             placeholder={isListening ? "Listening..." : "Add a comment..."}
                             value={newCommentText}
