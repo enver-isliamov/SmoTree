@@ -199,6 +199,33 @@ const App: React.FC = () => {
       }
   };
 
+  // Login Handler with Auto-Join Team Logic
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+
+    // If logging in via a link, ensure user is added to the project team
+    const params = new URLSearchParams(window.location.search);
+    const pId = params.get('projectId');
+
+    if (pId) {
+        setProjects(prevProjects => {
+            return prevProjects.map(p => {
+                if (p.id === pId) {
+                    // Avoid duplicates
+                    const isMember = p.team.some(m => m.id === user.id);
+                    if (!isMember) {
+                        return {
+                            ...p,
+                            team: [...p.team, user]
+                        };
+                    }
+                }
+                return p;
+            });
+        });
+    }
+  };
+
   const currentProject = view.type !== 'DASHBOARD' 
     ? projects.find(p => p.id === view.projectId) 
     : null;
@@ -208,7 +235,8 @@ const App: React.FC = () => {
     : null;
 
   if (!currentUser) {
-    return <Login onLogin={setCurrentUser} />;
+    // Pass the new handleLogin wrapper instead of setting state directly
+    return <Login onLogin={handleLogin} />;
   }
 
   return (
