@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Clock, Plus, X, Loader2, MoreVertical, FileVideo, Clapperboard, LogOut, ChevronRight } from 'lucide-react';
+import { Clock, Plus, X, Loader2, MoreVertical, FileVideo, Clapperboard, LogOut, ChevronRight, Lock } from 'lucide-react';
 
 interface DashboardProps {
   projects: Project[];
@@ -19,7 +19,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   const [client, setClient] = useState('');
   const [description, setDescription] = useState('');
 
-  const visibleProjects = projects; 
+  const isClient = currentUser.role === UserRole.CLIENT;
+
+  // STRICT FILTERING: Clients only see projects they are members of
+  const visibleProjects = isClient
+    ? projects.filter(p => p.team.some(member => member.id === currentUser.id))
+    : projects;
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,13 +97,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           {/* Toolbar */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              All Projects 
+              {isClient ? 'Shared with Me' : 'All Projects'}
               <span className="text-xs font-normal text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
                 {visibleProjects.length}
               </span>
             </h2>
             
-            {currentUser.role !== UserRole.CLIENT && (
+            {!isClient && (
               <button 
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-medium shadow-lg shadow-indigo-900/20"
@@ -109,10 +114,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             )}
           </div>
 
+          {/* EMPTY STATE FOR CLIENTS */}
+          {visibleProjects.length === 0 && isClient && (
+             <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
+                <Lock size={48} className="mb-4 opacity-50" />
+                <h3 className="text-lg font-bold text-zinc-300">No Projects Found</h3>
+                <p className="max-w-xs text-center mt-2 text-sm text-zinc-500">
+                   You don't have access to any projects here. Please open the specific link provided to you by the editor.
+                </p>
+             </div>
+          )}
+
           {/* Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {/* Create New Card (First item for visibility) */}
-            {currentUser.role !== UserRole.CLIENT && (
+            {/* Create New Card (First item for visibility - Admin Only) */}
+            {!isClient && (
               <button 
                 onClick={() => setIsModalOpen(true)}
                 className="group border border-dashed border-zinc-800 rounded-lg p-4 flex flex-col items-center justify-center text-zinc-500 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all min-h-[180px]"
@@ -135,9 +151,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                   <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5">
                       {project.client}
                   </div>
-                  <button className="text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical size={14} />
-                  </button>
+                  {!isClient && (
+                    <button className="text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreVertical size={14} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Title & Desc */}
