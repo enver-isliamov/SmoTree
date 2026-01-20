@@ -116,11 +116,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   };
 
   const handleCopyLink = () => {
-    const url = shareTarget?.type === 'project' 
-      ? `https://smotree.app/p/${shareTarget.id}`
-      : `https://smotree.app/a/${shareTarget?.id}`;
+    const origin = window.location.origin;
+    let url = '';
+
+    if (shareTarget?.type === 'project') {
+       url = `${origin}?projectId=${shareTarget.id}`;
+    } else {
+       url = `${origin}?projectId=${project.id}&assetId=${shareTarget?.id}`;
+    }
     
-    navigator.clipboard.writeText(`${url}?token=share_123`);
+    navigator.clipboard.writeText(url);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -281,8 +286,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                   <p className="text-sm font-medium text-indigo-400 mb-2 truncate">{shareTarget.name}</p>
                   <p className="text-xs text-zinc-400 mb-4">Anyone with the link can comment.</p>
                   <div className="bg-zinc-950 border border-zinc-800 rounded p-1.5 flex items-center gap-2 mb-2">
-                    <input type="text" readOnly value={`https://smotree.app/${shareTarget.type === 'project' ? 'p' : 'a'}/${shareTarget.id}`} className="bg-transparent flex-1 text-xs text-zinc-400 px-2 outline-none" />
-                    <button onClick={handleCopyLink} className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1">
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={`${window.location.origin}?projectId=${project.id}${shareTarget.type === 'asset' ? `&assetId=${shareTarget.id}` : ''}`} 
+                      className="bg-transparent flex-1 text-xs text-zinc-400 px-2 outline-none truncate" 
+                    />
+                    <button onClick={handleCopyLink} className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded text-xs transition-colors shrink-0 flex items-center gap-1">
                       {isCopied ? <Check size={12} /> : <Copy size={12} />}
                       {isCopied ? 'Copied' : 'Copy'}
                     </button>
