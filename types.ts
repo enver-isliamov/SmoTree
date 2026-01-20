@@ -52,6 +52,9 @@ export interface VideoVersion {
   uploadedAt: string;
   filename: string;
   comments: Comment[];
+  // Temporary fields for local session playback
+  localFileUrl?: string; 
+  localFileName?: string;
 }
 
 export interface ProjectAsset {
