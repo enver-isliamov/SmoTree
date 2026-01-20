@@ -244,6 +244,7 @@ const App: React.FC = () => {
             onBack={handleBackToProject}
             users={currentProject.team}
             onUpdateProject={handleUpdateProject}
+            isSyncing={isSyncing}
           />
         )}
       </main>
