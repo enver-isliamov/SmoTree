@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { MOCK_USERS } from '../constants';
 import { Clapperboard, ChevronRight, User as UserIcon, ArrowRight } from 'lucide-react';
+import { generateId } from '../services/utils';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -15,10 +16,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     if (!guestName.trim()) return;
 
     const guestUser: User = {
-      id: `guest-${Date.now()}`,
+      id: `guest-${generateId()}`,
       name: guestName,
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${guestName}`,
-      role: UserRole.CLIENT // Default to Client/Reviewer role for guests
+      role: UserRole.CLIENT 
     };
 
     onLogin(guestUser);
@@ -100,7 +101,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="mt-8 text-center text-xs text-zinc-600">
-          <p>SmoTree v0.6.0 • Review Mode Enabled</p>
+          <p>SmoTree v0.7.0 • Review Mode Enabled</p>
         </div>
       </div>
     </div>

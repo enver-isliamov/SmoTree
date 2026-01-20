@@ -36,6 +36,7 @@ export const MOCK_PROJECTS: Project[] = [
     name: 'SmoTree – Commercial Spot X',
     description: '30s TV spot for the new product launch. Needs energetic cuts.',
     client: 'TechCorp Inc.',
+    createdAt: Date.now() - 172800000, // 2 days ago
     updatedAt: '2 hours ago',
     ownerId: 'u1',
     team: [MOCK_USERS[0], MOCK_USERS[1]],
@@ -96,6 +97,7 @@ export const MOCK_PROJECTS: Project[] = [
     name: 'Social Reels (Vertical)',
     description: '9:16 Vertical content for TikTok and Instagram Reels campaign.',
     client: 'Fashion Week',
+    createdAt: Date.now() - 7200000, // 2 hours ago
     updatedAt: '30 mins ago',
     ownerId: 'u1',
     team: [MOCK_USERS[0], MOCK_USERS[3]],
@@ -124,6 +126,7 @@ export const MOCK_PROJECTS: Project[] = [
     name: 'Corporate Documentary',
     description: 'Internal culture video for onboarding.',
     client: 'Finance Flow',
+    createdAt: Date.now() - 259200000, // 3 days ago
     updatedAt: '1 day ago',
     ownerId: 'u1',
     team: [MOCK_USERS[0], MOCK_USERS[2]],

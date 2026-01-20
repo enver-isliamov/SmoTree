@@ -2,6 +2,12 @@ import { put, list } from '@vercel/blob';
 
 // Switch to Node.js runtime (default) to support @vercel/blob dependencies
 export default async function handler(req, res) {
+  
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.error("Missing BLOB_READ_WRITE_TOKEN");
+    return res.status(500).json({ error: "Server configuration error: Missing Blob Token" });
+  }
+
   // GET: Fetch the current state
   if (req.method === 'GET') {
     try {

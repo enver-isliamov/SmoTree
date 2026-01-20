@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Clock, Plus, X, Loader2, MoreVertical, FileVideo, Clapperboard, LogOut, ChevronRight, Lock } from 'lucide-react';
+import { Clock, Plus, X, Loader2, MoreVertical, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
+import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 
 interface DashboardProps {
   projects: Project[];
   currentUser: User;
   onSelectProject: (project: Project) => void;
   onAddProject: (project: Project) => void;
+  onDeleteProject: (projectId: string) => void; // New prop
   onLogout: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onLogout }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
+  // Deletion State
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
   // Form State
   const [name, setName] = useState('');
   const [client, setClient] = useState('');
@@ -34,10 +39,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
     setTimeout(() => {
       const newProject: Project = {
-        id: `p-${Date.now()}`,
+        id: generateId(), // Using UUID
         name,
         client,
         description,
+        createdAt: Date.now(), // Set creation time
         updatedAt: 'Just now',
         team: [currentUser],
         ownerId: currentUser.id,
@@ -52,6 +58,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
       setClient('');
       setDescription('');
     }, 800);
+  };
+
+  const handleDeleteClick = async (e: React.MouseEvent, project: Project) => {
+      e.stopPropagation();
+      if (!confirm(`Are you sure you want to delete "${project.name}"?\nThis will permanently delete ALL videos and comments.`)) {
+          return;
+      }
+
+      setIsDeleting(project.id);
+      
+      // 1. Collect all blob URLs
+      const urlsToDelete: string[] = [];
+      project.assets.forEach(asset => {
+          asset.versions.forEach(v => {
+              // Only delete Vercel Blob URLs (simple check for http/https to avoid local blob: urls if any persisted wrongly)
+              if (v.url.startsWith('http')) {
+                  urlsToDelete.push(v.url);
+              }
+          });
+      });
+
+      // 2. Call API to delete blobs
+      if (urlsToDelete.length > 0) {
+          try {
+              await fetch('/api/delete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ urls: urlsToDelete })
+              });
+          } catch (err) {
+              console.error("Failed to delete blobs", err);
+              alert("Warning: Could not delete video files from cloud. Project entry will be removed.");
+          }
+      }
+
+      // 3. Update State
+      onDeleteProject(project.id);
+      setIsDeleting(null);
   };
 
   return (
@@ -127,7 +171,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
           {/* Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {/* Create New Card (First item for visibility - Admin Only) */}
+            {/* Create New Card (Admin Only) */}
             {!isClient && (
               <button 
                 onClick={() => setIsModalOpen(true)}
@@ -140,26 +184,62 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
               </button>
             )}
 
-            {visibleProjects.map((project) => (
+            {visibleProjects.map((project) => {
+              const expired = project.createdAt ? isExpired(project.createdAt) : false;
+              const daysLeft = project.createdAt ? getDaysRemaining(project.createdAt) : 7;
+              
+              return (
               <div 
                 key={project.id} 
-                onClick={() => onSelectProject(project)}
-                className="group bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-indigo-500/50 transition-all cursor-pointer shadow-sm hover:shadow-md relative flex flex-col h-[180px]"
+                onClick={() => !expired && onSelectProject(project)}
+                className={`group bg-zinc-900 border rounded-lg p-4 transition-all relative flex flex-col h-[180px]
+                    ${expired 
+                        ? 'border-red-900/30 opacity-70 hover:opacity-100 cursor-not-allowed' 
+                        : 'border-zinc-800 hover:border-indigo-500/50 cursor-pointer shadow-sm hover:shadow-md'
+                    }
+                `}
               >
+                {/* Deleting Overlay */}
+                {isDeleting === project.id && (
+                    <div className="absolute inset-0 bg-black/80 z-20 flex items-center justify-center rounded-lg">
+                        <Loader2 className="animate-spin text-red-500" />
+                    </div>
+                )}
+
+                {/* Expiration Badge */}
+                {project.createdAt && daysLeft <= 2 && !expired && (
+                    <div className="absolute top-2 right-2 z-10 bg-orange-500/10 text-orange-500 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20 flex items-center gap-1">
+                        <CalendarClock size={10} />
+                        {daysLeft}d left
+                    </div>
+                )}
+                 {expired && (
+                    <div className="absolute top-2 right-2 z-10 bg-red-500/10 text-red-500 text-[9px] px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
+                        <AlertTriangle size={10} />
+                        Expired
+                    </div>
+                )}
+
+
                 {/* Top Row: Client & Menu */}
                 <div className="flex justify-between items-start mb-2">
                   <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5">
                       {project.client}
                   </div>
-                  {!isClient && (
-                    <button className="text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreVertical size={14} />
+                  {/* Delete Button (Owner Only) */}
+                  {!isClient && (currentUser.id === project.ownerId || currentUser.role === UserRole.ADMIN) && (
+                    <button 
+                        onClick={(e) => handleDeleteClick(e, project)}
+                        className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-red-500/10 rounded"
+                        title="Delete Project & Files"
+                    >
+                        <Trash2 size={14} />
                     </button>
                   )}
                 </div>
 
                 {/* Title & Desc */}
-                <h3 className="text-base font-bold text-zinc-100 mb-1 group-hover:text-indigo-400 transition-colors truncate">
+                <h3 className={`text-base font-bold mb-1 truncate transition-colors ${expired ? 'text-zinc-500' : 'text-zinc-100 group-hover:text-indigo-400'}`}>
                   {project.name}
                 </h3>
                 <p className="text-xs text-zinc-500 mb-4 line-clamp-2 leading-relaxed">
@@ -198,7 +278,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       </div>

@@ -191,6 +191,14 @@ const App: React.FC = () => {
     setProjects(prev => [newProject, ...prev]);
   };
 
+  const handleDeleteProject = (projectId: string) => {
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      // If viewing deleted project, go back to dashboard
+      if (view.type !== 'DASHBOARD' && view.projectId === projectId) {
+          handleBackToDashboard();
+      }
+  };
+
   const currentProject = view.type !== 'DASHBOARD' 
     ? projects.find(p => p.id === view.projectId) 
     : null;
@@ -222,6 +230,7 @@ const App: React.FC = () => {
             currentUser={currentUser}
             onSelectProject={handleSelectProject}
             onAddProject={handleAddProject}
+            onDeleteProject={handleDeleteProject}
             onLogout={handleLogout}
           />
         )}

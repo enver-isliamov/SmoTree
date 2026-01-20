@@ -70,6 +70,7 @@ export interface Project {
   name: string;
   description: string;
   client: string;
+  createdAt: number; // Timestamp for 7-day expiration logic
   updatedAt: string;
   assets: ProjectAsset[];
   team: User[];

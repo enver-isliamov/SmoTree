@@ -2,6 +2,10 @@ import { handleUpload } from '@vercel/blob/client';
 
 // Switch to Node.js runtime
 export default async function handler(req, res) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(500).json({ error: "Server configuration error: Missing Blob Token" });
+  }
+
   const body = req.body;
   try {
     const jsonResponse = await handleUpload({
@@ -9,6 +13,7 @@ export default async function handler(req, res) {
       request: req,
       onBeforeGenerateToken: async (pathname) => {
         // Authenticate user here if needed
+        // Currently public for demo, but typically you'd check req.cookies or headers
         return {
           allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska'],
           tokenPayload: JSON.stringify({

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
 import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
+import { generateId } from '../services/utils';
 
 interface PlayerProps {
   asset: ProjectAsset;
@@ -572,7 +573,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     }
 
     const newComment: Comment = {
-      id: `nc-${Date.now()}`,
+      id: `nc-${generateId()}`,
       userId: currentUser.id,
       timestamp: timestamp,
       duration: commentDuration,
@@ -592,6 +593,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     }, 100);
   };
 
+  // ... (rest of the component logic remains same, just ensuring imports are cleaner)
   const startEditing = (comment: Comment) => {
     setEditingCommentId(comment.id);
     setEditText(comment.text);
@@ -1003,7 +1005,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         {/* COMMENTS SIDEBAR / OFFLINE MODE - Hidden in Fullscreen */}
         {!isFullscreen && (
         <div className="w-full lg:w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col shrink-0 h-[45vh] lg:h-auto z-10 shadow-2xl lg:shadow-none pb-20 lg:pb-0 relative">
-           
+           {/* ... Reusing previous UI for Sidebar ... */}
            {videoError ? (
                // OFFLINE RECOVERY UI
                <div className="flex flex-col h-full items-center justify-center p-6 text-center animate-in fade-in slide-in-from-right-4 duration-300">
