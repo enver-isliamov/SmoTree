@@ -934,7 +934,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
         {/* COMMENTS SIDEBAR / OFFLINE MODE - Hidden in Fullscreen */}
         {!isFullscreen && (
-        <div className="w-full lg:w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col shrink-0 h-[45vh] lg:h-auto z-10 shadow-2xl lg:shadow-none pb-20 lg:pb-0">
+        <div className="w-full lg:w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col shrink-0 h-[45vh] lg:h-auto z-10 shadow-2xl lg:shadow-none pb-20 lg:pb-0 relative">
            
            {videoError ? (
                // OFFLINE RECOVERY UI
@@ -1080,7 +1080,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 </div>
 
                 {/* Add Comment Area - Fixed for Mobile Keyboard safety */}
-                <div className="fixed bottom-0 left-0 right-0 lg:absolute lg:bottom-0 lg:w-full bg-zinc-900 border-t border-zinc-800 z-50 p-3 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
+                <div className="fixed bottom-0 left-0 right-0 lg:static lg:w-full bg-zinc-900 border-t border-zinc-800 z-50 p-3 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
                     
                     {/* Range Indicator above input */}
                     {(markerInPoint !== null || markerOutPoint !== null) && (
@@ -1097,7 +1097,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         <div className="relative flex-1">
                             <input
                             ref={sidebarInputRef}
-                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-10 py-3 md:py-2.5 text-base md:text-sm text-white focus:border-indigo-500 outline-none"
+                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-12 py-3 md:py-2.5 text-base md:text-sm text-white focus:border-indigo-500 outline-none"
                             placeholder={isListening ? "Listening..." : "Add a comment..."}
                             value={newCommentText}
                             onChange={e => setNewCommentText(e.target.value)}
