@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 
 interface PlayerProps {
@@ -256,6 +256,19 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleLocalFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
         const file = e.target.files[0];
+        
+        // Strict Filename Validation
+        if (file.name !== version.filename) {
+            const confirmed = window.confirm(
+                `Filename Mismatch Warning!\n\nExpected: "${version.filename}"\nSelected: "${file.name}"\n\nThe comments might be out of sync if the duration differs. Are you sure this is the correct file?`
+            );
+            
+            if (!confirmed) {
+                if (localFileRef.current) localFileRef.current.value = ''; // Reset input
+                return;
+            }
+        }
+
         const url = URL.createObjectURL(file);
         
         setLocalFileSrc(url);
