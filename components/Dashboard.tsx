@@ -171,19 +171,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
           {/* Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {/* Create New Card (Admin Only) */}
-            {!isClient && (
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="group border border-dashed border-zinc-800 rounded-lg p-4 flex flex-col items-center justify-center text-zinc-500 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all min-h-[180px]"
-              >
-                <div className="p-3 rounded-full bg-zinc-900 group-hover:bg-indigo-500/20 mb-2 transition-colors">
-                  <Plus size={24} />
-                </div>
-                <span className="font-medium text-sm">Create Project</span>
-              </button>
-            )}
-
+            
             {visibleProjects.map((project) => {
               const expired = project.createdAt ? isExpired(project.createdAt) : false;
               const daysLeft = project.createdAt ? getDaysRemaining(project.createdAt) : 7;
