@@ -53,30 +53,45 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     }
   };
 
-  // Real Upload to Vercel Blob
+  // Real Upload to Vercel Blob with Local Fallback
   const handleRealUpload = async (file: File) => {
     setIsUploading(true);
 
     try {
-      const newBlob = await upload(file.name, file, {
-        access: 'public',
-        handleUploadUrl: '/api/upload',
-      });
+      let assetUrl = '';
+      let isLocalFallback = false;
 
-      // Once uploaded, add to project assets
+      try {
+        // Attempt real upload
+        const newBlob = await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/upload',
+        });
+        assetUrl = newBlob.url;
+      } catch (uploadError) {
+        console.warn("Cloud upload failed (Backend not configured?). Switching to Local Mode.", uploadError);
+        // FALLBACK: Use local object URL so user isn't blocked
+        assetUrl = URL.createObjectURL(file);
+        isLocalFallback = true;
+      }
+
+      // Create new asset entry
       const newAsset: ProjectAsset = {
         id: `a-${Date.now()}`,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        thumbnail: `https://images.unsplash.com/photo-1574717024653-61fd2cf4d44c?w=600&q=80`, // Placeholder thumb, real thumbnail gen requires server
+        thumbnail: `https://images.unsplash.com/photo-1574717024653-61fd2cf4d44c?w=600&q=80`, // Placeholder thumb
         currentVersionIndex: 0,
         versions: [
           {
             id: `v-${Date.now()}`,
             versionNumber: 1,
             filename: file.name,
-            url: newBlob.url, // Real URL from Vercel Blob
+            url: assetUrl, // Will be blob:http://... if local
             uploadedAt: 'Just now',
-            comments: []
+            comments: [],
+            // Store local ref so Player knows it's local
+            localFileUrl: isLocalFallback ? assetUrl : undefined,
+            localFileName: isLocalFallback ? file.name : undefined
           }
         ]
       };
@@ -88,10 +103,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       };
       
       onUpdateProject(updatedProject);
+      
+      if (isLocalFallback) {
+         // Optional: notify user unobtrusively
+         console.info("Using local file for preview (Offline Mode)");
+      }
 
     } catch (error) {
-      console.error("Upload failed", error);
-      alert("Upload failed. Make sure Vercel Blob is configured.");
+      console.error("Critical error adding asset", error);
+      alert("Unexpected error handling file.");
     } finally {
       setIsUploading(false);
     }
