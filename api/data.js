@@ -1,12 +1,7 @@
 import { put, list } from '@vercel/blob';
 
-export const config = {
-  runtime: 'edge',
-};
-
-// Simple Persistence Layer for SmoTree
-// Stores the entire projects array in a single 'db.json' file in the Blob Store.
-export default async function handler(req) {
+// Switch to Node.js runtime (default) to support @vercel/blob dependencies
+export default async function handler(req, res) {
   // GET: Fetch the current state
   if (req.method === 'GET') {
     try {
@@ -15,37 +10,35 @@ export default async function handler(req) {
       const dbBlob = blobs.find(b => b.pathname === 'db.json');
       
       if (dbBlob) {
+        // Node.js 18+ has native fetch
         const response = await fetch(dbBlob.url);
         const data = await response.json();
-        return new Response(JSON.stringify(data), { 
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return res.status(200).json(data);
       }
-      // If no DB exists, return null so frontend uses Mock/Empty
-      return new Response(JSON.stringify(null), { 
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-      });
+      // If no DB exists, return null
+      return res.status(200).json(null);
     } catch (error) {
-       return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+       console.error(error);
+       return res.status(500).json({ error: error.message });
     }
   } 
   
   // POST: Save the state
   if (req.method === 'POST') {
     try {
-      const body = await req.json();
-      // Overwrite db.json with new data. 'addRandomSuffix: false' ensures we keep one file.
+      // Vercel Serverless Functions parse JSON body automatically
+      const body = req.body;
+      
       const { url } = await put('db.json', JSON.stringify(body), { 
           access: 'public', 
           addRandomSuffix: false 
       });
-      return new Response(JSON.stringify({ success: true, url }), { status: 200 });
+      return res.status(200).json({ success: true, url });
     } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+      console.error(error);
+      return res.status(500).json({ error: error.message });
     }
   }
 
-  return new Response("Method not allowed", { status: 405 });
+  return res.status(405).send("Method not allowed");
 }
