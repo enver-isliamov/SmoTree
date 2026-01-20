@@ -126,26 +126,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
         if (isMobile) {
             if (isLandscape) {
-                if (!document.fullscreenElement) {
-                    playerContainerRef.current?.requestFullscreen().catch(() => {
-                        // Silent catch: User interaction is often required, but this works if user has interacted with page
-                    });
-                }
-            } else {
-                 // Optional: Exit fullscreen on portrait? 
-                 // Usually better to let user decide or leave it, but per requirement "should start fs mode" implies orientation triggers state.
+                // Try to enter fullscreen if supported, otherwise just rely on layout changes
+                 toggleFullScreen(true);
             }
         }
     };
 
     document.addEventListener('fullscreenchange', handleFsChange);
     window.addEventListener('orientationchange', handleOrientationChange);
-    window.addEventListener('resize', handleOrientationChange); // Fallback for some devices
+    // window.addEventListener('resize', handleOrientationChange); // Can cause loops on some Androids
 
     return () => {
         document.removeEventListener('fullscreenchange', handleFsChange);
         window.removeEventListener('orientationchange', handleOrientationChange);
-        window.removeEventListener('resize', handleOrientationChange);
+        // window.removeEventListener('resize', handleOrientationChange);
     };
   }, []);
 
@@ -304,11 +298,21 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     }
   };
 
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-        playerContainerRef.current?.requestFullscreen();
+  const toggleFullScreen = (forceEnter?: boolean) => {
+    // Detect iOS to force CSS fullscreen instead of standard API
+    // Standard API on iOS works only for <video> element (not div wrappers)
+    // and invokes Apple's native player, breaking our custom UI.
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    if (!isIOS && document.fullscreenEnabled) {
+        if (forceEnter || !document.fullscreenElement) {
+            playerContainerRef.current?.requestFullscreen().catch(() => setIsFullscreen(true));
+        } else {
+            document.exitFullscreen();
+        }
     } else {
-        document.exitFullscreen();
+        // Fallback for iOS and unsupported browsers: CSS Fullscreen
+        setIsFullscreen(prev => forceEnter ? true : !prev);
     }
   };
 
@@ -699,7 +703,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
         
         {/* VIDEO AREA WRAPPER (Includes Controls for Fullscreen) */}
-        <div ref={playerContainerRef} className="flex-1 flex flex-col bg-black relative lg:border-r border-zinc-800 group/fullscreen overflow-hidden">
+        <div 
+            ref={playerContainerRef} 
+            className={`flex-1 flex flex-col bg-black lg:border-r border-zinc-800 group/fullscreen overflow-hidden transition-all duration-300
+                ${isFullscreen ? 'fixed inset-0 z-[100] w-screen h-screen' : 'relative'}
+            `}
+        >
           
           {/* Viewer Container */}
           <div className="flex-1 relative w-full h-full flex items-center justify-center bg-zinc-950 overflow-hidden group/player">
@@ -956,7 +965,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             <XIcon size={16} />
                         </button>
                     )}
-                    <button onClick={toggleFullScreen} className="p-2 text-zinc-400 hover:text-white transition-colors" title="Toggle Fullscreen">
+                    <button onClick={() => toggleFullScreen()} className="p-2 text-zinc-400 hover:text-white transition-colors" title="Toggle Fullscreen">
                         {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
                     </button>
                 </div>
