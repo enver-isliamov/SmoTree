@@ -13,6 +13,7 @@ type ViewState =
 
 const STORAGE_KEY = 'smotree_projects_data';
 const SYNC_DEBOUNCE_MS = 2000;
+const POLLING_INTERVAL_MS = 5000; // Sync every 5 seconds
 
 const App: React.FC = () => {
   // Auth State
@@ -27,7 +28,10 @@ const App: React.FC = () => {
 
   const [view, setView] = useState<ViewState>({ type: 'DASHBOARD' });
   const [isSyncing, setIsSyncing] = useState(false);
+  
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Flag to prevent saving back to server when the update came FROM the server
+  const isRemoteUpdate = useRef(false);
 
   // 1. Initial Data Fetch from Cloud (Vercel Blob DB)
   useEffect(() => {
@@ -38,6 +42,8 @@ const App: React.FC = () => {
          if (res.ok) {
             const data = await res.json();
             if (data && Array.isArray(data)) {
+                // Initial load is treated as remote update to prevent immediate save-back
+                isRemoteUpdate.current = true;
                 setProjects(data);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             }
@@ -51,10 +57,49 @@ const App: React.FC = () => {
     fetchCloudData();
   }, []);
 
-  // 2. Persist data changes to Cloud + LocalStorage (Debounced)
+  // 2. Polling Mechanism (Real-time-ish updates)
   useEffect(() => {
-    // Immediate Local Save
+    const interval = setInterval(async () => {
+        // If we are currently uploading/syncing our own changes, don't pull
+        // to avoid overwriting our pending work with old server data (race condition mitigation).
+        if (isSyncing) return;
+
+        try {
+            const res = await fetch('/api/data');
+            if (res.ok) {
+                const cloudData = await res.json();
+                if (cloudData && Array.isArray(cloudData)) {
+                    setProjects(prevCurrent => {
+                        // Only update if data is actually different to avoid re-renders
+                        // Using JSON.stringify is acceptable for this dataset size
+                        if (JSON.stringify(prevCurrent) !== JSON.stringify(cloudData)) {
+                            // Mark as remote update so we don't save it back in step 3
+                            isRemoteUpdate.current = true;
+                            console.log("☁️ Received remote updates");
+                            return cloudData;
+                        }
+                        return prevCurrent;
+                    });
+                }
+            }
+        } catch (e) {
+            // Silent fail on polling errors
+        }
+    }, POLLING_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [isSyncing]);
+
+  // 3. Persist data changes to Cloud + LocalStorage (Debounced)
+  useEffect(() => {
+    // Always save to local storage for immediate offline safety
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+
+    // If this change came from the server (Polling), do NOT save it back.
+    if (isRemoteUpdate.current) {
+        isRemoteUpdate.current = false;
+        return;
+    }
 
     // Debounced Cloud Save
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
@@ -79,18 +124,13 @@ const App: React.FC = () => {
     };
   }, [projects]);
 
-  // 3. Handle Deep Linking
+  // 4. Handle Deep Linking
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
     const aId = params.get('assetId');
 
     if (pId) {
-      // Logic runs after projects might have updated from cloud or local
-      // We need to wait for projects to settle ideally, but for now we check available state
-      // If projects are loaded async, we might miss this check initially if projects is empty
-      // But we initialize with MOCK or LocalStorage, so it's usually fine.
-      
       const projectExists = projects.find(p => p.id === pId);
       
       if (projectExists) {
@@ -106,7 +146,7 @@ const App: React.FC = () => {
         }
       }
     }
-  }, [projects]); // Re-run when projects load/change to catch the link if data arrived late
+  }, [projects]); 
 
   // Navigation handlers
   const handleSelectProject = (project: Project) => {
@@ -167,12 +207,14 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
       <main className="h-full">
         {/* Sync Indicator */}
-        {isSyncing && (
-            <div className="fixed top-2 right-2 z-[100] px-2 py-1 bg-zinc-900 rounded text-[10px] text-zinc-500 flex items-center gap-2 border border-zinc-800">
-                <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>
-                Syncing...
-            </div>
-        )}
+        <div className="fixed top-2 right-2 z-[100] flex gap-2">
+            {isSyncing && (
+                <div className="px-2 py-1 bg-zinc-900 rounded text-[10px] text-zinc-500 flex items-center gap-2 border border-zinc-800 animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                    Saving...
+                </div>
+            )}
+        </div>
 
         {view.type === 'DASHBOARD' && (
           <Dashboard 
