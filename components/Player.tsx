@@ -888,80 +888,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                  </div>
              )}
 
-             {/* --- FLOATING TRANSPORT CONTROLS --- */}
-             <div 
-                className="absolute z-50 floating-controls touch-none"
-                style={{ 
-                    transform: `translate(${controlsPos.x}px, ${controlsPos.y}px)`,
-                    bottom: '80px', // Initial offset
-                    left: '50%', // Initial offset
-                    marginLeft: '-110px' // Center approximate width
-                }}
-             >
-                <div className="flex items-center gap-1 bg-zinc-950/90 backdrop-blur-md rounded-xl p-1.5 border border-zinc-800 shadow-2xl ring-1 ring-white/5">
-                    
-                    {/* Drag Handle */}
-                    <div 
-                        onPointerDown={handleDragStart}
-                        onPointerMove={handleDragMove}
-                        onPointerUp={handleDragEnd}
-                        className="p-1.5 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing border-r border-zinc-800 mr-1"
-                    >
-                        <GripVertical size={14} />
-                    </div>
-
-                    {/* Quick Marker */}
-                    <button 
-                        onClick={handleQuickMarker}
-                        className="text-zinc-400 hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
-                        title="Quick Marker"
-                    >
-                        <MapPin size={18} />
-                    </button>
-
-                    {/* Rewind */}
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); seek(-10); }} 
-                        className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
-                    >
-                        <RotateCcw size={18} />
-                    </button>
-
-                    <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
-
-                    {/* IN / OUT */}
-                    <button 
-                        onClick={handleSetInPoint} 
-                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                    >
-                        IN
-                    </button>
-                    <button 
-                        onClick={handleSetOutPoint}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                    >
-                        OUT
-                    </button>
-
-                    <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
-
-                    {/* Forward */}
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); seek(10); }} 
-                        className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
-                    >
-                        <RotateCw size={18} />
-                    </button>
-
-                     {/* Clear Markers (if active) */}
-                    {(markerInPoint !== null || markerOutPoint !== null) && (
-                        <button onClick={clearMarkers} className="ml-1 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors border-l border-zinc-800">
-                            <XIcon size={14} />
-                        </button>
-                    )}
-                </div>
-             </div>
-
              {/* Video & Interaction Layer */}
              <div className="relative w-full h-full flex items-center justify-center cursor-col-resize select-none">
                 <video
@@ -1295,6 +1221,81 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         )}
 
       </div>
+      
+      {/* --- FLOATING TRANSPORT CONTROLS (MOVED OUTSIDE) --- */}
+      {/* Now fixed relative to window so it can be dragged anywhere */}
+      <div 
+        className="fixed z-[9999] floating-controls touch-none"
+        style={{ 
+            transform: `translate(${controlsPos.x}px, ${controlsPos.y}px)`,
+            bottom: '40px', // Initial placement
+            left: '50%', // Initial placement
+            marginLeft: '-110px' // Initial Center
+        }}
+      >
+        <div className="flex items-center gap-1 bg-zinc-950/90 backdrop-blur-md rounded-xl p-1.5 border border-zinc-800 shadow-2xl ring-1 ring-white/5">
+            
+            {/* Drag Handle */}
+            <div 
+                onPointerDown={handleDragStart}
+                onPointerMove={handleDragMove}
+                onPointerUp={handleDragEnd}
+                className="p-1.5 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing border-r border-zinc-800 mr-1"
+            >
+                <GripVertical size={14} />
+            </div>
+
+            {/* Quick Marker */}
+            <button 
+                onClick={handleQuickMarker}
+                className="text-zinc-400 hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                title="Quick Marker"
+            >
+                <MapPin size={18} />
+            </button>
+
+            {/* Rewind */}
+            <button 
+                onClick={(e) => { e.stopPropagation(); seek(-10); }} 
+                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+                <RotateCcw size={18} />
+            </button>
+
+            <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
+
+            {/* IN / OUT */}
+            <button 
+                onClick={handleSetInPoint} 
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+            >
+                IN
+            </button>
+            <button 
+                onClick={handleSetOutPoint}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+            >
+                OUT
+            </button>
+
+            <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
+
+            {/* Forward */}
+            <button 
+                onClick={(e) => { e.stopPropagation(); seek(10); }} 
+                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+                <RotateCw size={18} />
+            </button>
+
+             {/* Clear Markers (if active) */}
+            {(markerInPoint !== null || markerOutPoint !== null) && (
+                <button onClick={clearMarkers} className="ml-1 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors border-l border-zinc-800">
+                    <XIcon size={14} />
+                </button>
+            )}
+        </div>
+     </div>
     </div>
   );
 };
