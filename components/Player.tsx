@@ -90,7 +90,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setComments(version.comments || []);
   }, [version.comments]);
 
-  // Reset logic
+  // Reset / Init logic
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
@@ -99,16 +99,25 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setMarkerInPoint(null);
     setMarkerOutPoint(null);
     setVideoError(false);
-    setLocalFileSrc(null);
-    setLocalFileName(null);
     setShowVoiceModal(false);
     setIsFpsDetected(false);
     setIsVerticalVideo(false);
+
+    // Check if we have a persisted local file in the version state
+    if (version.localFileUrl) {
+        setLocalFileSrc(version.localFileUrl);
+        setLocalFileName(version.localFileName || 'Local File');
+        setVideoError(false);
+    } else {
+        setLocalFileSrc(null);
+        setLocalFileName(null);
+    }
+
     if (videoRef.current) {
         videoRef.current.currentTime = 0;
         videoRef.current.load();
     }
-  }, [currentVersionIdx]);
+  }, [currentVersionIdx, version]); // Added version dependency to catch updates
 
   // Fullscreen Listener & Auto-Landscape Logic
   useEffect(() => {
@@ -214,17 +223,37 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   });
 
   const handleVideoError = () => {
+    // If we have a local file URL that failed, it might be revoked, but standard error is sufficient
     setVideoError(true);
     setIsPlaying(false);
+  };
+
+  const persistLocalFile = (url: string, name: string) => {
+    const updatedVersions = [...asset.versions];
+    updatedVersions[currentVersionIdx] = { 
+        ...updatedVersions[currentVersionIdx], 
+        localFileUrl: url,
+        localFileName: name
+    };
+    const updatedAssets = project.assets.map(a => a.id === asset.id ? { ...a, versions: updatedVersions } : a);
+    let updatedTeam = project.team;
+    if (!updatedTeam.some(u => u.id === currentUser.id)) {
+       updatedTeam = [...updatedTeam, currentUser];
+    }
+    onUpdateProject({ ...project, assets: updatedAssets, team: updatedTeam });
   };
 
   const handleLocalFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
+        
         setLocalFileSrc(url);
         setLocalFileName(file.name);
         setVideoError(false);
+
+        // Save to project state so it survives navigation
+        persistLocalFile(url, file.name);
     }
   };
 
