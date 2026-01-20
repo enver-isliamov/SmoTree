@@ -13,7 +13,6 @@ interface ProjectViewProps {
 }
 
 export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject }) => {
-  const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeletingAsset, setIsDeletingAsset] = useState<string | null>(null);
   
@@ -25,24 +24,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isClient = currentUser.role === UserRole.CLIENT;
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!isClient) setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (isClient) return;
-    const files = e.dataTransfer.files;
-    if (files.length > 0) handleRealUpload(files[0]);
-  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -162,7 +143,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   };
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div className="flex flex-col h-screen bg-zinc-950">
       {/* Unified Header */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
@@ -288,22 +269,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                     </div>
                 </div>
                 ))}
-
-                {!isClient && (
-                    <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragLeave={handleDragLeave}
-                    className={`border border-dashed rounded-lg flex flex-col items-center justify-center gap-2 transition-all cursor-pointer aspect-video
-                        ${isDragging 
-                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' 
-                        : 'border-zinc-800 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/50'
-                        }
-                    `}
-                    >
-                    <Upload size={24} />
-                    <span className="font-medium text-xs text-center">Drop video</span>
-                    </div>
-                )}
             </div>
           </div>
       </div>
