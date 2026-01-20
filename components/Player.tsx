@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 
 interface PlayerProps {
@@ -10,6 +10,7 @@ interface PlayerProps {
   onBack: () => void;
   users: User[];
   onUpdateProject: (project: Project) => void;
+  isSyncing: boolean;
 }
 
 const VALID_FPS = [23.976, 24, 25, 29.97, 30, 50, 60];
@@ -19,7 +20,7 @@ const canManageProject = (user: User, project: Project) => {
   return user.id === project.ownerId || user.role === UserRole.ADMIN || user.role === UserRole.EDITOR;
 };
 
-export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onBack, users, onUpdateProject }) => {
+export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onBack, users, onUpdateProject, isSyncing }) => {
   const [currentVersionIdx, setCurrentVersionIdx] = useState(asset.currentVersionIndex);
   const version = asset.versions[currentVersionIdx] || asset.versions[0];
   
@@ -1032,7 +1033,24 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              <>
                 {/* Sidebar Header */}
                 <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900 sticky top-0 z-10">
-                    <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Comments ({filteredComments.length})</span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Comments ({filteredComments.length})</span>
+                        
+                        {/* SYNC STATUS INDICATOR */}
+                        <div className="flex items-center gap-1.5" title={isSyncing ? "Syncing to cloud..." : "All changes saved"}>
+                            {isSyncing ? (
+                                <>
+                                    <Loader2 size={12} className="animate-spin text-indigo-400" />
+                                    <span className="text-[9px] text-zinc-500 font-medium">Syncing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Cloud size={12} className="text-zinc-600" />
+                                    <span className="text-[9px] text-zinc-600 font-medium">Saved</span>
+                                </>
+                            )}
+                        </div>
+                    </div>
                     
                     <div className="flex items-center gap-2">
                          {/* EXPORT MENU */}
