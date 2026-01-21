@@ -39,11 +39,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     try {
       let assetUrl = '';
       let isLocalFallback = false;
+      const token = localStorage.getItem('smotree_auth_token');
 
       try {
         const newBlob = await upload(file.name, file, {
           access: 'public',
           handleUploadUrl: '/api/upload',
+          clientPayload: JSON.stringify({
+              token: token,
+              user: currentUser.id
+          })
         });
         assetUrl = newBlob.url;
       } catch (uploadError) {
@@ -103,9 +108,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     // 2. Delete Blobs
     if (urlsToDelete.length > 0) {
         try {
+            const token = localStorage.getItem('smotree_auth_token');
             await fetch('/api/delete', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
                 body: JSON.stringify({ urls: urlsToDelete })
             });
         } catch (err) {

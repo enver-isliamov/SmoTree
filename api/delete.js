@@ -1,4 +1,21 @@
+
 import { del } from '@vercel/blob';
+
+// Helper to verify Google Token
+async function isAuthorized(req) {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return false;
+    }
+    const token = authHeader.split(' ')[1];
+
+    try {
+        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+        return response.ok;
+    } catch (e) {
+        return false;
+    }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -9,17 +26,18 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Server configuration error: Missing Blob Token" });
   }
 
+  // 1. Security Check
+  const auth = await isAuthorized(req);
+  if (!auth) {
+      return res.status(401).json({ error: "Unauthorized" });
+  }
+
   try {
     const { urls } = req.body;
     
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
         return res.status(400).json({ error: "No URLs provided for deletion" });
     }
-
-    // Filter out mock/external URLs that are not in Vercel Blob
-    // Vercel Blob URLs usually contain 'public.blob.vercel-storage.com' or similar
-    // But safely we can just try to delete them, the SDK handles non-existent ones gracefully usually
-    // or we filter simply.
     
     console.log("Deleting blobs:", urls);
     await del(urls);

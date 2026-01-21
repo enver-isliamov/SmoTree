@@ -1,6 +1,6 @@
+
 import { handleUpload } from '@vercel/blob/client';
 
-// Switch to Node.js runtime
 export default async function handler(req, res) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return res.status(500).json({ error: "Server configuration error: Missing Blob Token" });
@@ -11,19 +11,39 @@ export default async function handler(req, res) {
     const jsonResponse = await handleUpload({
       body,
       request: req,
-      onBeforeGenerateToken: async (pathname) => {
-        // Authenticate user here if needed
-        // Currently public for demo, but typically you'd check req.cookies or headers
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        // 1. Parse Payload
+        let payload;
+        try {
+            payload = clientPayload ? JSON.parse(clientPayload) : {};
+        } catch (e) {
+            throw new Error("Invalid payload");
+        }
+
+        // 2. Validate Google Token
+        if (!payload.token) {
+            throw new Error("Unauthorized: Missing Auth Token");
+        }
+
+        try {
+            const googleCheck = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${payload.token}`);
+            if (!googleCheck.ok) {
+                throw new Error("Unauthorized: Invalid Google Token");
+            }
+        } catch (e) {
+             throw new Error("Unauthorized: Token validation failed");
+        }
+
+        // 3. Allow Upload
         return {
           allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska'],
           tokenPayload: JSON.stringify({
-            // optional payload
+             user: payload.user || 'anonymous'
           }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
-        // Callback after upload
-        // console.log('Upload complete:', blob.url);
+        // Optional: Log upload success
       },
     });
 

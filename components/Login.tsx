@@ -19,7 +19,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
 
-  // Get Client ID from Environment Variables
+  // Get Client ID from Environment Variables (Vite)
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
@@ -30,9 +30,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
 
     if (!GOOGLE_CLIENT_ID) {
-        console.warn("Google Client ID is missing. Check VITE_GOOGLE_CLIENT_ID.");
+        console.warn("Google Client ID is missing. Check VITE_GOOGLE_CLIENT_ID in Vercel.");
     }
 
+    // Initialize Google Identity Services
     if (GOOGLE_CLIENT_ID && window.google) {
       try {
         window.google.accounts.id.initialize({
@@ -57,7 +58,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleGoogleCallback = (response: any) => {
     try {
-        // 1. Decode payload for UI
+        // 1. Decode payload for UI (base64 decode the middle part of JWT)
         const payload = JSON.parse(atob(response.credential.split('.')[1]));
         
         // 2. Save RAW token for API calls
@@ -72,10 +73,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             role: role
         };
 
-        console.log("Logged in via Google:", googleUser);
+        console.log("Logged in via Google:", googleUser.name);
         onLogin(googleUser);
 
     } catch (e) {
+        console.error(e);
         setGoogleError("Failed to process Google Login.");
     }
   };
@@ -84,7 +86,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    // Manual login does not provide a token, so API will likely fail or treat as read-only local
+    // Manual login does not provide a token, so API will reject writes (Read-Only/Local mode)
     localStorage.removeItem('smotree_auth_token');
 
     const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
@@ -154,7 +156,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {!GOOGLE_CLIENT_ID ? (
                 <div className="p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg text-yellow-500 text-xs flex items-center gap-2">
                     <AlertCircle size={16} />
-                    <span>Google Login not configured (Missing Client ID).</span>
+                    <span>Google Client ID missing in .env</span>
                 </div>
             ) : (
                 <div id="googleSignInDiv" className="h-[44px] w-full min-h-[44px]"></div>

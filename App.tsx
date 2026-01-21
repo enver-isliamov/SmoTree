@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { ProjectView } from './components/ProjectView';
@@ -39,6 +40,14 @@ const App: React.FC = () => {
     return token ? { 'Authorization': `Bearer ${token}` } : {};
   };
 
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem(USER_STORAGE_KEY);
+    localStorage.removeItem('smotree_auth_token');
+    setView({ type: 'DASHBOARD' });
+    window.history.pushState({}, '', window.location.pathname);
+  };
+
   // 1. Initial Data Fetch
   useEffect(() => {
     if (!currentUser) return; // Wait for login
@@ -58,8 +67,12 @@ const App: React.FC = () => {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             }
          } else {
-             // If 401 Unauthorized, maybe logout or warn?
-             console.warn("API Sync failed (possibly unauthorized or offline)");
+             if (res.status === 401) {
+                 console.warn("Session expired. Logging out.");
+                 handleLogout();
+             } else {
+                 console.warn("API Sync failed (offline or server error)");
+             }
          }
        } catch (e) {
          console.warn("Offline or no backend detected, using local data.");
@@ -70,7 +83,7 @@ const App: React.FC = () => {
     fetchCloudData();
   }, [currentUser]);
 
-  // 2. Polling
+  // 2. Polling for updates
   useEffect(() => {
     if (!currentUser) return;
 
@@ -86,6 +99,7 @@ const App: React.FC = () => {
                 const cloudData = await res.json();
                 if (cloudData && Array.isArray(cloudData)) {
                     setProjects(prevCurrent => {
+                        // Simple equality check to avoid re-renders
                         if (JSON.stringify(prevCurrent) !== JSON.stringify(cloudData)) {
                             isRemoteUpdate.current = true;
                             console.log("☁️ Received remote updates");
@@ -94,6 +108,10 @@ const App: React.FC = () => {
                         return prevCurrent;
                     });
                 }
+            } else if (res.status === 401) {
+                // Do not auto-logout on polling to avoid interrupting active work too aggressively,
+                // but stop polling? Or logout? A safe bet for SaaS is logout.
+                // handleLogout(); 
             }
         } catch (e) {
             // Silent fail
@@ -103,7 +121,7 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [isSyncing, currentUser]);
 
-  // 3. Persist
+  // 3. Persist Changes (Debounced Sync)
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
 
@@ -112,7 +130,6 @@ const App: React.FC = () => {
         return;
     }
     
-    // Don't sync if no user or no token (guest mode fallback)
     if (!currentUser) return;
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
@@ -120,7 +137,7 @@ const App: React.FC = () => {
     syncTimeoutRef.current = setTimeout(async () => {
         try {
             setIsSyncing(true);
-            await fetch('/api/data', {
+            const res = await fetch('/api/data', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -128,6 +145,13 @@ const App: React.FC = () => {
                 },
                 body: JSON.stringify(projects)
             });
+            
+            if (res.status === 401) {
+                 console.warn("Session expired during sync.");
+                 // Could show a toast here instead of forcing logout immediately to save work?
+                 // For now, logging will show connection issue state.
+            }
+
         } catch (e) {
             console.error("Failed to sync to cloud", e);
         } finally {
@@ -204,14 +228,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem(USER_STORAGE_KEY);
-    localStorage.removeItem('smotree_auth_token'); // Clear auth token
-    setView({ type: 'DASHBOARD' });
-    window.history.pushState({}, '', window.location.pathname);
-  };
-
   const handleUpdateProject = (updatedProject: Project) => {
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
   };
@@ -220,8 +236,23 @@ const App: React.FC = () => {
     setProjects(prev => [newProject, ...prev]);
   };
 
-  const handleDeleteProject = (projectId: string) => {
+  const handleDeleteProject = async (projectId: string) => {
+      // Optimistic local update
       setProjects(prev => prev.filter(p => p.id !== projectId));
+      
+      // Send explicit delete command to server
+      if (currentUser) {
+          try {
+             const token = localStorage.getItem('smotree_auth_token');
+             await fetch(`/api/data?id=${projectId}`, {
+                 method: 'DELETE',
+                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+             });
+          } catch (e) {
+             console.error("Delete sync failed", e);
+          }
+      }
+
       if (view.type !== 'DASHBOARD' && view.projectId === projectId) {
           handleBackToDashboard();
       }

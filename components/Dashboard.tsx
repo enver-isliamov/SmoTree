@@ -97,9 +97,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
       // 2. Call API to delete blobs
       if (urlsToDelete.length > 0) {
           try {
+              const token = localStorage.getItem('smotree_auth_token');
               await fetch('/api/delete', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': token ? `Bearer ${token}` : ''
+                  },
                   body: JSON.stringify({ urls: urlsToDelete })
               });
           } catch (err) {
