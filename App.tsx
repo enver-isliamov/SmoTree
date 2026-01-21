@@ -34,10 +34,17 @@ const App: React.FC = () => {
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteUpdate = useRef(false);
 
-  // Helper to get token
+  // Helper to get token OR guest ID
   const getAuthHeader = () => {
     const token = localStorage.getItem('smotree_auth_token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+    if (token) {
+        return { 'Authorization': `Bearer ${token}` };
+    }
+    // Fallback for guests to read projects they are part of
+    if (currentUser) {
+        return { 'X-Guest-ID': currentUser.id };
+    }
+    return {};
   };
 
   const handleLogout = () => {
@@ -109,8 +116,6 @@ const App: React.FC = () => {
                     });
                 }
             } else if (res.status === 401) {
-                // Do not auto-logout on polling to avoid interrupting active work too aggressively,
-                // but stop polling? Or logout? A safe bet for SaaS is logout.
                 // handleLogout(); 
             }
         } catch (e) {
@@ -121,7 +126,7 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [isSyncing, currentUser]);
 
-  // 3. Persist Changes (Debounced Sync)
+  // 3. Persist Changes (Debounced Sync) - POST only allowed for verified users
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
 
@@ -130,7 +135,9 @@ const App: React.FC = () => {
         return;
     }
     
-    if (!currentUser) return;
+    // GUESTS cannot write to main data API directly via POST
+    const isGuest = currentUser?.role === UserRole.GUEST;
+    if (!currentUser || isGuest) return;
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     
@@ -148,8 +155,6 @@ const App: React.FC = () => {
             
             if (res.status === 401) {
                  console.warn("Session expired during sync.");
-                 // Could show a toast here instead of forcing logout immediately to save work?
-                 // For now, logging will show connection issue state.
             }
 
         } catch (e) {
@@ -173,6 +178,7 @@ const App: React.FC = () => {
     const aId = params.get('assetId');
 
     if (pId) {
+      // Look in local projects first, but also wait for fetch
       const projectExists = projects.find(p => p.id === pId);
       
       if (projectExists) {
@@ -258,28 +264,37 @@ const App: React.FC = () => {
       }
   };
 
-  const handleLogin = (user: User) => {
+  const handleLogin = async (user: User) => {
     setCurrentUser(user);
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
 
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
 
+    // If joining a project and is Guest, call Join API immediately
     if (pId) {
-        setProjects(prevProjects => {
-            return prevProjects.map(p => {
-                if (p.id === pId) {
-                    const isMember = p.team.some(m => m.id === user.id);
-                    if (!isMember) {
-                        return {
-                            ...p,
-                            team: [...p.team, user]
-                        };
-                    }
-                }
-                return p;
+        // Optimistically add to local state if available (rare on fresh load, but good for UX)
+        // But crucially, call the server to add guest to DB
+        try {
+            await fetch('/api/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: pId, user: user })
             });
-        });
+            
+            // Trigger an immediate fetch to get the updated project data (including assets)
+            const res = await fetch('/api/data', {
+                 headers: user.role === UserRole.GUEST ? { 'X-Guest-ID': user.id } : getAuthHeader()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setProjects(data);
+                isRemoteUpdate.current = true;
+            }
+
+        } catch (e) {
+            console.error("Failed to join project:", e);
+        }
     }
   };
 

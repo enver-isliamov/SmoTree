@@ -5,36 +5,43 @@ import { db } from '@vercel/postgres';
 // Verifies Google ID Token sent in headers
 async function getAuthenticatedUser(req) {
     const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return null;
+    
+    // 1. Google Auth (Strong)
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        try {
+            const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+            if (response.ok) {
+                const payload = await response.json();
+                return {
+                    id: payload.email,
+                    email: payload.email,
+                    name: payload.name,
+                    isVerified: true
+                };
+            }
+        } catch (e) {
+            console.error("Auth validation failed", e);
+        }
     }
-    const token = authHeader.split(' ')[1];
 
-    try {
-        // Validate token via Google's endpoint
-        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-        if (!response.ok) return null;
-        
-        const payload = await response.json();
-        // Return user info. We use email as the ID.
+    // 2. Guest Fallback (Weak, Read-Only for assigned projects)
+    const guestId = req.headers.get('x-guest-id');
+    if (guestId) {
         return {
-            id: payload.email,
-            email: payload.email,
-            name: payload.name
+            id: guestId,
+            name: 'Guest',
+            isVerified: false
         };
-    } catch (e) {
-        console.error("Auth validation failed", e);
-        return null;
     }
+
+    return null;
 }
 
 export default async function handler(req, res) {
-  // 1. Verify Auth
   const user = await getAuthenticatedUser(req);
   
   if (!user) {
-      // For SaaS security, we reject unauthenticated requests.
-      // Guest users must sign in with Google or use local-only mode (frontend handles this).
       return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -43,8 +50,7 @@ export default async function handler(req, res) {
   // GET: Retrieve Projects for this User
   if (req.method === 'GET') {
     try {
-      // Query: Find projects where owner_id matches OR user is in the team array inside the JSONB
-      // JSONB Query: data->'team' @> '[{"id": "user@email.com"}]'
+      // Allow if: User is Owner OR User is in Team
       const { rows } = await client.sql`
         SELECT data FROM projects 
         WHERE owner_id = ${user.id} 
@@ -61,6 +67,12 @@ export default async function handler(req, res) {
   
   // POST: Sync Projects (Upsert)
   if (req.method === 'POST') {
+    // SECURITY: Only verified users (Google Auth) can overwrite project data via this endpoint.
+    // Guests must use /api/join to add themselves, but cannot overwrite the project state directly here.
+    if (!user.isVerified) {
+        return res.status(403).json({ error: "Guests cannot overwrite project data. Read-only access." });
+    }
+
     try {
       const projectsToSync = await req.json(); 
       
@@ -69,7 +81,7 @@ export default async function handler(req, res) {
       }
 
       for (const project of projectsToSync) {
-          // Security Check: Is user owner or in team?
+          // Double check ownership/membership
           const isOwner = project.ownerId === user.id;
           const isTeam = project.team && project.team.some(m => m.id === user.id);
           
@@ -100,6 +112,10 @@ export default async function handler(req, res) {
 
   // DELETE: Remove a project
   if (req.method === 'DELETE') {
+      if (!user.isVerified) {
+          return res.status(403).json({ error: "Guests cannot delete projects." });
+      }
+
       try {
           const url = new URL(req.url, `http://${req.headers.host}`);
           const projectId = url.searchParams.get('id');
@@ -108,8 +124,6 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: "Missing project ID" });
           }
 
-          // Only the owner can delete a project via this API for now
-          // (Or maybe team members can, but let's restrict to owner for safety)
           await client.sql`
             DELETE FROM projects 
             WHERE id = ${projectId} AND owner_id = ${user.id};
