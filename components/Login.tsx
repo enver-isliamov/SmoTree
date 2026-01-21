@@ -19,8 +19,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
 
-  // Get Client ID from Environment Variables (set in Vercel Dashboard)
-  // FIX: Use optional chaining (?.env?.) because import.meta.env might be undefined in some preview environments
+  // Get Client ID from Environment Variables
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
@@ -31,11 +30,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
 
     if (!GOOGLE_CLIENT_ID) {
-        console.warn("Google Client ID is missing or env is not loaded. Check VITE_GOOGLE_CLIENT_ID.");
-        // We continue execution so the manual login form can still be rendered
+        console.warn("Google Client ID is missing. Check VITE_GOOGLE_CLIENT_ID.");
     }
 
-    // Initialize Google Auth ONLY if client ID exists
     if (GOOGLE_CLIENT_ID && window.google) {
       try {
         window.google.accounts.id.initialize({
@@ -59,17 +56,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   }, [inviteProjectId, GOOGLE_CLIENT_ID]);
 
   const handleGoogleCallback = (response: any) => {
-    // This is the JWT token from Google
-    // Ideally, we send this to backend (api/auth) to verify and get user data.
-    // For now (Step 2 of SaaS plan), we will decode it on client to simulate login.
-    
     try {
+        // 1. Decode payload for UI
         const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        
+        // 2. Save RAW token for API calls
+        localStorage.setItem('smotree_auth_token', response.credential);
         
         const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
         
         const googleUser: User = {
-            id: payload.email, // Use email as persistent ID for SaaS
+            id: payload.email, // Use email as persistent ID
             name: payload.name,
             avatar: payload.picture,
             role: role
@@ -86,6 +83,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+
+    // Manual login does not provide a token, so API will likely fail or treat as read-only local
+    localStorage.removeItem('smotree_auth_token');
 
     const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
     const newUser: User = {
@@ -120,7 +120,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         {/* Login Card */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
           
-          {/* Top Bar Indicator */}
           <div className={`absolute top-0 left-0 right-0 h-1 ${inviteProjectId ? 'bg-orange-500' : 'bg-indigo-500'}`}></div>
 
           <div className="mb-6">
@@ -152,7 +151,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           <div className="space-y-4">
-            {/* GOOGLE BUTTON CONTAINER */}
             {!GOOGLE_CLIENT_ID ? (
                 <div className="p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg text-yellow-500 text-xs flex items-center gap-2">
                     <AlertCircle size={16} />
@@ -171,7 +169,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
             </div>
 
-            {/* Manual Fallback (Legacy) */}
             <form onSubmit={handleManualSubmit} className="space-y-3">
                 <div className="relative">
                     <Mail size={16} className="absolute top-3.5 left-3 text-zinc-600" />
