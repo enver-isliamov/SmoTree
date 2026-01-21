@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail } from 'lucide-react';
+import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle } from 'lucide-react';
 import { generateId } from '../services/utils';
 
 interface LoginProps {
@@ -19,16 +19,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
 
-  // NOTE: This Client ID is a placeholder. 
-  // You need to replace it with your real Google Cloud Client ID.
-  // Go to https://console.cloud.google.com/apis/credentials
-  const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"; 
+  // Get Client ID from Environment Variables (set in Vercel Dashboard)
+  // Casting to any to avoid TypeScript error 'Property env does not exist on type ImportMeta'
+  const GOOGLE_CLIENT_ID = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
     if (pId) {
         setInviteProjectId(pId);
+    }
+
+    if (!GOOGLE_CLIENT_ID) {
+        console.warn("Google Client ID is missing. Check VITE_GOOGLE_CLIENT_ID environment variable.");
+        return;
     }
 
     // Initialize Google Auth
@@ -41,15 +45,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           theme: "filled_black"
         });
         
-        window.google.accounts.id.renderButton(
-          document.getElementById("googleSignInDiv"),
-          { theme: "outline", size: "large", width: "100%", text: inviteProjectId ? "continue_with" : "signin_with" }
-        );
+        const btnContainer = document.getElementById("googleSignInDiv");
+        if (btnContainer) {
+            window.google.accounts.id.renderButton(
+              btnContainer,
+              { theme: "outline", size: "large", width: "100%", text: inviteProjectId ? "continue_with" : "signin_with" }
+            );
+        }
       } catch (e) {
         console.error("Google Auth Init Error", e);
       }
     }
-  }, [inviteProjectId]);
+  }, [inviteProjectId, GOOGLE_CLIENT_ID]);
 
   const handleGoogleCallback = (response: any) => {
     // This is the JWT token from Google
@@ -146,7 +153,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <div className="space-y-4">
             {/* GOOGLE BUTTON CONTAINER */}
-            <div id="googleSignInDiv" className="h-[44px] w-full min-h-[44px]"></div>
+            {!GOOGLE_CLIENT_ID ? (
+                <div className="p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg text-yellow-500 text-xs flex items-center gap-2">
+                    <AlertCircle size={16} />
+                    <span>Google Login not configured (Missing Client ID).</span>
+                </div>
+            ) : (
+                <div id="googleSignInDiv" className="h-[44px] w-full min-h-[44px]"></div>
+            )}
             
             <div className="relative py-2">
                 <div className="absolute inset-0 flex items-center">
