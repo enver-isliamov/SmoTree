@@ -20,7 +20,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [googleError, setGoogleError] = useState<string | null>(null);
 
   // Get Client ID from Environment Variables (set in Vercel Dashboard)
-  // Casting to any to avoid TypeScript error 'Property env does not exist on type ImportMeta'
   const GOOGLE_CLIENT_ID = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
