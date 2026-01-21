@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { MOCK_USERS } from '../constants';
@@ -19,7 +20,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       id: `guest-${generateId()}`,
       name: guestName,
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${guestName}`,
-      role: UserRole.CLIENT 
+      role: UserRole.GUEST 
     };
 
     onLogin(guestUser);
@@ -93,7 +94,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               />
               <div className="flex-1 text-left">
                 <div className="font-medium text-zinc-300 group-hover:text-white text-sm">{user.name}</div>
-                <div className="text-xs text-zinc-500">{user.role}</div>
+                <div className="text-xs text-zinc-500 uppercase">{user.role}</div>
               </div>
               <ChevronRight className="text-zinc-700 group-hover:text-zinc-400" size={16} />
             </button>
@@ -101,7 +102,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="mt-8 text-center text-xs text-zinc-600">
-          <p>SmoTree v0.7.0 • Review Mode Enabled</p>
+          <p>SmoTree v0.7.1 • Permission Refactor</p>
         </div>
       </div>
     </div>

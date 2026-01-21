@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Clock, Plus, X, Loader2, MoreVertical, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Clock, Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 
 interface DashboardProps {
@@ -24,12 +25,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   const [client, setClient] = useState('');
   const [description, setDescription] = useState('');
 
-  const isClient = currentUser.role === UserRole.CLIENT;
+  // Role Checks
+  const isGuest = currentUser.role === UserRole.GUEST;
+  const isAdmin = currentUser.role === UserRole.ADMIN;
+  const isCreator = currentUser.role === UserRole.CREATOR;
 
-  // STRICT FILTERING: Clients only see projects they are members of
-  const visibleProjects = isClient
-    ? projects.filter(p => p.team.some(member => member.id === currentUser.id))
-    : projects;
+  // STRICT FILTERING: 
+  // Admin sees ALL projects.
+  // Guests/Creators only see projects they are members of.
+  const visibleProjects = isAdmin
+    ? projects
+    : projects.filter(p => p.team.some(member => member.id === currentUser.id));
+
+  // PERMISSION CHECKS
+  const canCreateProject = !isGuest;
+  
+  const canDeleteProject = (project: Project) => {
+      if (isAdmin) return true;
+      if (isCreator && project.ownerId === currentUser.id) return true;
+      return false;
+  };
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +138,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
            <div className="hidden md:flex items-center gap-2 text-right">
               <div>
                  <div className="text-xs font-medium text-white">{currentUser.name}</div>
-                 <div className="text-[10px] text-zinc-500">{currentUser.role}</div>
+                 <div className="text-[10px] text-zinc-500 uppercase">{currentUser.role}</div>
               </div>
               <img src={currentUser.avatar} className="w-8 h-8 rounded-full border border-zinc-700" alt="User" />
            </div>
@@ -141,13 +156,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           {/* Toolbar */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              {isClient ? 'Shared with Me' : 'All Projects'}
+              {isGuest ? 'Shared with Me' : 'All Projects'}
               <span className="text-xs font-normal text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
                 {visibleProjects.length}
               </span>
             </h2>
             
-            {!isClient && (
+            {canCreateProject && (
               <button 
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-medium shadow-lg shadow-indigo-900/20"
@@ -158,8 +173,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             )}
           </div>
 
-          {/* EMPTY STATE FOR CLIENTS */}
-          {visibleProjects.length === 0 && isClient && (
+          {/* EMPTY STATE FOR GUESTS */}
+          {visibleProjects.length === 0 && isGuest && (
              <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
                 <Lock size={48} className="mb-4 opacity-50" />
                 <h3 className="text-lg font-bold text-zinc-300">No Projects Found</h3>
@@ -214,8 +229,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                   <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5">
                       {project.client}
                   </div>
-                  {/* Delete Button (Owner Only) */}
-                  {!isClient && (currentUser.id === project.ownerId || currentUser.role === UserRole.ADMIN) && (
+                  {/* Delete Button (Permissions Checked) */}
+                  {canDeleteProject(project) && (
                     <button 
                         onClick={(e) => handleDeleteClick(e, project)}
                         className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-red-500/10 rounded"

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Project, ProjectAsset, User, UserRole } from '../types';
 import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2 } from 'lucide-react';
@@ -23,7 +24,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isClient = currentUser.role === UserRole.CLIENT;
+  const isGuest = currentUser.role === UserRole.GUEST;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -147,7 +148,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       {/* Unified Header */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
-          {!isClient && (
+          {!isGuest && (
             <button onClick={onBack} className="text-zinc-400 hover:text-white shrink-0 p-1 mr-1">
                 <ChevronLeft size={24} />
             </button>
@@ -199,7 +200,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm md:text-base font-semibold text-zinc-200">Assets <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
                 
-                {!isClient && (
+                {!isGuest && (
                     <div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect}/>
                     <button 
@@ -241,7 +242,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                         </button>
                         
                          {/* Asset Delete */}
-                        {!isClient && (
+                        {!isGuest && (
                              <button 
                                 onClick={(e) => handleDeleteAsset(e, asset)}
                                 className="p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md backdrop-blur-sm transition-colors"

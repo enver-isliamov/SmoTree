@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
 import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2 } from 'lucide-react';
@@ -17,8 +18,10 @@ interface PlayerProps {
 const VALID_FPS = [23.976, 24, 25, 29.97, 30, 50, 60];
 
 // Helper for permissions
-const canManageProject = (user: User, project: Project) => {
-  return user.id === project.ownerId || user.role === UserRole.ADMIN || user.role === UserRole.EDITOR;
+// CREATOR and ADMIN can manage projects (upload, export, resolve)
+// GUEST is read/comment only
+const canManageProject = (user: User) => {
+  return user.role === UserRole.ADMIN || user.role === UserRole.CREATOR;
 };
 
 export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onBack, users, onUpdateProject, isSyncing }) => {
@@ -94,7 +97,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const animationFrameRef = useRef<number | null>(null);
   const fpsDetectionRef = useRef<{ frames: number[], lastTime: number, active: boolean }>({ frames: [], lastTime: 0, active: false });
 
-  const isOwnerOrAdmin = canManageProject(currentUser, project);
+  const isManager = canManageProject(currentUser);
 
   // Sync comments
   useEffect(() => {
@@ -673,15 +676,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleTouchEnd = (commentId: string) => {
       if (!swipeCommentId) return;
       
+      // Permission check for delete
+      const isOwner = comments.find(c => c.id === commentId)?.userId === currentUser.id;
+      const canDelete = isManager || isOwner;
+      
+      // Permission check for edit (only owner)
+      const canEdit = isOwner || (isManager && currentUser.role === UserRole.ADMIN);
+
       if (swipeOffset < -60) {
-          const canDelete = isOwnerOrAdmin || (comments.find(c => c.id === commentId)?.userId === currentUser.id);
           if (canDelete) {
               handleDeleteComment(commentId);
           } else {
               setSwipeOffset(0);
           }
       } else if (swipeOffset > 60) {
-          const canEdit = isOwnerOrAdmin || (comments.find(c => c.id === commentId)?.userId === currentUser.id);
           if (canEdit) {
               const c = comments.find(com => com.id === commentId);
               if (c) startEditing(c);
@@ -1056,7 +1064,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     
                     <div className="flex items-center gap-2">
                          {/* EXPORT MENU */}
-                         {isOwnerOrAdmin && (
+                         {isManager && (
                              <div className="relative">
                                  <button 
                                      onClick={() => setShowExportMenu(!showExportMenu)}
@@ -1090,7 +1098,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                          )}
 
                         {/* Bulk Actions */}
-                        {isOwnerOrAdmin && filteredComments.some(c => c.status === CommentStatus.OPEN) && (
+                        {isManager && filteredComments.some(c => c.status === CommentStatus.OPEN) && (
                             <button 
                                 onClick={handleBulkResolve}
                                 className="flex items-center gap-1 text-[10px] bg-green-900/20 text-green-400 border border-green-900/50 hover:bg-green-900/40 px-2 py-1 rounded transition-colors"
@@ -1113,7 +1121,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     {filteredComments.map(comment => {
                         const isSelected = selectedCommentId === comment.id;
                         const author = getAuthor(comment.userId);
-                        const canResolve = isOwnerOrAdmin;
+                        const canResolve = isManager;
                         const isEditing = editingCommentId === comment.id;
                         
                         const isSwiping = swipeCommentId === comment.id;

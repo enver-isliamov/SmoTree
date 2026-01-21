@@ -1,9 +1,8 @@
 
 export enum UserRole {
   ADMIN = 'Admin',
-  EDITOR = 'Editor',
-  REVIEWER = 'Reviewer',
-  CLIENT = 'Client'
+  CREATOR = 'Creator',
+  GUEST = 'Guest'
 }
 
 export enum CommentStatus {

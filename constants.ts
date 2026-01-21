@@ -4,27 +4,27 @@ import { Project, UserRole, CommentStatus, User } from './types';
 export const MOCK_USERS: User[] = [
   {
     id: 'u1',
-    name: 'Andrey (Editor)',
+    name: 'Andrey (Creator)',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=50&h=50&fit=crop&crop=faces',
-    role: UserRole.EDITOR
+    role: UserRole.CREATOR
   },
   {
     id: 'u2',
-    name: 'Olga (Client)',
+    name: 'Olga (Guest)',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=50&h=50&fit=crop&crop=faces',
-    role: UserRole.CLIENT
+    role: UserRole.GUEST
   },
   {
     id: 'u3',
     name: 'Mike (Producer)',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=50&h=50&fit=crop&crop=faces',
-    role: UserRole.REVIEWER
+    role: UserRole.ADMIN
   },
   {
     id: 'u4',
     name: 'Sarah (Colorist)',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=50&h=50&fit=crop&crop=faces',
-    role: UserRole.EDITOR
+    role: UserRole.CREATOR
   }
 ];
 
