@@ -1,35 +1,86 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { Clapperboard, ArrowRight, UserPlus, ShieldCheck } from 'lucide-react';
+import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail } from 'lucide-react';
 import { generateId } from '../services/utils';
 
 interface LoginProps {
   onLogin: (user: User) => void;
 }
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [name, setName] = useState('');
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  // NOTE: This Client ID is a placeholder. 
+  // You need to replace it with your real Google Cloud Client ID.
+  // Go to https://console.cloud.google.com/apis/credentials
+  const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"; 
 
   useEffect(() => {
-    // Check for invite link immediately
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
     if (pId) {
         setInviteProjectId(pId);
     }
-  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+    // Initialize Google Auth
+    if (window.google) {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCallback,
+          auto_select: false,
+          theme: "filled_black"
+        });
+        
+        window.google.accounts.id.renderButton(
+          document.getElementById("googleSignInDiv"),
+          { theme: "outline", size: "large", width: "100%", text: inviteProjectId ? "continue_with" : "signin_with" }
+        );
+      } catch (e) {
+        console.error("Google Auth Init Error", e);
+      }
+    }
+  }, [inviteProjectId]);
+
+  const handleGoogleCallback = (response: any) => {
+    // This is the JWT token from Google
+    // Ideally, we send this to backend (api/auth) to verify and get user data.
+    // For now (Step 2 of SaaS plan), we will decode it on client to simulate login.
+    
+    try {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        
+        const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
+        
+        const googleUser: User = {
+            id: payload.email, // Use email as persistent ID for SaaS
+            name: payload.name,
+            avatar: payload.picture,
+            role: role
+        };
+
+        console.log("Logged in via Google:", googleUser);
+        onLogin(googleUser);
+
+    } catch (e) {
+        setGoogleError("Failed to process Google Login.");
+    }
+  };
+
+  const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    // Logic: 
-    // If inviting to a project via link -> Role is GUEST
-    // If starting fresh (no link) -> Role is ADMIN
     const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
-
     const newUser: User = {
       id: `${role.toLowerCase()}-${generateId()}`,
       name: name,
@@ -74,7 +125,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <div>
                         <h2 className="text-lg font-semibold text-white">Join Project</h2>
                         <p className="text-xs text-zinc-400 mt-1">
-                           You've been invited to review a project. Enter your name to join the team.
+                           You've been invited to review a project.
                         </p>
                     </div>
                 </div>
@@ -84,54 +135,59 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <ShieldCheck size={20} />
                     </div>
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Admin Access</h2>
+                        <h2 className="text-lg font-semibold text-white">Welcome Back</h2>
                         <p className="text-xs text-zinc-400 mt-1">
-                           Create your workspace and start managing video projects.
+                           Sign in to manage your workspace.
                         </p>
                     </div>
                 </div>
              )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">
-                Your Name
-              </label>
-              <input 
-                autoFocus
-                type="text" 
-                placeholder="e.g. Alex Smith" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-zinc-600"
-                required
-              />
-            </div>
+          <div className="space-y-4">
+            {/* GOOGLE BUTTON CONTAINER */}
+            <div id="googleSignInDiv" className="h-[44px] w-full min-h-[44px]"></div>
             
-            <button 
-              type="submit"
-              disabled={!name.trim()}
-              className={`w-full p-3 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition-all shadow-lg
-                ${inviteProjectId 
-                    ? 'bg-orange-600 hover:bg-orange-500 shadow-orange-900/20' 
-                    : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/20'
-                }
-                disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
-              `}
-            >
-              {inviteProjectId ? 'Join Session' : 'Enter Workspace'}
-              <ArrowRight size={18} />
-            </button>
-          </form>
+            <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-zinc-800"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-zinc-900 px-2 text-zinc-500">Or continue with name</span>
+                </div>
+            </div>
+
+            {/* Manual Fallback (Legacy) */}
+            <form onSubmit={handleManualSubmit} className="space-y-3">
+                <div className="relative">
+                    <Mail size={16} className="absolute top-3.5 left-3 text-zinc-600" />
+                    <input 
+                        type="text" 
+                        placeholder="Your Name (Guest Mode)" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-all placeholder:text-zinc-600"
+                    />
+                </div>
+                
+                <button 
+                type="submit"
+                disabled={!name.trim()}
+                className={`w-full p-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-zinc-700 hover:bg-zinc-800 text-zinc-300`}
+                >
+                Continue as Guest
+                <ArrowRight size={14} />
+                </button>
+            </form>
+          </div>
 
         </div>
         
-        <div className="mt-8 text-center">
-             <p className="text-[10px] text-zinc-600">
-                {inviteProjectId ? 'Guest Mode Enabled' : 'v0.8.0 • Secure Workspace'}
-             </p>
-        </div>
+        {googleError && (
+            <div className="mt-4 p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-xs text-center">
+                {googleError}
+            </div>
+        )}
 
       </div>
     </div>
