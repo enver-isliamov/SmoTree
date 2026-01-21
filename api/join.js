@@ -21,17 +21,25 @@ export default async function handler(req, res) {
     `;
 
     if (rows.length === 0) {
-        return res.status(404).json({ error: "Project not found" });
+        return res.status(404).json({ error: "Project not found in DB" });
     }
 
     let projectData = rows[0].data;
 
-    // 2. Check if user is already in team
-    const alreadyExists = projectData.team.some(m => m.id === user.id);
+    // 2. Ensure team array exists
+    if (!Array.isArray(projectData.team)) {
+        projectData.team = [];
+    }
 
-    if (!alreadyExists) {
-        // 3. Add user to team
+    // 3. Check if user is already in team
+    const existingMemberIndex = projectData.team.findIndex(m => m.id === user.id);
+
+    if (existingMemberIndex === -1) {
+        // Add user to team
         projectData.team.push(user);
+        
+        // Mark update time
+        projectData.updatedAt = 'Just now';
 
         // 4. Update Database
         await client.sql`
@@ -41,11 +49,14 @@ export default async function handler(req, res) {
             WHERE id = ${projectId};
         `;
         
-        console.log(`User ${user.name} joined project ${projectId}`);
+        console.log(`✅ User ${user.name} (${user.id}) joined project ${projectId}`);
     } else {
+        // If user exists but details changed (e.g. name update), ideally we update here, 
+        // but for now we just acknowledge they are in.
         console.log(`User ${user.name} already in project ${projectId}`);
     }
 
+    // Return the FULL updated project data so the frontend can display it immediately
     return res.status(200).json({ success: true, project: projectData });
 
   } catch (error) {

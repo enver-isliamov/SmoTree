@@ -35,14 +35,15 @@ const App: React.FC = () => {
   const isRemoteUpdate = useRef(false);
 
   // Helper to get token OR guest ID
-  const getAuthHeader = () => {
+  const getAuthHeader = (overrideUser?: User) => {
     const token = localStorage.getItem('smotree_auth_token');
     if (token) {
         return { 'Authorization': `Bearer ${token}` };
     }
     // Fallback for guests to read projects they are part of
-    if (currentUser) {
-        return { 'X-Guest-ID': currentUser.id };
+    const targetUser = overrideUser || currentUser;
+    if (targetUser) {
+        return { 'X-Guest-ID': targetUser.id };
     }
     return {};
   };
@@ -188,8 +189,7 @@ const App: React.FC = () => {
 
         if (!hasAccess) {
             console.warn(`Access denied to project ${pId} for user ${currentUser.name}`);
-            window.history.pushState({}, '', window.location.pathname);
-            setView({ type: 'DASHBOARD' });
+            // Don't redirect immediately, give chance for state to settle if just joined
             return;
         }
 
@@ -273,27 +273,48 @@ const App: React.FC = () => {
 
     // If joining a project and is Guest, call Join API immediately
     if (pId) {
-        // Optimistically add to local state if available (rare on fresh load, but good for UX)
-        // But crucially, call the server to add guest to DB
         try {
-            await fetch('/api/join', {
+            // 1. Send Join Request
+            const joinRes = await fetch('/api/join', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: pId, user: user })
             });
             
-            // Trigger an immediate fetch to get the updated project data (including assets)
+            if (joinRes.ok) {
+                const joinData = await joinRes.json();
+                
+                // 2. IMMEDIATE UPDATE: Inject the returned project into local state
+                // This bypasses the wait for the next polling cycle or race conditions in /api/data fetch
+                if (joinData.project) {
+                    console.log("🚀 Successfully joined project via link");
+                    isRemoteUpdate.current = true; // Prevent this from triggering a sync-back
+                    setProjects(prev => {
+                        const exists = prev.some(p => p.id === joinData.project.id);
+                        if (exists) return prev.map(p => p.id === joinData.project.id ? joinData.project : p);
+                        return [...prev, joinData.project];
+                    });
+                }
+            } else {
+                console.error("Join failed", await joinRes.text());
+            }
+
+            // 3. Trigger a full background sync just in case
+            // Explicitly pass the user here because 'currentUser' state might not be updated yet in this closure
             const res = await fetch('/api/data', {
-                 headers: user.role === UserRole.GUEST ? { 'X-Guest-ID': user.id } : getAuthHeader()
+                 headers: getAuthHeader(user)
             });
+            
             if (res.ok) {
                 const data = await res.json();
-                setProjects(data);
-                isRemoteUpdate.current = true;
+                // Merge strategies could be complex, but replacing is standard here
+                if (Array.isArray(data) && data.length > 0) {
+                     setProjects(data);
+                }
             }
 
         } catch (e) {
-            console.error("Failed to join project:", e);
+            console.error("Failed to join project process:", e);
         }
     }
   };

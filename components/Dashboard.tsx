@@ -30,12 +30,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   const isAdmin = currentUser.role === UserRole.ADMIN;
   const isCreator = currentUser.role === UserRole.CREATOR;
 
-  // STRICT FILTERING: 
-  // Admin sees ALL projects.
-  // Guests/Creators only see projects they are members of.
-  const visibleProjects = isAdmin
-    ? projects
-    : projects.filter(p => p.team.some(member => member.id === currentUser.id));
+  // --- FILTERING LOGIC ---
+  
+  // 1. My Projects: Created by me
+  const myProjects = projects.filter(p => p.ownerId === currentUser.id);
+
+  // 2. Shared Projects: Not created by me, but I am in the team (or Admin viewing all others)
+  const sharedProjects = isAdmin
+    ? projects.filter(p => p.ownerId !== currentUser.id)
+    : projects.filter(p => p.ownerId !== currentUser.id && p.team.some(member => member.id === currentUser.id));
 
   // PERMISSION CHECKS
   const canCreateProject = !isGuest;
@@ -117,6 +120,127 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
       setIsDeleting(null);
   };
 
+  // Reusable Project Grid Renderer
+  const renderProjectGrid = (projectList: Project[], title: string, showEmptyMessage = false) => {
+      if (projectList.length === 0 && !showEmptyMessage) return null;
+
+      return (
+          <div className="mb-8">
+              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2 mb-4">
+                  {title}
+                  <span className="text-xs font-normal text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
+                      {projectList.length}
+                  </span>
+              </h2>
+              
+              {projectList.length === 0 && showEmptyMessage ? (
+                  <div className="flex flex-col items-center justify-center h-[20vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
+                        <Lock size={32} className="mb-2 opacity-50" />
+                        <h3 className="text-base font-medium text-zinc-400">No Projects</h3>
+                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {projectList.map((project) => {
+                        const expired = project.createdAt ? isExpired(project.createdAt) : false;
+                        const daysLeft = project.createdAt ? getDaysRemaining(project.createdAt) : 7;
+                        
+                        return (
+                        <div 
+                            key={project.id} 
+                            onClick={() => !expired && onSelectProject(project)}
+                            className={`group bg-zinc-900 border rounded-lg p-4 transition-all relative flex flex-col h-[180px]
+                                ${expired 
+                                    ? 'border-red-900/30 opacity-70 hover:opacity-100 cursor-not-allowed' 
+                                    : 'border-zinc-800 hover:border-indigo-500/50 cursor-pointer shadow-sm hover:shadow-md'
+                                }
+                            `}
+                        >
+                            {/* Deleting Overlay */}
+                            {isDeleting === project.id && (
+                                <div className="absolute inset-0 bg-black/80 z-20 flex items-center justify-center rounded-lg">
+                                    <Loader2 className="animate-spin text-red-500" />
+                                </div>
+                            )}
+
+                            {/* Expiration Badge */}
+                            {project.createdAt && daysLeft <= 2 && !expired && (
+                                <div className="absolute top-2 right-2 z-10 bg-orange-500/10 text-orange-500 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20 flex items-center gap-1">
+                                    <CalendarClock size={10} />
+                                    {daysLeft}d left
+                                </div>
+                            )}
+                            {expired && (
+                                <div className="absolute top-2 right-2 z-10 bg-red-500/10 text-red-500 text-[9px] px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
+                                    <AlertTriangle size={10} />
+                                    Expired
+                                </div>
+                            )}
+
+
+                            {/* Top Row: Client & Menu */}
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5">
+                                    {project.client}
+                                </div>
+                                {/* Delete Button (Permissions Checked) */}
+                                {canDeleteProject(project) && (
+                                    <button 
+                                        onClick={(e) => handleDeleteClick(e, project)}
+                                        className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-red-500/10 rounded"
+                                        title="Delete Project & Files"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Title & Desc */}
+                            <h3 className={`text-base font-bold mb-1 truncate transition-colors ${expired ? 'text-zinc-500' : 'text-zinc-100 group-hover:text-indigo-400'}`}>
+                                {project.name}
+                            </h3>
+                            <p className="text-xs text-zinc-500 mb-4 line-clamp-2 leading-relaxed">
+                                {project.description || 'No description provided.'}
+                            </p>
+
+                            {/* Bottom Row: Team & Stats */}
+                            <div className="flex items-center justify-between pt-3 border-t border-zinc-800/50 mt-auto">
+                                {/* Avatar Stack */}
+                                <div className="flex -space-x-2">
+                                    {project.team.slice(0, 4).map((member) => (
+                                        <img 
+                                        key={member.id} 
+                                        src={member.avatar} 
+                                        alt={member.name} 
+                                        title={member.name}
+                                        className="w-6 h-6 rounded-full border border-zinc-900 object-cover"
+                                        />
+                                    ))}
+                                    {project.team.length > 4 && (
+                                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[9px] text-zinc-400 font-medium">
+                                        +{project.team.length - 4}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+                                        <FileVideo size={12} />
+                                        <span>{project.assets.length}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-[10px] text-zinc-600">
+                                        <Clock size={10} />
+                                        <span>{project.updatedAt}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )})}
+                </div>
+              )}
+          </div>
+      );
+  };
+
   return (
     <div className="flex flex-col h-screen bg-zinc-950">
       
@@ -158,14 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-[1600px] mx-auto">
           {/* Toolbar */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              {isGuest ? 'Shared with Me' : 'All Projects'}
-              <span className="text-xs font-normal text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
-                {visibleProjects.length}
-              </span>
-            </h2>
-            
+          <div className="flex justify-end items-center mb-6">
             {canCreateProject && (
               <button 
                 onClick={() => setIsModalOpen(true)}
@@ -178,7 +295,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           </div>
 
           {/* EMPTY STATE FOR GUESTS */}
-          {visibleProjects.length === 0 && isGuest && (
+          {myProjects.length === 0 && sharedProjects.length === 0 && isGuest && (
              <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
                 <Lock size={48} className="mb-4 opacity-50" />
                 <h3 className="text-lg font-bold text-zinc-300">No Projects Found</h3>
@@ -188,105 +305,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
              </div>
           )}
 
-          {/* Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            
-            {visibleProjects.map((project) => {
-              const expired = project.createdAt ? isExpired(project.createdAt) : false;
-              const daysLeft = project.createdAt ? getDaysRemaining(project.createdAt) : 7;
-              
-              return (
-              <div 
-                key={project.id} 
-                onClick={() => !expired && onSelectProject(project)}
-                className={`group bg-zinc-900 border rounded-lg p-4 transition-all relative flex flex-col h-[180px]
-                    ${expired 
-                        ? 'border-red-900/30 opacity-70 hover:opacity-100 cursor-not-allowed' 
-                        : 'border-zinc-800 hover:border-indigo-500/50 cursor-pointer shadow-sm hover:shadow-md'
-                    }
-                `}
-              >
-                {/* Deleting Overlay */}
-                {isDeleting === project.id && (
-                    <div className="absolute inset-0 bg-black/80 z-20 flex items-center justify-center rounded-lg">
-                        <Loader2 className="animate-spin text-red-500" />
-                    </div>
-                )}
-
-                {/* Expiration Badge */}
-                {project.createdAt && daysLeft <= 2 && !expired && (
-                    <div className="absolute top-2 right-2 z-10 bg-orange-500/10 text-orange-500 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20 flex items-center gap-1">
-                        <CalendarClock size={10} />
-                        {daysLeft}d left
-                    </div>
-                )}
-                 {expired && (
-                    <div className="absolute top-2 right-2 z-10 bg-red-500/10 text-red-500 text-[9px] px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
-                        <AlertTriangle size={10} />
-                        Expired
-                    </div>
-                )}
-
-
-                {/* Top Row: Client & Menu */}
-                <div className="flex justify-between items-start mb-2">
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5">
-                      {project.client}
-                  </div>
-                  {/* Delete Button (Permissions Checked) */}
-                  {canDeleteProject(project) && (
-                    <button 
-                        onClick={(e) => handleDeleteClick(e, project)}
-                        className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-red-500/10 rounded"
-                        title="Delete Project & Files"
-                    >
-                        <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Title & Desc */}
-                <h3 className={`text-base font-bold mb-1 truncate transition-colors ${expired ? 'text-zinc-500' : 'text-zinc-100 group-hover:text-indigo-400'}`}>
-                  {project.name}
-                </h3>
-                <p className="text-xs text-zinc-500 mb-4 line-clamp-2 leading-relaxed">
-                  {project.description || 'No description provided.'}
-                </p>
-
-                {/* Bottom Row: Team & Stats */}
-                <div className="flex items-center justify-between pt-3 border-t border-zinc-800/50 mt-auto">
-                  {/* Avatar Stack */}
-                  <div className="flex -space-x-2">
-                    {project.team.slice(0, 4).map((member) => (
-                        <img 
-                          key={member.id} 
-                          src={member.avatar} 
-                          alt={member.name} 
-                          title={member.name}
-                          className="w-6 h-6 rounded-full border border-zinc-900 object-cover"
-                        />
-                    ))}
-                    {project.team.length > 4 && (
-                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[9px] text-zinc-400 font-medium">
-                          +{project.team.length - 4}
-                        </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
-                        <FileVideo size={12} />
-                        <span>{project.assets.length}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-zinc-600">
-                        <Clock size={10} />
-                        <span>{project.updatedAt}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )})}
-          </div>
+          {/* Render Sections */}
+          {renderProjectGrid(myProjects, "My Projects")}
+          {renderProjectGrid(sharedProjects, isAdmin ? "All Other Projects" : "Shared with Me")}
+          
         </div>
       </div>
 
