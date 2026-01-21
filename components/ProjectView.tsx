@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Project, ProjectAsset, User, UserRole } from '../types';
-import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info } from 'lucide-react';
+import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, UserMinus } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 import { generateId } from '../services/utils';
 
@@ -128,6 +128,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     e.stopPropagation(); 
     setShareTarget({ type: 'asset', id: asset.id, name: asset.title });
     setIsShareModalOpen(true);
+  };
+
+  const handleRemoveMember = (memberId: string) => {
+      if (memberId === project.ownerId) {
+          alert("Cannot remove the project owner.");
+          return;
+      }
+      if (!confirm("Are you sure you want to remove this user from the team?")) return;
+
+      const updatedTeam = project.team.filter(m => m.id !== memberId);
+      onUpdateProject({ ...project, team: updatedTeam });
   };
 
   const handleCopyLink = () => {
@@ -330,19 +341,31 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                   <h2 className="text-lg font-bold text-white mb-4">Project Team</h2>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {project.team.map(member => (
-                        <div key={member.id} className="flex items-center justify-between p-2 rounded hover:bg-zinc-800/50">
+                        <div key={member.id} className="flex items-center justify-between p-2 rounded hover:bg-zinc-800/50 group">
                           <div className="flex items-center gap-2">
                               <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full border border-zinc-800" />
                               <div>
                                 <div className="text-sm text-zinc-200 font-medium flex items-center gap-2">
                                     {member.name}
                                     {member.id === currentUser.id && <span className="text-[10px] text-zinc-500">(You)</span>}
+                                    {member.id === project.ownerId && <span className="text-[10px] text-indigo-400 bg-indigo-950 px-1 rounded">Owner</span>}
                                 </div>
                                 <div className={`text-[10px] uppercase font-bold ${member.role === UserRole.GUEST ? 'text-orange-400' : 'text-indigo-400'}`}>
                                     {member.role}
                                 </div>
                               </div>
                           </div>
+                          
+                          {/* REMOVE BUTTON - Only for non-guests, excluding owner and self */}
+                          {!isGuest && member.id !== currentUser.id && member.id !== project.ownerId && (
+                              <button 
+                                onClick={() => handleRemoveMember(member.id)}
+                                className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                title="Remove User"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                          )}
                         </div>
                     ))}
                   </div>
