@@ -167,6 +167,25 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     };
   }, []);
 
+  // --- Auto-Scroll to Active Comment Logic ---
+  useEffect(() => {
+    // Only scroll if we are playing or scrubbing, to avoid annoyance when manually browsing
+    if (!isPlaying && !isScrubbing) return;
+
+    // Find the comment currently "on air" (with a 3s window or custom duration)
+    const activeComment = comments.find(c => {
+         const duration = c.duration || 3;
+         return currentTime >= c.timestamp && currentTime < (c.timestamp + duration);
+    });
+
+    if (activeComment) {
+        const el = document.getElementById(`comment-${activeComment.id}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+  }, [currentTime, isPlaying, isScrubbing, comments]);
+
   // --- Auto-Detect FPS Logic ---
   const startFpsDetection = () => {
       if (isFpsDetected) return;
@@ -591,6 +610,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setMarkerInPoint(null);
     setMarkerOutPoint(null);
     
+    // Auto-Resume Playback
+    if (videoRef.current) {
+        videoRef.current.play().catch(e => console.log('Playback resume failed or interrupted', e));
+        setIsPlaying(true);
+    }
+
     setTimeout(() => {
         commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
@@ -1128,8 +1153,11 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         const isSwiping = swipeCommentId === comment.id;
                         const offset = isSwiping ? swipeOffset : 0;
 
+                        // Check if this comment is currently "playing" (active)
+                        const isActive = currentTime >= comment.timestamp && currentTime < (comment.timestamp + (comment.duration || 3));
+
                         return (
-                        <div key={comment.id} className="relative group/wrapper">
+                        <div key={comment.id} className="relative group/wrapper" id={`comment-${comment.id}`}>
                             
                             {/* Swipe Actions Background */}
                             <div className="absolute inset-0 rounded-lg flex items-center justify-between px-4">
@@ -1161,9 +1189,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                     videoRef.current.pause();
                                     }
                                 }}
-                                className={`rounded-lg p-3 border text-sm cursor-pointer transition-transform relative bg-zinc-900 z-10 
+                                className={`rounded-lg p-3 border text-sm cursor-pointer transition-all relative z-10 
                                     ${isSelected ? 'bg-indigo-900/20 border-indigo-500/50' : 'bg-zinc-800/40 border-zinc-800 hover:border-zinc-700'}
                                     ${isGuestComment && !isSelected ? 'border-orange-500/20' : ''}
+                                    ${isActive && !isSelected ? 'border-l-4 border-l-indigo-500 bg-zinc-800 shadow-md ring-1 ring-inset ring-indigo-500/20' : ''}
                                 `}
                             >
                                 <div className="flex justify-between items-start mb-1">
@@ -1177,7 +1206,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                             <span className="text-[9px] uppercase font-bold text-orange-400 border border-orange-500/30 px-1 rounded">Guest</span>
                                         )}
 
-                                        <span className="text-indigo-400 font-mono text-xs bg-indigo-950/50 px-1 rounded flex items-center gap-1">
+                                        <span className={`font-mono text-xs px-1 rounded flex items-center gap-1 ${isActive ? 'text-indigo-300 bg-indigo-950 border border-indigo-500/30' : 'text-indigo-400 bg-indigo-950/50'}`}>
                                         {formatTimecode(comment.timestamp)}
                                         {comment.duration && <span className="opacity-50">→ {formatTimecode(comment.timestamp + comment.duration)}</span>}
                                         </span>
