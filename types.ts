@@ -17,21 +17,6 @@ export interface User {
   role: UserRole;
 }
 
-export interface Point {
-  x: number;
-  y: number;
-}
-
-export type ShapeType = 'pen' | 'rect' | 'arrow';
-
-export interface Drawing {
-  color: string;
-  shapeType: ShapeType;
-  points: Point[];
-  canvasWidth: number;
-  canvasHeight: number;
-}
-
 export interface Comment {
   id: string;
   userId: string;
@@ -40,7 +25,6 @@ export interface Comment {
   text: string;
   status: CommentStatus;
   createdAt: string;
-  drawing?: Drawing | null;
   replies?: Comment[];
 }
 

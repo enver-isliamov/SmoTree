@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { ProjectView } from './components/ProjectView';
 import { Player } from './components/Player';
 import { Login } from './components/Login';
-import { Project, ProjectAsset, User } from './types';
+import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
 
 type ViewState = 
@@ -124,8 +125,10 @@ const App: React.FC = () => {
     };
   }, [projects]);
 
-  // 4. Handle Deep Linking
+  // 4. Handle Deep Linking with SECURITY CHECK
   useEffect(() => {
+    if (!currentUser) return; // Wait for login
+
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
     const aId = params.get('assetId');
@@ -134,6 +137,19 @@ const App: React.FC = () => {
       const projectExists = projects.find(p => p.id === pId);
       
       if (projectExists) {
+        // SECURITY CHECK: Is user allowed to see this project?
+        const hasAccess = 
+            currentUser.role === UserRole.ADMIN || 
+            projectExists.team.some(member => member.id === currentUser.id);
+
+        if (!hasAccess) {
+            console.warn(`Access denied to project ${pId} for user ${currentUser.name}`);
+            // If access denied, strip URL params and stay on dashboard
+            window.history.pushState({}, '', window.location.pathname);
+            setView({ type: 'DASHBOARD' });
+            return;
+        }
+
         if (aId) {
            const assetExists = projectExists.assets.find(a => a.id === aId);
            if (assetExists) {
@@ -146,10 +162,11 @@ const App: React.FC = () => {
         }
       }
     }
-  }, [projects]); 
+  }, [projects, currentUser]); 
 
   // Navigation handlers
   const handleSelectProject = (project: Project) => {
+    // Security check redundant here as UI hides it, but good practice
     setView({ type: 'PROJECT_VIEW', projectId: project.id });
     const newUrl = `${window.location.pathname}?projectId=${project.id}`;
     window.history.pushState({ path: newUrl }, '', newUrl);
@@ -204,6 +221,7 @@ const App: React.FC = () => {
     setCurrentUser(user);
 
     // If logging in via a link, ensure user is added to the project team
+    // This allows the "Invite via Link" workflow to actually work
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
 

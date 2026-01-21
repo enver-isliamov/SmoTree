@@ -77,14 +77,7 @@ export const MOCK_PROJECTS: Project[] = [
                 timestamp: 45.2,
                 text: 'The color grading here feels too cold. Can we warm up the skin tones?',
                 status: CommentStatus.OPEN,
-                createdAt: '1 hour ago',
-                drawing: {
-                  color: '#ef4444',
-                  shapeType: 'pen',
-                  canvasWidth: 800,
-                  canvasHeight: 450,
-                  points: [{x: 100, y: 100}, {x: 200, y: 100}, {x: 200, y: 200}, {x: 100, y: 200}, {x: 100, y: 100}] // Mock box
-                }
+                createdAt: '1 hour ago'
               }
             ]
           }

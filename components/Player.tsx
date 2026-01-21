@@ -1123,6 +1123,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         const author = getAuthor(comment.userId);
                         const canResolve = isManager;
                         const isEditing = editingCommentId === comment.id;
+                        const isGuestComment = author.role === UserRole.GUEST;
                         
                         const isSwiping = swipeCommentId === comment.id;
                         const offset = isSwiping ? swipeOffset : 0;
@@ -1162,11 +1163,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 }}
                                 className={`rounded-lg p-3 border text-sm cursor-pointer transition-transform relative bg-zinc-900 z-10 
                                     ${isSelected ? 'bg-indigo-900/20 border-indigo-500/50' : 'bg-zinc-800/40 border-zinc-800 hover:border-zinc-700'}
+                                    ${isGuestComment && !isSelected ? 'border-orange-500/20' : ''}
                                 `}
                             >
                                 <div className="flex justify-between items-start mb-1">
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-zinc-200">{author.name.split(' ')[0]}</span>
+                                        <span className={`font-semibold ${isGuestComment ? 'text-orange-200' : 'text-zinc-200'}`}>
+                                            {author.name.split(' ')[0]}
+                                        </span>
+                                        
+                                        {/* GUEST BADGE */}
+                                        {isGuestComment && (
+                                            <span className="text-[9px] uppercase font-bold text-orange-400 border border-orange-500/30 px-1 rounded">Guest</span>
+                                        )}
+
                                         <span className="text-indigo-400 font-mono text-xs bg-indigo-950/50 px-1 rounded flex items-center gap-1">
                                         {formatTimecode(comment.timestamp)}
                                         {comment.duration && <span className="opacity-50">→ {formatTimecode(comment.timestamp + comment.duration)}</span>}
