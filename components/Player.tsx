@@ -99,7 +99,37 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const isManager = canManageProject(currentUser);
 
-  // Sync comments
+  // --- GRANULAR SYNC API ---
+  // Sends specific comment actions to the server to allow Guests to write without overwriting the whole project
+  const syncCommentAction = async (action: 'create' | 'update' | 'delete', payload: any) => {
+    try {
+        const token = localStorage.getItem('smotree_auth_token');
+        const headers: any = { 'Content-Type': 'application/json' };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        } else if (currentUser.role === UserRole.GUEST) {
+            headers['X-Guest-ID'] = currentUser.id;
+        }
+
+        await fetch('/api/comment', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                projectId: project.id,
+                assetId: asset.id,
+                versionId: version.id,
+                action,
+                payload
+            })
+        });
+        console.log(`Synced comment action: ${action}`);
+    } catch (e) {
+        console.error("Failed to sync comment action", e);
+    }
+  };
+
+  // Sync comments from parent prop updates
   useEffect(() => {
     setComments(version.comments || []);
   }, [version.comments]);
@@ -582,6 +612,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (!updatedTeam.some(u => u.id === currentUser.id)) {
        updatedTeam = [...updatedTeam, currentUser];
     }
+    // Optimistic UI update
     onUpdateProject({ ...project, assets: updatedAssets, team: updatedTeam });
   };
 
@@ -605,6 +636,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     };
 
     persistComments([...comments, newComment]);
+    syncCommentAction('create', newComment); // Sync to server
     
     setNewCommentText('');
     setMarkerInPoint(null);
@@ -633,6 +665,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const saveEdit = (commentId: string) => {
     const updated = comments.map(c => c.id === commentId ? { ...c, text: editText } : c);
     persistComments(updated);
+    syncCommentAction('update', { id: commentId, text: editText }); // Sync to server
     setEditingCommentId(null);
     setEditText('');
   };
@@ -650,6 +683,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     }
     const updated = comments.filter(c => c.id !== commentId);
     persistComments(updated);
+    syncCommentAction('delete', { id: commentId }); // Sync to server
     if (selectedCommentId === commentId) setSelectedCommentId(null);
     setSwipeCommentId(null);
     setSwipeOffset(0);
@@ -657,7 +691,15 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const handleResolveComment = (e: React.MouseEvent, commentId: string) => {
     e.stopPropagation();
-    const updated = comments.map(c => c.id === commentId ? { ...c, status: c.status === CommentStatus.OPEN ? CommentStatus.RESOLVED : CommentStatus.OPEN } : c);
+    const updated = comments.map(c => {
+        if (c.id === commentId) {
+             const newStatus = c.status === CommentStatus.OPEN ? CommentStatus.RESOLVED : CommentStatus.OPEN;
+             // Fire async update for this specific change
+             syncCommentAction('update', { id: commentId, status: newStatus }); 
+             return { ...c, status: newStatus };
+        }
+        return c;
+    });
     persistComments(updated);
   };
   
@@ -667,6 +709,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       const updated = comments.map(c => {
           const isVisible = filteredComments.some(fc => fc.id === c.id);
           if (isVisible && c.status === CommentStatus.OPEN) {
+              syncCommentAction('update', { id: c.id, status: CommentStatus.RESOLVED }); // Fire for each (not ideal but works for Granular API)
               return { ...c, status: CommentStatus.RESOLVED };
           }
           return c;
