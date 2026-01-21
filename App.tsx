@@ -13,12 +13,16 @@ type ViewState =
   | { type: 'PLAYER', assetId: string, projectId: string };
 
 const STORAGE_KEY = 'smotree_projects_data';
+const USER_STORAGE_KEY = 'smotree_auth_user'; // New key for user persistence
 const SYNC_DEBOUNCE_MS = 2000;
 const POLLING_INTERVAL_MS = 5000; // Sync every 5 seconds
 
 const App: React.FC = () => {
-  // Auth State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Auth State - Initialize from LocalStorage
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const savedUser = localStorage.getItem(USER_STORAGE_KEY);
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
 
   // App Data State
   const [projects, setProjects] = useState<Project[]>(() => {
@@ -195,6 +199,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    localStorage.removeItem(USER_STORAGE_KEY); // Clear persisted user
     setView({ type: 'DASHBOARD' });
     window.history.pushState({}, '', window.location.pathname);
   };
@@ -219,6 +224,7 @@ const App: React.FC = () => {
   // Login Handler with Auto-Join Team Logic
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user)); // Persist user
 
     // If logging in via a link, ensure user is added to the project team
     // This allows the "Invite via Link" workflow to actually work
