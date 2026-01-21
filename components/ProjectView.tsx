@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Project, ProjectAsset, User, UserRole } from '../types';
-import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 import { generateId } from '../services/utils';
 
@@ -174,21 +174,23 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           <div 
             onClick={() => setIsParticipantsModalOpen(true)}
             className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
+            title="View Team"
           >
              {project.team.slice(0, 3).map((member) => (
                 <img key={member.id} src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full border-2 border-zinc-950" />
              ))}
              <div className="w-8 h-8 rounded-full border-2 border-zinc-950 bg-zinc-800 flex items-center justify-center text-[10px] text-zinc-400">
-               +
+               {project.team.length > 3 ? `+${project.team.length - 3}` : '+'}
              </div>
           </div>
           <div className="h-6 w-px bg-zinc-800 mx-1"></div>
           <button 
             onClick={handleShareProject}
-            className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors text-sm font-medium"
-            title="Share Project"
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors text-xs md:text-sm font-medium"
+            title="Invite Client"
           >
-            <Share2 size={18} />
+            <UserPlus size={16} />
+            <span className="hidden md:inline">Invite</span>
           </button>
         </div>
       </header>
@@ -236,7 +238,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                         <button 
                             onClick={(e) => handleShareAsset(e, asset)}
                             className="p-1.5 bg-black/60 hover:bg-indigo-600 text-white rounded-md backdrop-blur-sm transition-colors"
-                            title="Share Link"
+                            title="Copy Direct Link"
                         >
                             <LinkIcon size={12} />
                         </button>
@@ -274,7 +276,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           </div>
       </div>
 
-      {/* Modals reused from original... */}
+      {/* Modals */}
        {(isShareModalOpen || isParticipantsModalOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl relative p-6">
@@ -287,35 +289,58 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
               
               {isShareModalOpen && shareTarget && (
                 <>
-                  <h2 className="text-lg font-bold text-white mb-1">Share {shareTarget.type === 'project' ? 'Project' : 'Asset'}</h2>
-                  <p className="text-sm font-medium text-indigo-400 mb-2 truncate">{shareTarget.name}</p>
-                  <p className="text-xs text-zinc-400 mb-4">Anyone with the link can view and comment.</p>
-                  <div className="bg-zinc-950 border border-zinc-800 rounded p-1.5 flex items-center gap-2 mb-2">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={`${window.location.origin}?projectId=${project.id}${shareTarget.type === 'asset' ? `&assetId=${shareTarget.id}` : ''}`} 
-                      className="bg-transparent flex-1 text-xs text-zinc-400 px-2 outline-none truncate" 
-                    />
-                    <button onClick={handleCopyLink} className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded text-xs transition-colors shrink-0 flex items-center gap-1">
-                      {isCopied ? <Check size={12} /> : <Copy size={12} />}
-                      {isCopied ? 'Copied' : 'Copy'}
-                    </button>
+                  <div className="flex items-center gap-2 mb-1">
+                      <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400">
+                          <UserPlus size={18} />
+                      </div>
+                      <h2 className="text-lg font-bold text-white">Invite to Review</h2>
+                  </div>
+                  
+                  <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
+                     Share this link with your client or team. They will join as a <strong>Guest</strong> and can comment on this {shareTarget.type}.
+                  </p>
+                  
+                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 mb-2">
+                    <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Review Link</div>
+                    <div className="flex items-center gap-2">
+                        <input 
+                        type="text" 
+                        readOnly 
+                        value={`${window.location.origin}?projectId=${project.id}${shareTarget.type === 'asset' ? `&assetId=${shareTarget.id}` : ''}`} 
+                        className="bg-transparent flex-1 text-xs text-zinc-300 outline-none truncate font-mono" 
+                        />
+                        <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-medium ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
+                        {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                        {isCopied ? 'Copied' : 'Copy'}
+                        </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 bg-indigo-900/10 p-2 rounded border border-indigo-500/10">
+                      <Info size={14} className="text-indigo-400 mt-0.5 shrink-0" />
+                      <p className="text-[10px] text-indigo-200/70">
+                          Guests cannot delete files or create new projects.
+                      </p>
                   </div>
                 </>
               )}
 
               {isParticipantsModalOpen && (
                 <>
-                  <h2 className="text-lg font-bold text-white mb-4">Team</h2>
+                  <h2 className="text-lg font-bold text-white mb-4">Project Team</h2>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {project.team.map(member => (
                         <div key={member.id} className="flex items-center justify-between p-2 rounded hover:bg-zinc-800/50">
                           <div className="flex items-center gap-2">
                               <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full border border-zinc-800" />
                               <div>
-                                <div className="text-sm text-zinc-200 font-medium">{member.name}</div>
-                                <div className="text-[10px] text-zinc-500 uppercase">{member.role}</div>
+                                <div className="text-sm text-zinc-200 font-medium flex items-center gap-2">
+                                    {member.name}
+                                    {member.id === currentUser.id && <span className="text-[10px] text-zinc-500">(You)</span>}
+                                </div>
+                                <div className={`text-[10px] uppercase font-bold ${member.role === UserRole.GUEST ? 'text-orange-400' : 'text-indigo-400'}`}>
+                                    {member.role}
+                                </div>
                               </div>
                           </div>
                         </div>

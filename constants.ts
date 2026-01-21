@@ -1,7 +1,8 @@
 
 import { Project, UserRole, CommentStatus, User } from './types';
 
-export const MOCK_USERS: User[] = [
+// Internal mocks for initial project data, but not exported for Login UI anymore
+const INTERNAL_MOCK_USERS: User[] = [
   {
     id: 'u1',
     name: 'Andrey (Creator)',
@@ -19,16 +20,8 @@ export const MOCK_USERS: User[] = [
     name: 'Mike (Producer)',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=50&h=50&fit=crop&crop=faces',
     role: UserRole.ADMIN
-  },
-  {
-    id: 'u4',
-    name: 'Sarah (Colorist)',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=50&h=50&fit=crop&crop=faces',
-    role: UserRole.CREATOR
   }
 ];
-
-export const CURRENT_USER = MOCK_USERS[0]; // Default fallback
 
 export const MOCK_PROJECTS: Project[] = [
   {
@@ -39,7 +32,7 @@ export const MOCK_PROJECTS: Project[] = [
     createdAt: Date.now() - 172800000, // 2 days ago
     updatedAt: '2 hours ago',
     ownerId: 'u1',
-    team: [MOCK_USERS[0], MOCK_USERS[1]],
+    team: [INTERNAL_MOCK_USERS[0], INTERNAL_MOCK_USERS[1]],
     assets: [
       {
         id: 'a1',
@@ -93,7 +86,7 @@ export const MOCK_PROJECTS: Project[] = [
     createdAt: Date.now() - 7200000, // 2 hours ago
     updatedAt: '30 mins ago',
     ownerId: 'u1',
-    team: [MOCK_USERS[0], MOCK_USERS[3]],
+    team: [INTERNAL_MOCK_USERS[0], INTERNAL_MOCK_USERS[2]],
     assets: [
       {
         id: 'a_vert_1',
@@ -113,16 +106,5 @@ export const MOCK_PROJECTS: Project[] = [
         ]
       }
     ]
-  },
-  {
-    id: 'p2',
-    name: 'Corporate Documentary',
-    description: 'Internal culture video for onboarding.',
-    client: 'Finance Flow',
-    createdAt: Date.now() - 259200000, // 3 days ago
-    updatedAt: '1 day ago',
-    ownerId: 'u1',
-    team: [MOCK_USERS[0], MOCK_USERS[2]],
-    assets: []
   }
 ];
