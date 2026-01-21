@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 import { generateId } from '../services/utils';
 
@@ -748,8 +748,18 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 </h2>
                 <div className="flex items-center gap-2 text-[10px] text-zinc-400 leading-none">
                    <span className="bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded">v{version.versionNumber}</span>
-                   {videoError && <span className="text-red-400 flex items-center gap-1"><Flag size={8}/> Source Missing</span>}
-                   {localFileName && <span className="text-green-400 flex items-center gap-1">Local File</span>}
+                   
+                   {/* NEW: Local Source Toggle/Indicator */}
+                   <button 
+                        onClick={() => localFileRef.current?.click()}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors ${localFileName ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
+                        title="Link Local File (High Quality / Offline)"
+                    >
+                        <HardDrive size={10} />
+                        <span>{localFileName ? 'Local' : 'Cloud'}</span>
+                    </button>
+
+                   {videoError && !localFileName && <span className="text-red-400 flex items-center gap-1"><Flag size={8}/> Source Missing</span>}
                 </div>
               </div>
             )}
@@ -1049,13 +1059,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     <p className="text-xs text-zinc-400 max-w-[200px] mb-6 leading-relaxed">
                         The cloud file is inaccessible. Please link a local copy of <strong>"{version.filename}"</strong> to continue reviewing.
                     </p>
-                    <input 
-                        type="file" 
-                        accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime"
-                        className="hidden" 
-                        ref={localFileRef}
-                        onChange={handleLocalFileSelect}
-                    />
                     <button 
                         onClick={() => localFileRef.current?.click()}
                         className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm"
@@ -1302,6 +1305,15 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
       </div>
       
+      {/* Hidden File Input for Proactive Linking (Outside conditional rendering) */}
+      <input 
+          type="file" 
+          accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime"
+          className="hidden" 
+          ref={localFileRef}
+          onChange={handleLocalFileSelect}
+      />
+
       {/* --- FLOATING TRANSPORT CONTROLS (MOVED OUTSIDE) --- */}
       {/* Now fixed relative to window so it can be dragged anywhere */}
       <div 
