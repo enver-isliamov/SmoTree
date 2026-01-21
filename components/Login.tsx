@@ -20,7 +20,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [googleError, setGoogleError] = useState<string | null>(null);
 
   // Get Client ID from Environment Variables (set in Vercel Dashboard)
-  const GOOGLE_CLIENT_ID = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
+  // FIX: Use optional chaining (?.env?.) because import.meta.env might be undefined in some preview environments
+  const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -30,12 +31,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
 
     if (!GOOGLE_CLIENT_ID) {
-        console.warn("Google Client ID is missing. Check VITE_GOOGLE_CLIENT_ID environment variable.");
-        return;
+        console.warn("Google Client ID is missing or env is not loaded. Check VITE_GOOGLE_CLIENT_ID.");
+        // We continue execution so the manual login form can still be rendered
     }
 
-    // Initialize Google Auth
-    if (window.google) {
+    // Initialize Google Auth ONLY if client ID exists
+    if (GOOGLE_CLIENT_ID && window.google) {
       try {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
