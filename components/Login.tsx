@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle } from 'lucide-react';
+import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, LogIn } from 'lucide-react';
 import { generateId } from '../services/utils';
 
 interface LoginProps {
@@ -21,6 +21,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   // Get Client ID from Environment Variables (Vite)
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
+  
+  // Logic: Show manual login IF joining as Guest OR if Google is not configured (Dev mode)
+  const isInvite = !!inviteProjectId;
+  const isGoogleConfigured = !!GOOGLE_CLIENT_ID;
+  const showManualLogin = isInvite || !isGoogleConfigured;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -86,7 +91,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    // Manual login does not provide a token, so API will reject writes (Read-Only/Local mode)
+    // Manual login does not provide a token, so API will reject writes (Read-Only/Local mode) unless ID starts with admin-
     localStorage.removeItem('smotree_auth_token');
 
     const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
@@ -133,7 +138,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <div>
                         <h2 className="text-lg font-semibold text-white">Join Project</h2>
                         <p className="text-xs text-zinc-400 mt-1">
-                           You've been invited to review a project.
+                           Enter your name to join the review as a Guest.
                         </p>
                     </div>
                 </div>
@@ -143,9 +148,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <ShieldCheck size={20} />
                     </div>
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Welcome Back</h2>
+                        <h2 className="text-lg font-semibold text-white">Admin Access</h2>
                         <p className="text-xs text-zinc-400 mt-1">
-                           Sign in to manage your workspace.
+                           Sign in with Google to create and manage projects.
                         </p>
                     </div>
                 </div>
@@ -153,7 +158,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           <div className="space-y-4">
-            {!GOOGLE_CLIENT_ID ? (
+            {!isGoogleConfigured ? (
                 <div className="p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg text-yellow-500 text-xs flex items-center gap-2">
                     <AlertCircle size={16} />
                     <span>Google Client ID missing in .env</span>
@@ -162,36 +167,42 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div id="googleSignInDiv" className="h-[44px] w-full min-h-[44px]"></div>
             )}
             
-            <div className="relative py-2">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-zinc-800"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-zinc-900 px-2 text-zinc-500">Or continue with name</span>
-                </div>
-            </div>
+            {showManualLogin && (
+                <>
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-zinc-800"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-zinc-900 px-2 text-zinc-500">
+                                {isGoogleConfigured ? 'Or continue with name' : 'Developer Mode'}
+                            </span>
+                        </div>
+                    </div>
 
-            <form onSubmit={handleManualSubmit} className="space-y-3">
-                <div className="relative">
-                    <Mail size={16} className="absolute top-3.5 left-3 text-zinc-600" />
-                    <input 
-                        type="text" 
-                        placeholder="Your Name (Guest Mode)" 
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-all placeholder:text-zinc-600"
-                    />
-                </div>
-                
-                <button 
-                type="submit"
-                disabled={!name.trim()}
-                className={`w-full p-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-zinc-700 hover:bg-zinc-800 text-zinc-300`}
-                >
-                Continue as Guest
-                <ArrowRight size={14} />
-                </button>
-            </form>
+                    <form onSubmit={handleManualSubmit} className="space-y-3">
+                        <div className="relative">
+                            <Mail size={16} className="absolute top-3.5 left-3 text-zinc-600" />
+                            <input 
+                                type="text" 
+                                placeholder={isInvite ? "Your Name" : "Admin Name (Dev)"}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-all placeholder:text-zinc-600"
+                            />
+                        </div>
+                        
+                        <button 
+                        type="submit"
+                        disabled={!name.trim()}
+                        className={`w-full p-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-zinc-700 hover:bg-zinc-800 text-zinc-300`}
+                        >
+                        {isInvite ? 'Join as Guest' : 'Enter Dashboard'}
+                        <ArrowRight size={14} />
+                        </button>
+                    </form>
+                </>
+            )}
           </div>
 
         </div>
