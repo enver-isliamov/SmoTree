@@ -69,7 +69,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         // 2. Save RAW token for API calls
         localStorage.setItem('smotree_auth_token', response.credential);
         
-        const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
+        // LOGIC UPDATE:
+        // If invited (link present) -> CREATOR (Verified Collaborator)
+        // If not invited (root access) -> ADMIN (Owner)
+        const role = inviteProjectId ? UserRole.CREATOR : UserRole.ADMIN;
         
         const googleUser: User = {
             id: payload.email, // Use email as persistent ID
@@ -78,7 +81,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             role: role
         };
 
-        console.log("Logged in via Google:", googleUser.name);
+        console.log(`Logged in via Google as ${role}:`, googleUser.name);
         onLogin(googleUser);
 
     } catch (e) {
@@ -94,7 +97,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     // Manual login does not provide a token, so API will reject writes (Read-Only/Local mode) unless ID starts with admin-
     localStorage.removeItem('smotree_auth_token');
 
+    // LOGIC UPDATE:
+    // If invited (link present) -> GUEST (Unverified)
+    // If not invited -> ADMIN (Dev Mode Fallback)
     const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
+    
     const newUser: User = {
       id: `${role.toLowerCase()}-${generateId()}`,
       name: name,
@@ -138,7 +145,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <div>
                         <h2 className="text-lg font-semibold text-white">Join Project</h2>
                         <p className="text-xs text-zinc-400 mt-1">
-                           Enter your name to join the review as a Guest.
+                           You've been invited to collaborate.
                         </p>
                     </div>
                 </div>
@@ -175,7 +182,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
                             <span className="bg-zinc-900 px-2 text-zinc-500">
-                                {isGoogleConfigured ? 'Or continue with name' : 'Developer Mode'}
+                                {isGoogleConfigured ? 'Or continue as Guest' : 'Developer Mode'}
                             </span>
                         </div>
                     </div>
@@ -185,7 +192,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             <Mail size={16} className="absolute top-3.5 left-3 text-zinc-600" />
                             <input 
                                 type="text" 
-                                placeholder={isInvite ? "Your Name" : "Admin Name (Dev)"}
+                                placeholder={isInvite ? "Your Name (Guest)" : "Admin Name (Dev)"}
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-all placeholder:text-zinc-600"
