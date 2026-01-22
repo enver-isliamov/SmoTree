@@ -35,6 +35,7 @@ export interface VideoVersion {
   uploadedAt: string;
   filename: string;
   comments: Comment[];
+  isLocked?: boolean; // Prevents new comments
   // Temporary fields for local session playback
   localFileUrl?: string; 
   localFileName?: string;

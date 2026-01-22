@@ -15,6 +15,55 @@ interface ProjectViewProps {
   notify: (msg: string, type: ToastType) => void;
 }
 
+// Helper to generate a thumbnail from a video file client-side
+const generateVideoThumbnail = (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.playsInline = true;
+
+    // Fallback image in case of error
+    const fallback = 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44c?w=600&q=80';
+
+    video.onloadedmetadata = () => {
+      // Seek to 1s or 20% of video to capture a meaningful frame
+      // Ensure we don't seek past duration
+      const seekTime = Math.min(1.0, video.duration / 2);
+      video.currentTime = seekTime;
+    };
+
+    video.onseeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        // Fixed thumbnail size (16:9 aspect ratio)
+        canvas.width = 480;
+        canvas.height = 270;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality JPEG
+            resolve(dataUrl);
+        } else {
+            resolve(fallback);
+        }
+      } catch (e) {
+        console.warn("Thumbnail generation failed", e);
+        resolve(fallback);
+      } finally {
+        URL.revokeObjectURL(video.src);
+      }
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(fallback);
+    };
+  });
+};
+
 export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject, notify }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeletingAsset, setIsDeletingAsset] = useState<string | null>(null);
@@ -49,6 +98,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     setIsUploading(true);
 
     try {
+      // 1. Generate Thumbnail immediately
+      const thumbnailDataUrl = await generateVideoThumbnail(file);
+
       let assetUrl = '';
       let isLocalFallback = false;
       const token = localStorage.getItem('smotree_auth_token');
@@ -72,7 +124,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       const newAsset: ProjectAsset = {
         id: generateId(),
         title: file.name.replace(/\.[^/.]+$/, ""),
-        thumbnail: `https://images.unsplash.com/photo-1574717024653-61fd2cf4d44c?w=600&q=80`,
+        thumbnail: thumbnailDataUrl, // Use generated thumbnail
         currentVersionIndex: 0,
         versions: [
           {
@@ -103,6 +155,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       notify("Failed to upload asset", "error");
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -151,14 +204,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
             localFileName: isLocalFallback ? file.name : undefined
         };
 
-        // Create updated asset with new version pushed to the list
-        // Note: You might want to sort versions or just append.
-        // We set this as current? Let's assume most recent is last, but currentVersionIndex tracks it.
-        // Actually the mock data implies versions are an array. Let's append.
         const updatedVersions = [...targetAsset.versions, newVersion];
         
+        // Update the asset's thumbnail to the new version's preview
+        const newThumbnail = await generateVideoThumbnail(file);
+
         const updatedAsset = {
             ...targetAsset,
+            thumbnail: newThumbnail,
             versions: updatedVersions,
             currentVersionIndex: updatedVersions.length - 1 // Auto-switch to new version
         };
@@ -180,6 +233,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           notify("Failed to upload version", "error");
       } finally {
           setIsUploading(false);
+          if (versionInputRef.current) versionInputRef.current.value = '';
       }
   };
 

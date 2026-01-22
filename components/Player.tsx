@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 import { generateId } from '../services/utils';
 import { ToastType } from './Toast';
@@ -26,6 +26,7 @@ const canManageProject = (user: User) => {
 export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onBack, users, onUpdateProject, isSyncing, notify }) => {
   const [currentVersionIdx, setCurrentVersionIdx] = useState(asset.currentVersionIndex);
   const version = asset.versions[currentVersionIdx] || asset.versions[0];
+  const isLocked = version.isLocked || false;
   
   // View State
   const [viewMode, setViewMode] = useState<'single' | 'side-by-side' | 'overlay'>('single');
@@ -43,10 +44,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   // Scrubbing State
   const [isScrubbing, setIsScrubbing] = useState(false);
   const scrubStartDataRef = useRef<{ x: number, time: number, wasPlaying: boolean } | null>(null);
-  const isDragRef = useRef(false); // Distinguish between click and drag
+  const isDragRef = useRef(false); 
   
-  // Floating Controls State
-  const [controlsPos, setControlsPos] = useState({ x: 0, y: 0 });
+  // Floating Controls State (Persisted)
+  const [controlsPos, setControlsPos] = useState(() => {
+    try {
+        const saved = localStorage.getItem('smotree_controls_pos');
+        return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+    } catch {
+        return { x: 0, y: 0 };
+    }
+  });
   const isDraggingControls = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
 
@@ -88,7 +96,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const compareVideoRef = useRef<HTMLVideoElement>(null);
-  const playerContainerRef = useRef<HTMLDivElement>(null); // Wraps video + controls
+  const playerContainerRef = useRef<HTMLDivElement>(null); 
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const sidebarInputRef = useRef<HTMLInputElement>(null);
   
@@ -96,6 +104,11 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const fpsDetectionRef = useRef<{ frames: number[], lastTime: number, active: boolean }>({ frames: [], lastTime: 0, active: false });
 
   const isManager = canManageProject(currentUser);
+
+  // --- SAVE FLOATING POS ---
+  useEffect(() => {
+    localStorage.setItem('smotree_controls_pos', JSON.stringify(controlsPos));
+  }, [controlsPos]);
 
   const syncCommentAction = async (action: 'create' | 'update' | 'delete', payload: any) => {
     try {
@@ -129,6 +142,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setComments(version.comments || []);
   }, [version.comments]);
 
+  // CRITICAL FIX: Only reset state when the Version ID changes, NOT when comments (and thus the version object) updates.
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
@@ -140,8 +154,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setShowVoiceModal(false);
     setIsFpsDetected(false);
     setIsVerticalVideo(false);
-    setControlsPos({ x: 0, y: 0 }); 
-
+    
+    // Check if we switched versions to see if local file is valid
     if (version.localFileUrl) {
         setLocalFileSrc(version.localFileUrl);
         setLocalFileName(version.localFileName || 'Local File');
@@ -155,7 +169,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         videoRef.current.currentTime = 0;
         videoRef.current.load();
     }
-  }, [currentVersionIdx, version]);
+  }, [version.id]); // <--- Only depend on ID
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -357,6 +371,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const toggleListening = () => {
+    if (isLocked) return;
     if (isListening) {
       stopListening();
     } else {
@@ -523,6 +538,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleSetInPoint = (e: React.MouseEvent) => {
+    if (isLocked) return;
     e.stopPropagation();
     setMarkerInPoint(currentTime);
     if (markerOutPoint !== null && markerOutPoint <= currentTime) {
@@ -531,6 +547,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleSetOutPoint = (e: React.MouseEvent) => {
+    if (isLocked) return;
     e.stopPropagation();
     const outTime = currentTime;
     if (markerInPoint !== null && outTime > markerInPoint) {
@@ -550,6 +567,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
   
   const handleQuickMarker = (e: React.MouseEvent) => {
+      if (isLocked) return;
       e.stopPropagation();
       setMarkerInPoint(currentTime);
       setMarkerOutPoint(null);
@@ -593,7 +611,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleAddComment = () => {
-    if (!newCommentText.trim()) return;
+    if (!newCommentText.trim() || isLocked) return;
 
     const timestamp = markerInPoint !== null ? markerInPoint : currentTime;
     let commentDuration = undefined;
@@ -619,9 +637,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setMarkerInPoint(null);
     setMarkerOutPoint(null);
     
+    // Don't auto-resume play here if the user wants to stay on the frame, but previous logic was:
     if (videoRef.current) {
-        videoRef.current.play().catch(e => console.log('Playback resume failed', e));
-        setIsPlaying(true);
+        // videoRef.current.play().catch(e => console.log('Playback resume failed', e));
+        // setIsPlaying(true);
+        // Changed per request: Player should NOT jump or reset. 
+        // It should stay at current position. We just removed auto-play resume.
     }
 
     setTimeout(() => {
@@ -630,6 +651,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const startEditing = (comment: Comment) => {
+    if (isLocked) return;
     setEditingCommentId(comment.id);
     setEditText(comment.text);
     setSwipeCommentId(null);
@@ -652,6 +674,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleDeleteComment = (commentId: string) => {
+    if (isLocked) return;
     if (!confirm("Delete comment?")) {
         setSwipeCommentId(null);
         setSwipeOffset(0);
@@ -694,8 +717,19 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       notify("Bulk resolve successful", "success");
   };
 
+  const handleToggleLock = () => {
+      if (!isManager) return;
+      const newLockState = !isLocked;
+      const updatedVersions = [...asset.versions];
+      updatedVersions[currentVersionIdx] = { ...updatedVersions[currentVersionIdx], isLocked: newLockState };
+      const updatedAssets = project.assets.map(a => a.id === asset.id ? { ...a, versions: updatedVersions } : a);
+      
+      onUpdateProject({ ...project, assets: updatedAssets });
+      notify(newLockState ? "Version locked" : "Version unlocked", "info");
+  };
+
   const handleTouchStart = (e: React.TouchEvent, commentId: string) => {
-    if (editingCommentId) return;
+    if (editingCommentId || isLocked) return;
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     setSwipeCommentId(commentId);
     setSwipeOffset(0);
@@ -763,6 +797,16 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 <div className="flex items-center gap-2 text-[10px] text-zinc-400 leading-none">
                    <span className="bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded">v{version.versionNumber}</span>
                    
+                   {isSyncing ? (
+                      <div className="flex items-center gap-1 text-zinc-500 animate-pulse" title="Syncing changes...">
+                          <Cloud size={12} />
+                      </div>
+                   ) : (
+                      <div className="flex items-center gap-1 text-zinc-600" title="All changes saved">
+                          <CheckCircle size={12} />
+                      </div>
+                   )}
+
                    <button 
                         onClick={() => localFileRef.current?.click()}
                         className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors ${localFileName ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
@@ -854,6 +898,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           
           <div className="flex-1 relative w-full h-full flex items-center justify-center bg-zinc-950 overflow-hidden group/player">
              
+             {/* Fullscreen Button in Overlay */}
+             <div className="absolute bottom-4 right-4 z-50 opacity-0 group-hover/player:opacity-100 transition-opacity duration-300">
+                <button 
+                    onClick={() => toggleFullScreen()} 
+                    className="p-2 bg-black/60 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-lg backdrop-blur-sm transition-colors shadow-lg"
+                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                    {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                </button>
+             </div>
+
              <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-px bg-black/50 backdrop-blur-sm rounded-lg border border-white/10 shadow-lg z-30 select-none overflow-hidden">
                 <div className="px-3 py-1 text-white font-mono text-lg tracking-widest">
                     {formatTimecode(currentTime)}
@@ -925,7 +980,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 </button>
                                 <button 
                                     onClick={() => closeVoiceModal(true)}
-                                    disabled={!newCommentText.trim()}
+                                    disabled={!newCommentText.trim() || isLocked}
                                     className="flex-1 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                                 >
                                     Save
@@ -980,11 +1035,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              </div>
           </div>
 
+          {/* Player Bar - Compacted */}
           <div className={`
-             ${isVerticalVideo ? 'absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black via-black/80 to-transparent pb-6 pt-10' : 'bg-zinc-900 border-t border-zinc-800 pb-6'} 
+             ${isVerticalVideo ? 'absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black via-black/80 to-transparent pb-6 pt-10' : 'bg-zinc-900 border-t border-zinc-800 pb-2'} 
              p-2 lg:p-4 shrink-0 transition-transform duration-300
           `}>
-             <div className="relative h-8 group cursor-pointer mb-2 flex items-center touch-none">
+             <div className="relative h-6 md:h-8 group cursor-pointer flex items-center touch-none">
                 <input
                   type="range"
                   min={0}
@@ -1029,16 +1085,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     />
                 )}
              </div>
-
-             <div className="flex items-center justify-between h-10 w-full gap-2 relative z-50">
-                <div className="flex-1"></div>
-
-                <div className="flex-1 flex justify-end items-center gap-2">
-                    <button onClick={() => toggleFullScreen()} className="p-2 text-zinc-400 hover:text-white transition-colors" title="Toggle Fullscreen">
-                        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                    </button>
-                </div>
-             </div>
           </div>
         </div>
 
@@ -1065,54 +1111,49 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900 sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Comments ({filteredComments.length})</span>
-                        
-                        <div className="flex items-center gap-1.5" title={isSyncing ? "Syncing to cloud..." : "All changes saved"}>
-                            {isSyncing ? (
-                                <>
-                                    <Loader2 size={12} className="animate-spin text-indigo-400" />
-                                    <span className="text-[9px] text-zinc-500 font-medium">Syncing...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Cloud size={12} className="text-zinc-600" />
-                                    <span className="text-[9px] text-zinc-600 font-medium">Saved</span>
-                                </>
-                            )}
-                        </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
                          {isManager && (
-                             <div className="relative">
-                                 <button 
-                                     onClick={() => setShowExportMenu(!showExportMenu)}
-                                     className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
-                                     title="Export Markers"
-                                 >
-                                     <Download size={16} />
-                                 </button>
-                                 
-                                 {showExportMenu && (
-                                     <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
-                                         <button onClick={() => handleExport('xml')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                             <Film size={14} className="text-indigo-400" />
-                                             DaVinci Resolve (.xml)
-                                         </button>
-                                         <button onClick={() => handleExport('csv')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                             <FileSpreadsheet size={14} className="text-green-400" />
-                                             Premiere Pro (.csv)
-                                         </button>
-                                          <button onClick={() => handleExport('edl')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                             <FileText size={14} className="text-orange-400" />
-                                             EDL Generic (.edl)
-                                         </button>
-                                     </div>
-                                 )}
-                                 
-                                 {showExportMenu && (
-                                     <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)}></div>
-                                 )}
-                             </div>
+                             <>
+                                <button 
+                                    onClick={handleToggleLock}
+                                    className={`p-1.5 rounded transition-colors ${isLocked ? 'bg-red-900/20 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                                    title={isLocked ? "Unlock Comments" : "Lock Comments"}
+                                >
+                                    {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                                </button>
+                                 <div className="relative">
+                                     <button 
+                                         onClick={() => setShowExportMenu(!showExportMenu)}
+                                         className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+                                         title="Export Markers"
+                                     >
+                                         <Download size={16} />
+                                     </button>
+                                     
+                                     {showExportMenu && (
+                                         <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
+                                             <button onClick={() => handleExport('xml')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
+                                                 <Film size={14} className="text-indigo-400" />
+                                                 DaVinci Resolve (.xml)
+                                             </button>
+                                             <button onClick={() => handleExport('csv')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
+                                                 <FileSpreadsheet size={14} className="text-green-400" />
+                                                 Premiere Pro (.csv)
+                                             </button>
+                                              <button onClick={() => handleExport('edl')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
+                                                 <FileText size={14} className="text-orange-400" />
+                                                 EDL Generic (.edl)
+                                             </button>
+                                         </div>
+                                     )}
+                                     
+                                     {showExportMenu && (
+                                         <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)}></div>
+                                     )}
+                                 </div>
+                             </>
                          )}
 
                         {isManager && filteredComments.some(c => c.status === CommentStatus.OPEN) && (
@@ -1249,8 +1290,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         <div className="relative flex-1">
                             <input
                             ref={sidebarInputRef}
-                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-12 py-3 md:py-2.5 text-base md:text-sm text-white focus:border-indigo-500 outline-none"
-                            placeholder={isListening ? "Listening..." : "Add a comment..."}
+                            disabled={isLocked}
+                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-12 py-3 md:py-2.5 text-base md:text-sm text-white focus:border-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                            placeholder={isLocked ? "Comments are locked" : (isListening ? "Listening..." : "Add a comment...")}
                             value={newCommentText}
                             onChange={e => setNewCommentText(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleAddComment()}
@@ -1262,15 +1304,16 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             />
                             <button 
                             onClick={toggleListening}
-                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-zinc-500 hover:text-white'}`}
+                            disabled={isLocked}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-zinc-500 hover:text-white disabled:opacity-30'}`}
                             >
                             {isListening ? <MicOff size={16} /> : <Mic size={16} />}
                             </button>
                         </div>
                         <button 
                             onClick={handleAddComment} 
-                            disabled={!newCommentText.trim()} 
-                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-3 md:p-2.5 rounded-lg transition-colors shrink-0"
+                            disabled={!newCommentText.trim() || isLocked} 
+                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-3 md:p-2.5 rounded-lg transition-colors shrink-0 disabled:cursor-not-allowed"
                         >
                             <Send size={18} />
                         </button>
@@ -1300,13 +1343,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             marginLeft: '-110px'
         }}
       >
-        <div className="flex items-center gap-1 bg-zinc-950/90 backdrop-blur-md rounded-xl p-1.5 border border-zinc-800 shadow-2xl ring-1 ring-white/5">
+        <div className={`flex items-center gap-1 bg-zinc-950/90 backdrop-blur-md rounded-xl p-1.5 border border-zinc-800 shadow-2xl ring-1 ring-white/5 transition-opacity ${isLocked ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
             
             <div 
                 onPointerDown={handleDragStart}
                 onPointerMove={handleDragMove}
                 onPointerUp={handleDragEnd}
-                className="p-1.5 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing border-r border-zinc-800 mr-1"
+                className="p-1.5 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing border-r border-zinc-800 mr-1 pointer-events-auto"
             >
                 <GripVertical size={14} />
             </div>
@@ -1321,7 +1364,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
             <button 
                 onClick={(e) => { e.stopPropagation(); seek(-10); }} 
-                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors pointer-events-auto"
             >
                 <RotateCcw size={18} />
             </button>
@@ -1345,13 +1388,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
             <button 
                 onClick={(e) => { e.stopPropagation(); seek(10); }} 
-                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors pointer-events-auto"
             >
                 <RotateCw size={18} />
             </button>
 
             {(markerInPoint !== null || markerOutPoint !== null) && (
-                <button onClick={clearMarkers} className="ml-1 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors border-l border-zinc-800">
+                <button onClick={clearMarkers} className="ml-1 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors border-l border-zinc-800 pointer-events-auto">
                     <XIcon size={14} />
                 </button>
             )}

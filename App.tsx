@@ -348,15 +348,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
       <main className="h-full">
-        <div className="fixed top-2 right-2 z-[100] flex gap-2">
-            {isSyncing && (
-                <div className="px-2 py-1 bg-zinc-900 rounded text-[10px] text-zinc-500 flex items-center gap-2 border border-zinc-800 animate-pulse">
-                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
-                    Saving...
-                </div>
-            )}
-        </div>
-
         {view.type === 'DASHBOARD' && (
           <Dashboard 
             projects={projects} 
