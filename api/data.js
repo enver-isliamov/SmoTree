@@ -67,9 +67,12 @@ export default async function handler(req, res) {
   
   // POST: Sync Projects (Upsert)
   if (req.method === 'POST') {
-    // SECURITY: Only verified users (Google Auth) can overwrite project data via this endpoint.
-    // Guests must use /api/join to add themselves, but cannot overwrite the project state directly here.
-    if (!user.isVerified) {
+    // SECURITY UPDATE: 
+    // Allow Google Verified users OR Manual Admins (ID starts with 'admin-') to save data.
+    // This enables the "Continue as Guest/Admin" flow to actually work with the DB.
+    const isManualAdmin = user.id.startsWith('admin-');
+    
+    if (!user.isVerified && !isManualAdmin) {
         return res.status(403).json({ error: "Guests cannot overwrite project data. Read-only access." });
     }
 
@@ -112,7 +115,8 @@ export default async function handler(req, res) {
 
   // DELETE: Remove a project
   if (req.method === 'DELETE') {
-      if (!user.isVerified) {
+      const isManualAdmin = user.id.startsWith('admin-');
+      if (!user.isVerified && !isManualAdmin) {
           return res.status(403).json({ error: "Guests cannot delete projects." });
       }
 
