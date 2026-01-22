@@ -1,9 +1,10 @@
 
 import React, { useState, useRef } from 'react';
 import { Project, ProjectAsset, User, UserRole } from '../types';
-import { ChevronLeft, Upload, Clock, Loader2, Share2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, UserMinus } from 'lucide-react';
+import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, History } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 import { generateId } from '../services/utils';
+import { ToastType } from './Toast';
 
 interface ProjectViewProps {
   project: Project;
@@ -11,11 +12,13 @@ interface ProjectViewProps {
   onBack: () => void;
   onSelectAsset: (asset: ProjectAsset) => void;
   onUpdateProject: (project: Project) => void;
+  notify: (msg: string, type: ToastType) => void;
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject, notify }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeletingAsset, setIsDeletingAsset] = useState<string | null>(null);
+  const [uploadingVersionFor, setUploadingVersionFor] = useState<string | null>(null);
   
   // Share / Team View State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -24,15 +27,24 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const versionInputRef = useRef<HTMLInputElement>(null);
   const isGuest = currentUser.role === UserRole.GUEST;
 
+  // New Asset Upload
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       handleRealUpload(e.target.files[0]);
     }
   };
 
-  // Real Upload to Vercel Blob with Local Fallback
+  // New Version Upload
+  const handleVersionFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0 && uploadingVersionFor) {
+        handleRealVersionUpload(e.target.files[0], uploadingVersionFor);
+    }
+    setUploadingVersionFor(null);
+  };
+
   const handleRealUpload = async (file: File) => {
     setIsUploading(true);
 
@@ -83,14 +95,92 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       };
       
       onUpdateProject(updatedProject);
-      if (isLocalFallback) console.info("Using local file for preview (Offline Mode)");
+      notify("Asset uploaded successfully", "success");
+      if (isLocalFallback) notify("Offline mode: Using local file", "info");
 
     } catch (error) {
       console.error("Critical error adding asset", error);
-      alert("Unexpected error handling file.");
+      notify("Failed to upload asset", "error");
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleRealVersionUpload = async (file: File, assetId: string) => {
+      setIsUploading(true);
+      const targetAssetIndex = project.assets.findIndex(a => a.id === assetId);
+      
+      if (targetAssetIndex === -1) {
+          setIsUploading(false);
+          return;
+      }
+      
+      const targetAsset = project.assets[targetAssetIndex];
+      // New version number is length + 1 (simple logic)
+      const nextVersionNum = targetAsset.versions.length + 1;
+
+      try {
+        let assetUrl = '';
+        let isLocalFallback = false;
+        const token = localStorage.getItem('smotree_auth_token');
+
+        try {
+            const newBlob = await upload(file.name, file, {
+            access: 'public',
+            handleUploadUrl: '/api/upload',
+            clientPayload: JSON.stringify({
+                token: token,
+                user: currentUser.id
+            })
+            });
+            assetUrl = newBlob.url;
+        } catch (uploadError) {
+            console.warn("Cloud upload failed. Switching to Local Mode.", uploadError);
+            assetUrl = URL.createObjectURL(file);
+            isLocalFallback = true;
+        }
+
+        const newVersion = {
+            id: generateId(),
+            versionNumber: nextVersionNum,
+            filename: file.name,
+            url: assetUrl,
+            uploadedAt: 'Just now',
+            comments: [],
+            localFileUrl: isLocalFallback ? assetUrl : undefined,
+            localFileName: isLocalFallback ? file.name : undefined
+        };
+
+        // Create updated asset with new version pushed to the list
+        // Note: You might want to sort versions or just append.
+        // We set this as current? Let's assume most recent is last, but currentVersionIndex tracks it.
+        // Actually the mock data implies versions are an array. Let's append.
+        const updatedVersions = [...targetAsset.versions, newVersion];
+        
+        const updatedAsset = {
+            ...targetAsset,
+            versions: updatedVersions,
+            currentVersionIndex: updatedVersions.length - 1 // Auto-switch to new version
+        };
+
+        const updatedAssets = [...project.assets];
+        updatedAssets[targetAssetIndex] = updatedAsset;
+
+        const updatedProject = {
+            ...project,
+            assets: updatedAssets,
+            updatedAt: 'Just now'
+        };
+
+        onUpdateProject(updatedProject);
+        notify(`Version ${nextVersionNum} uploaded`, "success");
+
+      } catch (e) {
+          console.error(e);
+          notify("Failed to upload version", "error");
+      } finally {
+          setIsUploading(false);
+      }
   };
 
   const handleDeleteAsset = async (e: React.MouseEvent, asset: ProjectAsset) => {
@@ -122,10 +212,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         }
     }
 
-    // 3. Update Project State
     const updatedAssets = project.assets.filter(a => a.id !== asset.id);
     onUpdateProject({ ...project, assets: updatedAssets });
     setIsDeletingAsset(null);
+    notify("Asset deleted", "info");
   };
 
   const handleShareProject = () => {
@@ -139,15 +229,23 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     setIsShareModalOpen(true);
   };
 
+  const handleAddVersionClick = (e: React.MouseEvent, assetId: string) => {
+      e.stopPropagation();
+      setUploadingVersionFor(assetId);
+      // Wait for state to settle then click
+      setTimeout(() => versionInputRef.current?.click(), 0);
+  };
+
   const handleRemoveMember = (memberId: string) => {
       if (memberId === project.ownerId) {
-          alert("Cannot remove the project owner.");
+          notify("Cannot remove the project owner.", "error");
           return;
       }
       if (!confirm("Are you sure you want to remove this user from the team?")) return;
 
       const updatedTeam = project.team.filter(m => m.id !== memberId);
       onUpdateProject({ ...project, team: updatedTeam });
+      notify("User removed from team", "info");
   };
 
   const handleCopyLink = () => {
@@ -160,12 +258,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     }
     navigator.clipboard.writeText(url);
     setIsCopied(true);
+    notify("Link copied to clipboard", "success");
     setTimeout(() => setIsCopied(false), 2000);
   };
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950">
-      {/* Unified Header */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
           {!isGuest && (
@@ -215,16 +313,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-[1600px] mx-auto">
-            {/* Action Bar */}
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm md:text-base font-semibold text-zinc-200">Assets <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
                 
                 {!isGuest && (
                     <div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect}/>
+                    <input type="file" ref={versionInputRef} className="hidden" accept="video/*" onChange={handleVersionFileSelect}/>
+                    
                     <button 
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
@@ -237,7 +335,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                 )}
             </div>
 
-            {/* Asset Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {project.assets.map((asset) => (
                 <div 
@@ -253,7 +350,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                         onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&q=80'; }}
                     />
                     
-                    {/* Hover Actions */}
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
                         <button 
                             onClick={(e) => handleShareAsset(e, asset)}
@@ -263,15 +359,23 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                             <LinkIcon size={12} />
                         </button>
                         
-                         {/* Asset Delete */}
                         {!isGuest && (
-                             <button 
-                                onClick={(e) => handleDeleteAsset(e, asset)}
-                                className="p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md backdrop-blur-sm transition-colors"
-                                title="Delete Asset"
-                             >
-                                {isDeletingAsset === asset.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                             </button>
+                            <>
+                                <button 
+                                    onClick={(e) => handleAddVersionClick(e, asset.id)}
+                                    className="p-1.5 bg-black/60 hover:bg-blue-500 text-white rounded-md backdrop-blur-sm transition-colors"
+                                    title="Upload New Version"
+                                >
+                                    <History size={12} />
+                                </button>
+                                <button 
+                                    onClick={(e) => handleDeleteAsset(e, asset)}
+                                    className="p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md backdrop-blur-sm transition-colors"
+                                    title="Delete Asset"
+                                >
+                                    {isDeletingAsset === asset.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                </button>
+                            </>
                         )}
                     </div>
 
@@ -296,7 +400,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           </div>
       </div>
 
-      {/* Modals */}
        {(isShareModalOpen || isParticipantsModalOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl relative p-6">
@@ -365,7 +468,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                               </div>
                           </div>
                           
-                          {/* REMOVE BUTTON - Only for non-guests, excluding owner and self */}
                           {!isGuest && member.id !== currentUser.id && member.id !== project.ownerId && (
                               <button 
                                 onClick={() => handleRemoveMember(member.id)}

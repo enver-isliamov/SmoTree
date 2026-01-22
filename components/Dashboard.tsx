@@ -3,17 +3,19 @@ import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
 import { Clock, Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
+import { ToastType } from './Toast';
 
 interface DashboardProps {
   projects: Project[];
   currentUser: User;
   onSelectProject: (project: Project) => void;
   onAddProject: (project: Project) => void;
-  onDeleteProject: (projectId: string) => void; // New prop
+  onDeleteProject: (projectId: string) => void;
   onLogout: () => void;
+  notify: (msg: string, type: ToastType) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onLogout, notify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
@@ -31,11 +33,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   const isCreator = currentUser.role === UserRole.CREATOR;
 
   // --- FILTERING LOGIC ---
-  
-  // 1. My Projects: Created by me
   const myProjects = projects.filter(p => p.ownerId === currentUser.id);
 
-  // 2. Shared Projects: Not created by me, but I am in the team (or Admin viewing all others)
   const sharedProjects = isAdmin
     ? projects.filter(p => p.ownerId !== currentUser.id)
     : projects.filter(p => p.ownerId !== currentUser.id && p.team.some(member => member.id === currentUser.id));
@@ -57,11 +56,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
     setTimeout(() => {
       const newProject: Project = {
-        id: generateId(), // Using UUID
+        id: generateId(), 
         name,
         client,
         description,
-        createdAt: Date.now(), // Set creation time
+        createdAt: Date.now(), 
         updatedAt: 'Just now',
         team: [currentUser],
         ownerId: currentUser.id,
@@ -86,18 +85,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
       setIsDeleting(project.id);
       
-      // 1. Collect all blob URLs
       const urlsToDelete: string[] = [];
       project.assets.forEach(asset => {
           asset.versions.forEach(v => {
-              // Only delete Vercel Blob URLs (simple check for http/https to avoid local blob: urls if any persisted wrongly)
               if (v.url.startsWith('http')) {
                   urlsToDelete.push(v.url);
               }
           });
       });
 
-      // 2. Call API to delete blobs
       if (urlsToDelete.length > 0) {
           try {
               const token = localStorage.getItem('smotree_auth_token');
@@ -111,16 +107,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
               });
           } catch (err) {
               console.error("Failed to delete blobs", err);
-              alert("Warning: Could not delete video files from cloud. Project entry will be removed.");
+              notify("Warning: Could not delete video files from cloud. Project entry will be removed.", "error");
           }
       }
 
-      // 3. Update State
       onDeleteProject(project.id);
       setIsDeleting(null);
   };
 
-  // Reusable Project Grid Renderer
   const renderProjectGrid = (projectList: Project[], title: string, showEmptyMessage = false) => {
       if (projectList.length === 0 && !showEmptyMessage) return null;
 
@@ -155,14 +149,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                 }
                             `}
                         >
-                            {/* Deleting Overlay */}
                             {isDeleting === project.id && (
                                 <div className="absolute inset-0 bg-black/80 z-20 flex items-center justify-center rounded-lg">
                                     <Loader2 className="animate-spin text-red-500" />
                                 </div>
                             )}
 
-                            {/* Expiration Badge */}
                             {project.createdAt && daysLeft <= 2 && !expired && (
                                 <div className="absolute top-2 right-2 z-10 bg-orange-500/10 text-orange-500 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20 flex items-center gap-1">
                                     <CalendarClock size={10} />
@@ -177,12 +169,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                             )}
 
 
-                            {/* Top Row: Client & Menu */}
                             <div className="flex justify-between items-start mb-2">
                                 <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5">
                                     {project.client}
                                 </div>
-                                {/* Delete Button (Permissions Checked) */}
                                 {canDeleteProject(project) && (
                                     <button 
                                         onClick={(e) => handleDeleteClick(e, project)}
@@ -194,7 +184,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                 )}
                             </div>
 
-                            {/* Title & Desc */}
                             <h3 className={`text-base font-bold mb-1 truncate transition-colors ${expired ? 'text-zinc-500' : 'text-zinc-100 group-hover:text-indigo-400'}`}>
                                 {project.name}
                             </h3>
@@ -202,9 +191,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                 {project.description || 'No description provided.'}
                             </p>
 
-                            {/* Bottom Row: Team & Stats */}
                             <div className="flex items-center justify-between pt-3 border-t border-zinc-800/50 mt-auto">
-                                {/* Avatar Stack */}
                                 <div className="flex -space-x-2">
                                     {project.team.slice(0, 4).map((member) => (
                                         <img 
@@ -244,7 +231,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   return (
     <div className="flex flex-col h-screen bg-zinc-950">
       
-      {/* Unified Header - Player Style */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
           <div className="flex items-center justify-center w-8 h-8 bg-indigo-600 rounded-lg shrink-0">
@@ -262,7 +248,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
         </div>
 
         <div className="flex items-center gap-4">
-           {/* User Profile Tiny */}
            <div className="hidden md:flex items-center gap-2 text-right">
               <div>
                  <div className="text-xs font-medium text-white">{currentUser.name}</div>
@@ -281,7 +266,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-[1600px] mx-auto">
-          {/* Toolbar */}
           <div className="flex justify-end items-center mb-6">
             {canCreateProject && (
               <button 
@@ -294,7 +278,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             )}
           </div>
 
-          {/* EMPTY STATE FOR GUESTS */}
           {myProjects.length === 0 && sharedProjects.length === 0 && isGuest && (
              <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
                 <Lock size={48} className="mb-4 opacity-50" />
@@ -305,14 +288,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
              </div>
           )}
 
-          {/* Render Sections */}
           {renderProjectGrid(myProjects, "My Projects")}
           {renderProjectGrid(sharedProjects, isAdmin ? "All Other Projects" : "Shared with Me")}
           
         </div>
       </div>
 
-      {/* Create Project Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200">

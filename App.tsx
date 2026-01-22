@@ -4,8 +4,10 @@ import { Dashboard } from './components/Dashboard';
 import { ProjectView } from './components/ProjectView';
 import { Player } from './components/Player';
 import { Login } from './components/Login';
+import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
 import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
+import { generateId } from './services/utils';
 
 type ViewState = 
   | { type: 'DASHBOARD' }
@@ -31,8 +33,21 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewState>({ type: 'DASHBOARD' });
   const [isSyncing, setIsSyncing] = useState(false);
   
+  // TOAST STATE
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteUpdate = useRef(false);
+
+  // TOAST HANDLER
+  const notify = (message: string, type: ToastType = 'info') => {
+    const id = generateId();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Helper to get token OR guest ID
   const getAuthHeader = (overrideUser?: User) => {
@@ -78,8 +93,7 @@ const App: React.FC = () => {
              if (res.status === 401) {
                  console.warn("Session expired. Logging out.");
                  handleLogout();
-             } else {
-                 console.warn("API Sync failed (offline or server error)");
+                 notify("Session expired. Please login again.", "error");
              }
          }
        } catch (e) {
@@ -110,14 +124,12 @@ const App: React.FC = () => {
                         // Simple equality check to avoid re-renders
                         if (JSON.stringify(prevCurrent) !== JSON.stringify(cloudData)) {
                             isRemoteUpdate.current = true;
-                            console.log("☁️ Received remote updates");
+                            // Optional: notify("Project data updated from cloud", "info"); 
                             return cloudData;
                         }
                         return prevCurrent;
                     });
                 }
-            } else if (res.status === 401) {
-                // handleLogout(); 
             }
         } catch (e) {
             // Silent fail
@@ -155,11 +167,12 @@ const App: React.FC = () => {
             });
             
             if (res.status === 401) {
-                 console.warn("Session expired during sync.");
+                 notify("Session expired during sync", "error");
             }
 
         } catch (e) {
             console.error("Failed to sync to cloud", e);
+            notify("Failed to save changes to cloud", "error");
         } finally {
             setIsSyncing(false);
         }
@@ -188,8 +201,8 @@ const App: React.FC = () => {
             projectExists.team.some(member => member.id === currentUser.id);
 
         if (!hasAccess) {
-            console.warn(`Access denied to project ${pId} for user ${currentUser.name}`);
-            // Don't redirect immediately, give chance for state to settle if just joined
+            console.warn(`Access denied to project ${pId}`);
+            notify("You don't have access to this project", "error");
             return;
         }
 
@@ -240,11 +253,13 @@ const App: React.FC = () => {
 
   const handleAddProject = (newProject: Project) => {
     setProjects(prev => [newProject, ...prev]);
+    notify("Project created successfully", "success");
   };
 
   const handleDeleteProject = async (projectId: string) => {
       // Optimistic local update
       setProjects(prev => prev.filter(p => p.id !== projectId));
+      notify("Project deleted", "info");
       
       // Send explicit delete command to server
       if (currentUser) {
@@ -267,6 +282,7 @@ const App: React.FC = () => {
   const handleLogin = async (user: User) => {
     setCurrentUser(user);
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    notify(`Welcome back, ${user.name.split(' ')[0]}`, "success");
 
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
@@ -285,29 +301,27 @@ const App: React.FC = () => {
                 const joinData = await joinRes.json();
                 
                 // 2. IMMEDIATE UPDATE: Inject the returned project into local state
-                // This bypasses the wait for the next polling cycle or race conditions in /api/data fetch
                 if (joinData.project) {
-                    console.log("🚀 Successfully joined project via link");
-                    isRemoteUpdate.current = true; // Prevent this from triggering a sync-back
+                    isRemoteUpdate.current = true; 
                     setProjects(prev => {
                         const exists = prev.some(p => p.id === joinData.project.id);
                         if (exists) return prev.map(p => p.id === joinData.project.id ? joinData.project : p);
                         return [...prev, joinData.project];
                     });
+                    notify("Joined project successfully", "success");
                 }
             } else {
                 console.error("Join failed", await joinRes.text());
+                notify("Failed to join project", "error");
             }
 
             // 3. Trigger a full background sync just in case
-            // Explicitly pass the user here because 'currentUser' state might not be updated yet in this closure
             const res = await fetch('/api/data', {
                  headers: getAuthHeader(user)
             });
             
             if (res.ok) {
                 const data = await res.json();
-                // Merge strategies could be complex, but replacing is standard here
                 if (Array.isArray(data) && data.length > 0) {
                      setProjects(data);
                 }
@@ -351,6 +365,7 @@ const App: React.FC = () => {
             onAddProject={handleAddProject}
             onDeleteProject={handleDeleteProject}
             onLogout={handleLogout}
+            notify={notify}
           />
         )}
 
@@ -361,6 +376,7 @@ const App: React.FC = () => {
             onBack={handleBackToDashboard}
             onSelectAsset={handleSelectAsset}
             onUpdateProject={handleUpdateProject}
+            notify={notify}
           />
         )}
 
@@ -373,8 +389,11 @@ const App: React.FC = () => {
             users={currentProject.team}
             onUpdateProject={handleUpdateProject}
             isSyncing={isSyncing}
+            notify={notify}
           />
         )}
+
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
       </main>
     </div>
   );
