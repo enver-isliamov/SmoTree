@@ -7,11 +7,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Vercel Node.js runtime: Use req.body instead of req.json()
-    const { projectId, user } = req.body;
+    let body = req.body;
+    if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch(e) {}
+    }
+
+    const { projectId, user } = body || {};
 
     if (!projectId || !user || !user.id) {
-        return res.status(400).json({ error: "Missing required fields" });
+        return res.status(400).json({ error: "Missing required fields (projectId, user)" });
     }
 
     // 1. Fetch current project data
@@ -20,7 +24,9 @@ export default async function handler(req, res) {
     `;
 
     if (rows.length === 0) {
-        return res.status(404).json({ error: "Project not found in DB" });
+        // This is the common 404 error. It means the Admin hasn't synced the project yet.
+        console.warn(`Join failed: Project ${projectId} not found in DB.`);
+        return res.status(404).json({ error: "Project not found. The owner may not have synced changes yet." });
     }
 
     let projectData = rows[0].data;
@@ -34,11 +40,9 @@ export default async function handler(req, res) {
     const existingMemberIndex = projectData.team.findIndex(m => m.id === user.id);
 
     if (existingMemberIndex === -1) {
-        // Add user to team
         projectData.team.push(user);
         projectData.updatedAt = 'Just now';
 
-        // 4. Update Database
         await sql`
             UPDATE projects 
             SET data = ${JSON.stringify(projectData)}::jsonb,

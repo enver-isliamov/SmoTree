@@ -107,6 +107,36 @@ const App: React.FC = () => {
        }
   }, [currentUser]);
 
+  // Force Sync Function (used on Create/Update critical actions)
+  const forceSync = async (projectsData: Project[]) => {
+      if (!currentUser || currentUser.role === UserRole.GUEST) return;
+      
+      try {
+          setIsSyncing(true);
+          const res = await fetch('/api/data', {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  ...getAuthHeader()
+              },
+              body: JSON.stringify(projectsData)
+          });
+          
+          if (!res.ok) {
+             const err = await res.text();
+             console.error("Force sync failed", err);
+             notify("Warning: Cloud save failed. Guest links won't work yet.", "error");
+          } else {
+             // notify("Saved to cloud", "success");
+          }
+      } catch (e) {
+          console.error("Force sync network error", e);
+          notify("Network error saving to cloud", "error");
+      } finally {
+          setIsSyncing(false);
+      }
+  };
+
   // 1. Initial Data Fetch (Auto)
   // ONLY runs if we are NOT in the middle of a manual join flow.
   useEffect(() => {
@@ -163,28 +193,8 @@ const App: React.FC = () => {
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     
-    syncTimeoutRef.current = setTimeout(async () => {
-        try {
-            setIsSyncing(true);
-            const res = await fetch('/api/data', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...getAuthHeader()
-                },
-                body: JSON.stringify(projects)
-            });
-            
-            if (res.status === 401) {
-                 notify("Session expired during sync", "error");
-            }
-
-        } catch (e) {
-            console.error("Failed to sync to cloud", e);
-            notify("Failed to save changes to cloud", "error");
-        } finally {
-            setIsSyncing(false);
-        }
+    syncTimeoutRef.current = setTimeout(() => {
+        forceSync(projects);
     }, SYNC_DEBOUNCE_MS);
 
     return () => {
@@ -213,7 +223,6 @@ const App: React.FC = () => {
 
         if (!hasAccess) {
             console.warn(`Access denied to project ${pId}`);
-            // Don't notify immediately, gives time for sync
             return;
         }
 
@@ -259,12 +268,19 @@ const App: React.FC = () => {
   };
 
   const handleUpdateProject = (updatedProject: Project) => {
-    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+    const newProjects = projects.map(p => p.id === updatedProject.id ? updatedProject : p);
+    setProjects(newProjects);
+    // FORCE SYNC IMMEDIATE when explicitly updating (e.g. uploading asset)
+    // This helps avoid the case where invite is sent before debounce fires
+    forceSync(newProjects);
   };
 
   const handleAddProject = (newProject: Project) => {
-    setProjects(prev => [newProject, ...prev]);
+    const newProjects = [newProject, ...projects];
+    setProjects(newProjects);
     notify("Project created successfully", "success");
+    // FORCE SYNC IMMEDIATE
+    forceSync(newProjects);
   };
 
   const handleDeleteProject = async (projectId: string) => {
@@ -326,7 +342,12 @@ const App: React.FC = () => {
                 }
             } else {
                 console.error("Join failed", await joinRes.text());
-                notify("Failed to join project", "error");
+                // Show more helpful message if 404
+                if (joinRes.status === 404) {
+                    notify("Project not found. The owner might not have synced it yet.", "error");
+                } else {
+                    notify("Failed to join project", "error");
+                }
             }
 
             // 4. NOW fetch the full list (Safe to do so because DB is updated)

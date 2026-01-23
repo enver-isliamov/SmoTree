@@ -2,7 +2,7 @@
 import { sql } from '@vercel/postgres';
 
 async function getAuthenticatedUser(req) {
-    const authHeader = req.headers['authorization']; // Node.js style
+    const authHeader = req.headers['authorization'];
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         try {
@@ -13,7 +13,7 @@ async function getAuthenticatedUser(req) {
             }
         } catch (e) {}
     }
-    const guestId = req.headers['x-guest-id']; // Node.js style
+    const guestId = req.headers['x-guest-id'];
     if (guestId) return { id: guestId, name: 'Guest', role: 'Guest', isVerified: false };
     return null;
 }
@@ -21,67 +21,71 @@ async function getAuthenticatedUser(req) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const user = await getAuthenticatedUser(req);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
-
   try {
-    // Vercel Node.js runtime: Use req.body
-    const { projectId, assetId, versionId, action, payload } = req.body;
+      const user = await getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
 
-    if (!projectId || !assetId || !versionId || !action) {
-        return res.status(400).json({ error: "Missing required fields" });
-    }
+      let body = req.body;
+      if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch(e) {}
+      }
 
-    // 1. Fetch Project
-    const { rows } = await sql`SELECT data, owner_id FROM projects WHERE id = ${projectId};`;
+      const { projectId, assetId, versionId, action, payload } = body || {};
 
-    if (rows.length === 0) return res.status(404).json({ error: "Project not found" });
+      if (!projectId || !assetId || !versionId || !action) {
+          return res.status(400).json({ error: "Missing required fields" });
+      }
 
-    let projectData = rows[0].data;
-    const ownerId = rows[0].owner_id;
+      // 1. Fetch Project
+      const { rows } = await sql`SELECT data, owner_id FROM projects WHERE id = ${projectId};`;
 
-    // 2. Security Check
-    const isOwner = ownerId === user.id;
-    const isInTeam = projectData.team && projectData.team.some(m => m.id === user.id);
+      if (rows.length === 0) return res.status(404).json({ error: "Project not found" });
 
-    if (!isOwner && !isInTeam) return res.status(403).json({ error: "Access denied" });
+      let projectData = rows[0].data;
+      const ownerId = rows[0].owner_id;
 
-    // 3. Logic
-    const asset = projectData.assets.find(a => a.id === assetId);
-    if (!asset) return res.status(404).json({ error: "Asset not found" });
+      // 2. Security Check
+      const isOwner = ownerId === user.id;
+      const isInTeam = projectData.team && projectData.team.some(m => m.id === user.id);
 
-    const version = asset.versions.find(v => v.id === versionId);
-    if (!version) return res.status(404).json({ error: "Version not found" });
-    if (!version.comments) version.comments = [];
+      if (!isOwner && !isInTeam) return res.status(403).json({ error: "Access denied" });
 
-    switch (action) {
-        case 'create':
-            version.comments.push({ ...payload, userId: user.id, createdAt: 'Just now' });
-            break;
-        case 'update':
-            const uIdx = version.comments.findIndex(c => c.id === payload.id);
-            if (uIdx !== -1) {
-                if (version.comments[uIdx].userId !== user.id && !user.isVerified) return res.status(403).json({ error: "Forbidden" });
-                version.comments[uIdx] = { ...version.comments[uIdx], ...payload };
-            }
-            break;
-        case 'delete':
-            const dIdx = version.comments.findIndex(c => c.id === payload.id);
-            if (dIdx !== -1) {
-                if (version.comments[dIdx].userId !== user.id && !user.isVerified) return res.status(403).json({ error: "Forbidden" });
-                version.comments.splice(dIdx, 1);
-            }
-            break;
-    }
+      // 3. Logic
+      const asset = projectData.assets.find(a => a.id === assetId);
+      if (!asset) return res.status(404).json({ error: "Asset not found" });
 
-    // 4. Save
-    await sql`
-        UPDATE projects 
-        SET data = ${JSON.stringify(projectData)}::jsonb, updated_at = ${Date.now()}
-        WHERE id = ${projectId};
-    `;
+      const version = asset.versions.find(v => v.id === versionId);
+      if (!version) return res.status(404).json({ error: "Version not found" });
+      if (!version.comments) version.comments = [];
 
-    return res.status(200).json({ success: true });
+      switch (action) {
+          case 'create':
+              version.comments.push({ ...payload, userId: user.id, createdAt: 'Just now' });
+              break;
+          case 'update':
+              const uIdx = version.comments.findIndex(c => c.id === payload.id);
+              if (uIdx !== -1) {
+                  if (version.comments[uIdx].userId !== user.id && !user.isVerified) return res.status(403).json({ error: "Forbidden" });
+                  version.comments[uIdx] = { ...version.comments[uIdx], ...payload };
+              }
+              break;
+          case 'delete':
+              const dIdx = version.comments.findIndex(c => c.id === payload.id);
+              if (dIdx !== -1) {
+                  if (version.comments[dIdx].userId !== user.id && !user.isVerified) return res.status(403).json({ error: "Forbidden" });
+                  version.comments.splice(dIdx, 1);
+              }
+              break;
+      }
+
+      // 4. Save
+      await sql`
+          UPDATE projects 
+          SET data = ${JSON.stringify(projectData)}::jsonb, updated_at = ${Date.now()}
+          WHERE id = ${projectId};
+      `;
+
+      return res.status(200).json({ success: true });
 
   } catch (error) {
     console.error("Comment API Error:", error);
