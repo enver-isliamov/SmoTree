@@ -69,10 +69,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         // 2. Save RAW token for API calls
         localStorage.setItem('smotree_auth_token', response.credential);
         
-        // LOGIC UPDATE:
-        // If invited (link present) -> CREATOR (Verified Collaborator)
-        // If not invited (root access) -> ADMIN (Owner)
-        const role = inviteProjectId ? UserRole.CREATOR : UserRole.ADMIN;
+        // SAAS UPDATE:
+        // Any Google User is an "Account Holder" (Admin capability for their own projects).
+        // Their role in *invited* projects is determined by the Project Team list, not this session role.
+        const role = UserRole.ADMIN; 
         
         const googleUser: User = {
             id: payload.email, // Use email as persistent ID
@@ -97,9 +97,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     // Manual login does not provide a token, so API will reject writes (Read-Only/Local mode) unless ID starts with admin-
     localStorage.removeItem('smotree_auth_token');
 
-    // LOGIC UPDATE:
-    // If invited (link present) -> GUEST (Unverified)
-    // If not invited -> ADMIN (Dev Mode Fallback)
+    // SAAS UPDATE:
+    // Manual login is STRICTLY Guest unless in Dev mode (admin- prefix logic in Dashboard).
+    // If no invite link, we assume Dev/Demo Admin, otherwise Guest.
     const role = inviteProjectId ? UserRole.GUEST : UserRole.ADMIN;
     
     const newUser: User = {
@@ -155,9 +155,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <ShieldCheck size={20} />
                     </div>
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Admin Access</h2>
+                        <h2 className="text-lg font-semibold text-white">Account Access</h2>
                         <p className="text-xs text-zinc-400 mt-1">
-                           Sign in with Google to create and manage projects.
+                           Sign in to manage your projects.
                         </p>
                     </div>
                 </div>

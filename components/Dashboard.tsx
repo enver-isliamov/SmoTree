@@ -29,23 +29,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
   // Role Checks
   const isGuest = currentUser.role === UserRole.GUEST;
-  const isAdmin = currentUser.role === UserRole.ADMIN;
-  const isCreator = currentUser.role === UserRole.CREATOR;
+  // Admin in global scope means "Registered User". 
+  // We use this to allow "New Project" button.
+  const isAccountHolder = currentUser.role === UserRole.ADMIN;
 
   // --- FILTERING LOGIC ---
   const myProjects = projects.filter(p => p.ownerId === currentUser.id);
 
-  const sharedProjects = isAdmin
-    ? projects.filter(p => p.ownerId !== currentUser.id)
-    : projects.filter(p => p.ownerId !== currentUser.id && p.team.some(member => member.id === currentUser.id));
+  // Shared projects are ones where I am NOT the owner, but I am in the team.
+  const sharedProjects = projects.filter(p => p.ownerId !== currentUser.id && p.team.some(member => member.id === currentUser.id));
 
   // PERMISSION CHECKS
-  const canCreateProject = !isGuest;
+  // Only Account Holders (Google Users) can create projects. Guests cannot.
+  const canCreateProject = isAccountHolder;
   
+  // SAAS UPDATE:
+  // Strictly check ownership. Being a global "Admin" doesn't mean you own other people's projects.
   const canDeleteProject = (project: Project) => {
-      if (isAdmin) return true;
-      if (isCreator && project.ownerId === currentUser.id) return true;
-      return false;
+      return project.ownerId === currentUser.id;
   };
 
   const handleCreateProject = (e: React.FormEvent) => {
@@ -289,7 +290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           )}
 
           {renderProjectGrid(myProjects, "My Projects")}
-          {renderProjectGrid(sharedProjects, isAdmin ? "All Other Projects" : "Shared with Me")}
+          {renderProjectGrid(sharedProjects, "Shared with Me")}
           
         </div>
       </div>

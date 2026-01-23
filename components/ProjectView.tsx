@@ -77,7 +77,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const versionInputRef = useRef<HTMLInputElement>(null);
+  
+  // SAAS UPDATE:
+  // Permission Check based on Project Team.
   const isGuest = currentUser.role === UserRole.GUEST;
+  
+  const isProjectMember = project.team.some(m => m.id === currentUser.id);
+  const isProjectOwner = project.ownerId === currentUser.id;
+  
+  // Can Upload/Delete? Owner OR Team Member (Non-Guest)
+  const canEditProject = !isGuest && (isProjectOwner || isProjectMember);
 
   // New Asset Upload
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,6 +300,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   };
 
   const handleRemoveMember = (memberId: string) => {
+      // ONLY Project Owner can remove members
+      if (!isProjectOwner) return;
+
       if (memberId === project.ownerId) {
           notify("Cannot remove the project owner.", "error");
           return;
@@ -372,7 +384,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm md:text-base font-semibold text-zinc-200">Assets <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
                 
-                {!isGuest && (
+                {canEditProject && (
                     <div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect}/>
                     <input type="file" ref={versionInputRef} className="hidden" accept="video/*" onChange={handleVersionFileSelect}/>
@@ -413,7 +425,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                             <LinkIcon size={12} />
                         </button>
                         
-                        {!isGuest && (
+                        {canEditProject && (
                             <>
                                 <button 
                                     onClick={(e) => handleAddVersionClick(e, asset.id)}
@@ -522,7 +534,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                               </div>
                           </div>
                           
-                          {!isGuest && member.id !== currentUser.id && member.id !== project.ownerId && (
+                          {isProjectOwner && member.id !== currentUser.id && member.id !== project.ownerId && (
                               <button 
                                 onClick={() => handleRemoveMember(member.id)}
                                 className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"

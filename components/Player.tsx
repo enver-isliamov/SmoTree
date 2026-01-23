@@ -19,8 +19,17 @@ interface PlayerProps {
 
 const VALID_FPS = [23.976, 24, 25, 29.97, 30, 50, 60];
 
-const canManageProject = (user: User) => {
-  return user.role === UserRole.ADMIN || user.role === UserRole.CREATOR;
+// SAAS UPDATE:
+// Check permission based on Project Context.
+// Manager = Project Owner OR Team Member (Non-Guest).
+// Guests are strictly read-only + comments.
+const canManageProject = (user: User, project: Project) => {
+    if (user.role === UserRole.GUEST) return false;
+    
+    const isOwner = project.ownerId === user.id;
+    const isTeamMember = project.team.some(m => m.id === user.id);
+    
+    return isOwner || isTeamMember;
 };
 
 export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onBack, users, onUpdateProject, isSyncing, notify }) => {
@@ -103,7 +112,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const animationFrameRef = useRef<number | null>(null);
   const fpsDetectionRef = useRef<{ frames: number[], lastTime: number, active: boolean }>({ frames: [], lastTime: 0, active: false });
 
-  const isManager = canManageProject(currentUser);
+  const isManager = canManageProject(currentUser, project);
 
   // --- SAVE FLOATING POS ---
   useEffect(() => {
