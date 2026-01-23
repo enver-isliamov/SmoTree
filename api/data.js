@@ -51,6 +51,7 @@ async function ensureProjectsTable() {
         console.log("✅ Table 'projects' ensured.");
     } catch (e) {
         console.error("Failed to create table:", e);
+        throw e; // Re-throw to handle in caller
     }
 }
 
@@ -81,11 +82,14 @@ export default async function handler(req, res) {
           return res.status(200).json(projects);
 
         } catch (dbError) {
-           // If table missing, return empty array instead of crashing
-           if (dbError.code === '42P01' || dbError.message.includes('404')) {
+           // CRITICAL FIX: Only return empty array if the TABLE IS MISSING (code 42P01).
+           // Do NOT treat connection errors (like Neon 404) as empty DB, otherwise local data gets wiped.
+           if (dbError.code === '42P01') {
                return res.status(200).json([]);
            }
+           
            console.error("DB GET Error Details:", dbError); 
+           // Return 500 so frontend knows to keep using local data (Offline Mode)
            return res.status(500).json({ error: "Database error", details: dbError.message });
         }
       } 
@@ -132,28 +136,31 @@ export default async function handler(req, res) {
                             updated_at = ${Date.now()};
                     `;
                 } catch (dbError) {
-                    // AGGRESSIVE FALLBACK:
-                    // If ANY error occurs (missing table 42P01, generic 404, etc), 
-                    // try to create the table and retry immediately.
-                    console.warn("Insert failed, attempting table creation...", dbError.message);
-                    
-                    await ensureProjectsTable();
-                    
-                    // Retry ONCE
-                    await sql`
-                        INSERT INTO projects (id, owner_id, data, updated_at, created_at)
-                        VALUES (
-                            ${project.id}, 
-                            ${project.ownerId || user.id}, 
-                            ${projectJson}::jsonb, 
-                            ${Date.now()}, 
-                            ${project.createdAt || Date.now()}
-                        )
-                        ON CONFLICT (id) 
-                        DO UPDATE SET 
-                            data = ${projectJson}::jsonb,
-                            updated_at = ${Date.now()};
-                    `;
+                    // Lazy Init: If table missing (42P01), create and retry.
+                    // If it's a connection error (404), ensureProjectsTable will also fail, 
+                    // throwing back to the main catch block -> returns 500 -> Frontend keeps local data.
+                    if (dbError.code === '42P01') {
+                        console.warn("Table missing, attempting creation...");
+                        await ensureProjectsTable();
+                        
+                        // Retry ONCE
+                        await sql`
+                            INSERT INTO projects (id, owner_id, data, updated_at, created_at)
+                            VALUES (
+                                ${project.id}, 
+                                ${project.ownerId || user.id}, 
+                                ${projectJson}::jsonb, 
+                                ${Date.now()}, 
+                                ${project.createdAt || Date.now()}
+                            )
+                            ON CONFLICT (id) 
+                            DO UPDATE SET 
+                                data = ${projectJson}::jsonb,
+                                updated_at = ${Date.now()};
+                        `;
+                    } else {
+                        throw dbError;
+                    }
                 }
             }
         }
