@@ -1,12 +1,11 @@
 
-import { db } from '@vercel/postgres';
+import { sql } from '@vercel/postgres';
 
 // --- AUTH HELPER ---
-// Verifies Google ID Token sent in headers
 async function getAuthenticatedUser(req) {
     const authHeader = req.headers.get('authorization');
     
-    // 1. Google Auth (Strong)
+    // 1. Google Auth
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         try {
@@ -25,7 +24,7 @@ async function getAuthenticatedUser(req) {
         }
     }
 
-    // 2. Guest Fallback (Weak, Read-Only for assigned projects)
+    // 2. Guest Fallback
     const guestId = req.headers.get('x-guest-id');
     if (guestId) {
         return {
@@ -45,62 +44,52 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const client = await db.connect();
-
-  // GET: Retrieve Projects for this User
+  // GET: Retrieve Projects
   if (req.method === 'GET') {
     try {
-      // FIX: Replaced the brittle `@>` operator with explicit array iteration using EXISTS.
-      // This prevents "invalid input syntax" errors when casting parameters to jsonb.
-      // Also added check ensuring 'team' is actually an array to prevent crashes on bad data.
+      // FIX 1: Use `sql` directly to handle connection pooling automatically (fixes Connection Leaks).
+      // FIX 2: Use broad text search (LIKE) then filter in JS. This bypasses fragile JSONB SQL syntax errors.
+      const userIdPattern = `%${user.id}%`;
       
-      const { rows } = await client.sql`
+      const { rows } = await sql`
         SELECT data FROM projects 
         WHERE owner_id = ${user.id} 
-        OR (
-            jsonb_typeof(data->'team') = 'array' 
-            AND EXISTS (
-                SELECT 1 
-                FROM jsonb_array_elements(data->'team') AS member 
-                WHERE member->>'id' = ${user.id}
-            )
-        );
+        OR data::text LIKE ${userIdPattern};
       `;
       
-      const projects = rows.map(r => r.data);
+      // JS Filtering for 100% accuracy and security
+      const projects = rows
+        .map(r => r.data)
+        .filter(p => {
+            const isOwner = p.ownerId === user.id;
+            const isTeam = p.team && Array.isArray(p.team) && p.team.some(m => m.id === user.id);
+            return isOwner || isTeam;
+        });
+
       return res.status(200).json(projects);
     } catch (error) {
-       // Detailed logging for Vercel Dashboard
-       console.error("DB Read Error DETAILS:", error); 
-       return res.status(500).json({ error: error.message, details: error.toString() });
+       console.error("DB GET Error:", error); 
+       return res.status(500).json({ error: error.message });
     }
   } 
   
   // POST: Sync Projects (Upsert)
   if (req.method === 'POST') {
     const isManualAdmin = user.id.startsWith('admin-');
-    
     if (!user.isVerified && !isManualAdmin) {
-        return res.status(403).json({ error: "Guests cannot overwrite project data. Read-only access." });
+        return res.status(403).json({ error: "Read-only access." });
     }
 
     try {
       const projectsToSync = await req.json(); 
-      
-      if (!Array.isArray(projectsToSync)) {
-          return res.status(400).json({ error: "Expected array of projects" });
-      }
+      if (!Array.isArray(projectsToSync)) return res.status(400).json({ error: "Expected array" });
 
       for (const project of projectsToSync) {
-          const isOwner = project.ownerId === user.id;
-          const isTeam = project.team && project.team.some(m => m.id === user.id);
-          
-          if (isOwner || isTeam) {
-              // Ensure we are saving valid JSON string.
-              // Note: We cast to ::jsonb explicitly on the stringified object.
+          // Security: Only save if owner or team member
+          if (project.ownerId === user.id || (project.team && project.team.some(m => m.id === user.id))) {
               const projectJson = JSON.stringify(project);
               
-              await client.sql`
+              await sql`
                 INSERT INTO projects (id, owner_id, data, updated_at, created_at)
                 VALUES (
                     ${project.id}, 
@@ -116,10 +105,9 @@ export default async function handler(req, res) {
               `;
           }
       }
-
       return res.status(200).json({ success: true });
     } catch (error) {
-      console.error("DB Write Error DETAILS:", error);
+      console.error("DB POST Error:", error);
       return res.status(500).json({ error: error.message });
     }
   }
@@ -135,18 +123,16 @@ export default async function handler(req, res) {
           const url = new URL(req.url, `http://${req.headers.host}`);
           const projectId = url.searchParams.get('id');
 
-          if (!projectId) {
-              return res.status(400).json({ error: "Missing project ID" });
-          }
+          if (!projectId) return res.status(400).json({ error: "Missing project ID" });
 
-          await client.sql`
+          await sql`
             DELETE FROM projects 
             WHERE id = ${projectId} AND owner_id = ${user.id};
           `;
           
           return res.status(200).json({ success: true });
       } catch (error) {
-          console.error("DB Delete Error", error);
+          console.error("DB DELETE Error:", error);
           return res.status(500).json({ error: error.message });
       }
   }

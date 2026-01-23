@@ -1,5 +1,5 @@
 
-import { db } from '@vercel/postgres';
+import { sql } from '@vercel/postgres';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,10 +13,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const client = await db.connect();
-
     // 1. Fetch current project data
-    const { rows } = await client.sql`
+    const { rows } = await sql`
         SELECT data FROM projects WHERE id = ${projectId};
     `;
 
@@ -37,12 +35,10 @@ export default async function handler(req, res) {
     if (existingMemberIndex === -1) {
         // Add user to team
         projectData.team.push(user);
-        
-        // Mark update time
         projectData.updatedAt = 'Just now';
 
         // 4. Update Database
-        await client.sql`
+        await sql`
             UPDATE projects 
             SET data = ${JSON.stringify(projectData)}::jsonb,
                 updated_at = ${Date.now()}
@@ -50,13 +46,8 @@ export default async function handler(req, res) {
         `;
         
         console.log(`✅ User ${user.name} (${user.id}) joined project ${projectId}`);
-    } else {
-        // If user exists but details changed (e.g. name update), ideally we update here, 
-        // but for now we just acknowledge they are in.
-        console.log(`User ${user.name} already in project ${projectId}`);
     }
 
-    // Return the FULL updated project data so the frontend can display it immediately
     return res.status(200).json({ success: true, project: projectData });
 
   } catch (error) {
