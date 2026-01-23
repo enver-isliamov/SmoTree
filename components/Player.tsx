@@ -1071,7 +1071,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                   step={0.01}
                   value={currentTime}
                   onChange={handleSeek}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
+                  disabled={videoError}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 disabled:cursor-not-allowed"
                 />
                 <div className="w-full h-1.5 bg-zinc-700/50 rounded-full overflow-hidden relative">
                    <div className="h-full bg-indigo-500" style={{ width: `${(currentTime / duration) * 100}%` }} />
@@ -1215,11 +1216,11 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 onClick={() => {
                                     if (isEditing) return;
                                     setSelectedCommentId(comment.id);
-                                    if (videoRef.current) {
-                                    videoRef.current.currentTime = comment.timestamp;
-                                    setCurrentTime(comment.timestamp);
-                                    setIsPlaying(false);
-                                    videoRef.current.pause();
+                                    if (videoRef.current && !videoError) {
+                                        videoRef.current.currentTime = comment.timestamp;
+                                        setCurrentTime(comment.timestamp);
+                                        setIsPlaying(false);
+                                        videoRef.current.pause();
                                     }
                                 }}
                                 className={`rounded-lg p-3 border text-sm cursor-pointer transition-all relative z-10 
