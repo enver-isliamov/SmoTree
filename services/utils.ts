@@ -29,3 +29,19 @@ export const getDaysRemaining = (timestamp: number, days: number = 7): number =>
     const diff = expirationDate - now;
     return Math.max(0, Math.ceil(diff / msPerDay));
 };
+
+/**
+ * Generates a deterministic pastel color from a string (UserId).
+ */
+export const stringToColor = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // HSL colors are better for distinctive but pleasant UI colors
+  // Use hash to pick Hue (0-360)
+  const h = Math.abs(hash % 360);
+  // Fixed Saturation and Lightness for consistency
+  return `hsl(${h}, 70%, 60%)`; 
+};

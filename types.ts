@@ -60,4 +60,5 @@ export interface Project {
   assets: ProjectAsset[];
   team: User[];
   ownerId?: string;
+  isLocked?: boolean; // Project-level lock
 }

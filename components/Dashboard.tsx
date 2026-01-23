@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Clock, Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Clock, Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, MoreHorizontal, Edit2, Share2, Unlock, Copy, Check, Save } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 import { ToastType } from './Toast';
 
@@ -11,18 +11,29 @@ interface DashboardProps {
   onSelectProject: (project: Project) => void;
   onAddProject: (project: Project) => void;
   onDeleteProject: (projectId: string) => void;
+  onEditProject: (projectId: string, data: Partial<Project>) => void;
   onLogout: () => void;
   notify: (msg: string, type: ToastType) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onLogout, notify }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onEditProject, onLogout, notify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
+  // Edit State
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editClient, setEditClient] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+
+  // Share State
+  const [sharingProject, setSharingProject] = useState<Project | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+
   // Deletion State
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  // Form State
+  // Form State (Create)
   const [name, setName] = useState('');
   const [client, setClient] = useState('');
   const [description, setDescription] = useState('');
@@ -30,24 +41,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   // Role Checks
   const isGuest = currentUser.role === UserRole.GUEST;
   // Admin in global scope means "Registered User". 
-  // We use this to allow "New Project" button.
   const isAccountHolder = currentUser.role === UserRole.ADMIN;
 
   // --- FILTERING LOGIC ---
   const myProjects = projects.filter(p => p.ownerId === currentUser.id);
-
-  // Shared projects are ones where I am NOT the owner, but I am in the team.
   const sharedProjects = projects.filter(p => p.ownerId !== currentUser.id && p.team.some(member => member.id === currentUser.id));
 
   // PERMISSION CHECKS
-  // Only Account Holders (Google Users) can create projects. Guests cannot.
   const canCreateProject = isAccountHolder;
-  
-  // SAAS UPDATE:
-  // Strictly check ownership. Being a global "Admin" doesn't mean you own other people's projects.
-  const canDeleteProject = (project: Project) => {
-      return project.ownerId === currentUser.id;
-  };
+  const isOwner = (project: Project) => project.ownerId === currentUser.id;
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +67,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
         updatedAt: 'Just now',
         team: [currentUser],
         ownerId: currentUser.id,
-        assets: []
+        assets: [],
+        isLocked: false
       };
 
       onAddProject(newProject);
@@ -76,6 +79,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
       setClient('');
       setDescription('');
     }, 800);
+  };
+
+  const handleOpenEdit = (e: React.MouseEvent, project: Project) => {
+      e.stopPropagation();
+      setEditingProject(project);
+      setEditName(project.name);
+      setEditClient(project.client);
+      setEditDesc(project.description);
+  };
+
+  const handleSubmitEdit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingProject) return;
+      onEditProject(editingProject.id, {
+          name: editName,
+          client: editClient,
+          description: editDesc
+      });
+      setEditingProject(null);
+  };
+
+  const handleToggleLock = (e: React.MouseEvent, project: Project) => {
+      e.stopPropagation();
+      onEditProject(project.id, { isLocked: !project.isLocked });
+  };
+
+  const handleShareClick = (e: React.MouseEvent, project: Project) => {
+      e.stopPropagation();
+      setSharingProject(project);
+  };
+
+  const handleCopyLink = () => {
+      if (!sharingProject) return;
+      const url = `${window.location.origin}?projectId=${sharingProject.id}`;
+      navigator.clipboard.writeText(url);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+      notify("Link copied!", "success");
   };
 
   const handleDeleteClick = async (e: React.MouseEvent, project: Project) => {
@@ -138,6 +179,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                     {projectList.map((project) => {
                         const expired = project.createdAt ? isExpired(project.createdAt) : false;
                         const daysLeft = project.createdAt ? getDaysRemaining(project.createdAt) : 7;
+                        const locked = project.isLocked;
+                        const userIsOwner = isOwner(project);
                         
                         return (
                         <div 
@@ -156,36 +199,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                 </div>
                             )}
 
-                            {project.createdAt && daysLeft <= 2 && !expired && (
-                                <div className="absolute top-2 right-2 z-10 bg-orange-500/10 text-orange-500 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20 flex items-center gap-1">
-                                    <CalendarClock size={10} />
-                                    {daysLeft}d left
-                                </div>
-                            )}
-                            {expired && (
-                                <div className="absolute top-2 right-2 z-10 bg-red-500/10 text-red-500 text-[9px] px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
-                                    <AlertTriangle size={10} />
-                                    Expired
-                                </div>
-                            )}
-
-
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5">
-                                    {project.client}
-                                </div>
-                                {canDeleteProject(project) && (
-                                    <button 
-                                        onClick={(e) => handleDeleteClick(e, project)}
-                                        className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-red-500/10 rounded"
-                                        title="Delete Project & Files"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                            {/* Status Badges */}
+                            <div className="absolute top-2 right-2 z-10 flex gap-1">
+                                {locked && (
+                                     <div className="bg-red-500/10 text-red-500 p-1 rounded border border-red-500/20" title="Project Locked">
+                                        <Lock size={12} />
+                                    </div>
+                                )}
+                                {project.createdAt && daysLeft <= 2 && !expired && (
+                                    <div className="bg-orange-500/10 text-orange-500 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20 flex items-center gap-1">
+                                        <CalendarClock size={10} />
+                                        {daysLeft}d left
+                                    </div>
+                                )}
+                                {expired && (
+                                    <div className="bg-red-500/10 text-red-500 text-[9px] px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
+                                        <AlertTriangle size={10} />
+                                        Expired
+                                    </div>
                                 )}
                             </div>
 
-                            <h3 className={`text-base font-bold mb-1 truncate transition-colors ${expired ? 'text-zinc-500' : 'text-zinc-100 group-hover:text-indigo-400'}`}>
+
+                            <div className="flex justify-between items-start mb-2 pr-12">
+                                <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 mb-0.5 truncate max-w-[120px]">
+                                    {project.client}
+                                </div>
+                            </div>
+
+                            <h3 className={`text-base font-bold mb-1 truncate transition-colors pr-8 ${expired ? 'text-zinc-500' : 'text-zinc-100 group-hover:text-indigo-400'}`}>
                                 {project.name}
                             </h3>
                             <p className="text-xs text-zinc-500 mb-4 line-clamp-2 leading-relaxed">
@@ -209,17 +251,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                         </div>
                                     )}
                                 </div>
-
-                                <div className="flex items-center gap-3">
+                                
+                                {userIsOwner && (
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={(e) => handleToggleLock(e, project)}
+                                            className={`p-1.5 rounded hover:bg-zinc-800 ${project.isLocked ? 'text-red-400' : 'text-zinc-500 hover:text-white'}`}
+                                            title={project.isLocked ? "Unlock Project" : "Lock Project"}
+                                        >
+                                            {project.isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                                        </button>
+                                        <button 
+                                            onClick={(e) => handleOpenEdit(e, project)}
+                                            className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded"
+                                            title="Edit Details"
+                                        >
+                                            <Edit2 size={14} />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => handleShareClick(e, project)}
+                                            className="p-1.5 text-zinc-500 hover:text-indigo-400 hover:bg-zinc-800 rounded"
+                                            title="Share Project"
+                                        >
+                                            <Share2 size={14} />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => handleDeleteClick(e, project)}
+                                            className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded"
+                                            title="Delete Project"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {!userIsOwner && (
                                     <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
                                         <FileVideo size={12} />
                                         <span>{project.assets.length}</span>
                                     </div>
-                                    <div className="flex items-center gap-1 text-[10px] text-zinc-600">
-                                        <Clock size={10} />
-                                        <span>{project.updatedAt}</span>
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     )})}
@@ -295,6 +366,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
         </div>
       </div>
 
+      {/* CREATE MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200">
@@ -307,65 +379,82 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             
             <form onSubmit={handleCreateProject} className="p-6">
               <h2 className="text-xl font-bold text-white mb-6">New Project</h2>
-              
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1.5">Project Name</label>
-                  <input 
-                    autoFocus
-                    type="text" 
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Summer Campaign 2024"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all"
-                  />
+                  <input autoFocus type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Summer Campaign 2024" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all" />
                 </div>
-                
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1.5">Client Name</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={client}
-                    onChange={(e) => setClient(e.target.value)}
-                    placeholder="e.g. Acme Corp"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all"
-                  />
+                  <input type="text" required value={client} onChange={(e) => setClient(e.target.value)} placeholder="e.g. Acme Corp" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all" />
                 </div>
-
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1.5">Description</label>
-                  <textarea 
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Brief details about the project..."
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all resize-none h-24"
-                  />
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief details about the project..." className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all resize-none h-24" />
                 </div>
               </div>
-
               <div className="mt-8 flex justify-end gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isCreating || !name || !client}
-                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors"
-                >
-                  {isCreating && <Loader2 size={14} className="animate-spin" />}
-                  {isCreating ? 'Creating...' : 'Create Project'}
-                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">Cancel</button>
+                <button type="submit" disabled={isCreating || !name || !client} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors">{isCreating && <Loader2 size={14} className="animate-spin" />}{isCreating ? 'Creating...' : 'Create Project'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* EDIT MODAL */}
+      {editingProject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200">
+                <button onClick={() => setEditingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
+                <form onSubmit={handleSubmitEdit} className="p-6">
+                    <h2 className="text-xl font-bold text-white mb-6">Edit Project</h2>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Project Name</label>
+                            <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Client Name</label>
+                            <input type="text" required value={editClient} onChange={(e) => setEditClient(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Description</label>
+                            <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none resize-none h-24" />
+                        </div>
+                    </div>
+                    <div className="mt-8 flex justify-end gap-3">
+                        <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800">Cancel</button>
+                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2"><Save size={14} /> Save Changes</button>
+                    </div>
+                </form>
+            </div>
+          </div>
+      )}
+
+      {/* SHARE MODAL */}
+      {sharingProject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-200 p-6">
+                <button onClick={() => setSharingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400"><Share2 size={18} /></div>
+                    <h2 className="text-lg font-bold text-white">Share Project</h2>
+                </div>
+                <p className="text-xs text-zinc-400 mb-4">Share this link with your client or team.</p>
+                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 mb-2">
+                    <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Project Link</div>
+                    <div className="flex items-center gap-2">
+                        <input type="text" readOnly value={`${window.location.origin}?projectId=${sharingProject.id}`} className="bg-transparent flex-1 text-xs text-zinc-300 outline-none truncate font-mono" />
+                        <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-medium ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
+                            {isCopied ? <Check size={12} /> : <Copy size={12} />}{isCopied ? 'Copied' : 'Copy'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+          </div>
+      )}
+
     </div>
   );
 };

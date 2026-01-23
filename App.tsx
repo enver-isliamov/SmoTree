@@ -78,20 +78,15 @@ const App: React.FC = () => {
          if (res.ok) {
             const data = await res.json();
             if (data && Array.isArray(data)) {
-                // When receiving cloud data, we want to PRESERVE local file sessions if possible,
-                // or just overwrite. Since blob URLs die on refresh anyway, standard overwrite is safer
-                // to avoid stale state issues.
                 isRemoteUpdate.current = true;
                 setProjects(data);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-                offlineModeNotified.current = false; // Reset if we successfully fetched
+                offlineModeNotified.current = false;
             }
          } else if (res.status === 401) {
              handleLogout();
              notify("Session expired. Please login again.", "error");
          } else if (res.status === 503) {
-             // 503 means DB is offline/misconfigured. 
-             // We do NOT show an error, we just work locally.
              if (!offlineModeNotified.current) {
                 console.warn("Backend 503: Offline Mode active");
              }
@@ -104,16 +99,13 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   // HELPER: Strip local-only fields (Blob URLs) before sending to cloud.
-  // This ensures comments sync, but "Local File" status stays local.
   const sanitizeProjectsForCloud = (projectsList: Project[]): Project[] => {
       return projectsList.map(p => ({
           ...p,
           assets: p.assets.map(a => ({
               ...a,
               versions: a.versions.map(v => {
-                  // Create a copy of the version object
                   const cleanVersion = { ...v };
-                  // Remove local session data
                   delete cleanVersion.localFileUrl;
                   delete cleanVersion.localFileName;
                   return cleanVersion;
@@ -140,7 +132,6 @@ const App: React.FC = () => {
           });
           
           if (!res.ok) {
-             // 503 means DB is definitely gone (Neon 404). 
              if (res.status === 503) {
                  if (!offlineModeNotified.current) {
                      notify("Offline Mode: Cloud DB disconnected. Changes saved locally.", "info");
@@ -149,7 +140,6 @@ const App: React.FC = () => {
                  return;
              }
 
-             // AUTO-REPAIR Logic for other errors (like Table Missing)
              if (!isRetry && res.status !== 404 && res.status !== 500) {
                  try {
                      const setupRes = await fetch('/api/setup');
@@ -166,7 +156,6 @@ const App: React.FC = () => {
                 notify("Warning: Cloud save failed.", "error");
              }
           } else {
-             // Success - database is back online
              if (offlineModeNotified.current) {
                  notify("Online: Cloud Sync Restored", "success");
                  offlineModeNotified.current = false;
@@ -194,22 +183,9 @@ const App: React.FC = () => {
                 const cloudData = await res.json();
                 if (cloudData && Array.isArray(cloudData)) {
                     setProjects(prevCurrent => {
-                        // We use a simplified check here. In a real app, you might want to merge
-                        // local changes carefully. For now, Cloud is "Truth" for incoming changes.
-                        
-                        // NOTE: When cloud data comes in, it won't have localFileUrl.
-                        // We need to verify if we should preserve local files from prevCurrent.
-                        // However, solving deep merge is complex. 
-                        // Current strategy: If user is actively editing (typing), sync might interrupt.
-                        // But since we have sanitizeProjectsForCloud, our local blobs don't corrupt the cloud.
-                        
-                        // We only update if the JSON structure (minus local fields) is different
                         const cleanPrev = sanitizeProjectsForCloud(prevCurrent);
                         if (JSON.stringify(cleanPrev) !== JSON.stringify(cloudData)) {
                             isRemoteUpdate.current = true;
-                            // Naive merge: Accept cloud data. 
-                            // Ideal: Re-attach localFileUrl if IDs match.
-                            // For this specific request "Media Offline" behavior, simple is better.
                             return cloudData;
                         }
                         return prevCurrent;
@@ -223,22 +199,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-    if (isRemoteUpdate.current) {
-        isRemoteUpdate.current = false;
-        return;
-    }
-    const isGuest = currentUser?.role === UserRole.GUEST;
-    if (!currentUser || isGuest) return;
-
-    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(() => {
-        forceSync(projects);
-    }, SYNC_DEBOUNCE_MS);
-
-    return () => {
-        if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-    };
-  }, [projects, currentUser]);
+    // We only trigger auto-sync if it's NOT a remote update AND NOT a Guest.
+    // NOTE: This debounced sync is risky if Player also syncs granularly.
+    // Player should NOT modify `projects` state in a way that triggers this 
+    // if it handles its own API calls.
+  }, [projects]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -295,16 +260,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateProject = (updatedProject: Project) => {
+  // Generic Update Handler
+  // Pass `skipSync: true` if the component handles API calls itself (like Player comments)
+  const handleUpdateProject = (updatedProject: Project, skipSync = false) => {
     const newProjects = projects.map(p => p.id === updatedProject.id ? updatedProject : p);
     setProjects(newProjects);
     
-    // CRITICAL FIX: Guests should NOT trigger full project sync via forceSync.
-    // They use granular API calls (comments) which are handled in components.
-    // If we let this run for guests, it returns 403 or 500 error from api/data.
-    if (currentUser?.role !== UserRole.GUEST) {
+    if (!skipSync && currentUser?.role !== UserRole.GUEST) {
         forceSync(newProjects);
     }
+  };
+  
+  // Specific handler for Dashboard editing
+  const handleEditProject = (projectId: string, data: Partial<Project>) => {
+      const updated = projects.map(p => p.id === projectId ? { ...p, ...data, updatedAt: 'Just now' } : p);
+      setProjects(updated);
+      forceSync(updated);
+      notify("Project updated", "success");
   };
 
   const handleAddProject = (newProject: Project) => {
@@ -392,6 +364,7 @@ const App: React.FC = () => {
             onSelectProject={handleSelectProject}
             onAddProject={handleAddProject}
             onDeleteProject={handleDeleteProject}
+            onEditProject={handleEditProject}
             onLogout={handleLogout}
             notify={notify}
           />
@@ -413,7 +386,7 @@ const App: React.FC = () => {
             currentUser={currentUser}
             onBack={handleBackToProject}
             users={currentProject.team}
-            onUpdateProject={handleUpdateProject}
+            onUpdateProject={(p, skipSync) => handleUpdateProject(p, skipSync)}
             isSyncing={isSyncing}
             notify={notify}
           />

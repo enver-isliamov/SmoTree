@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
 import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
-import { generateId } from '../services/utils';
+import { generateId, stringToColor } from '../services/utils';
 import { ToastType } from './Toast';
 
 interface PlayerProps {
@@ -12,30 +12,26 @@ interface PlayerProps {
   currentUser: User;
   onBack: () => void;
   users: User[];
-  onUpdateProject: (project: Project) => void;
+  onUpdateProject: (project: Project, skipSync?: boolean) => void;
   isSyncing: boolean;
   notify: (msg: string, type: ToastType) => void;
 }
 
 const VALID_FPS = [23.976, 24, 25, 29.97, 30, 50, 60];
 
-// SAAS UPDATE:
-// Check permission based on Project Context.
-// Manager = Project Owner OR Team Member (Non-Guest).
-// Guests are strictly read-only + comments.
 const canManageProject = (user: User, project: Project) => {
     if (user.role === UserRole.GUEST) return false;
-    
     const isOwner = project.ownerId === user.id;
     const isTeamMember = project.team.some(m => m.id === user.id);
-    
     return isOwner || isTeamMember;
 };
 
 export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onBack, users, onUpdateProject, isSyncing, notify }) => {
   const [currentVersionIdx, setCurrentVersionIdx] = useState(asset.currentVersionIndex);
   const version = asset.versions[currentVersionIdx] || asset.versions[0];
-  const isLocked = version.isLocked || false;
+  
+  // Project-level lock takes precedence, then Version-level lock
+  const isLocked = project.isLocked || version.isLocked || false;
   
   // View State
   const [viewMode, setViewMode] = useState<'single' | 'side-by-side' | 'overlay'>('single');
@@ -151,7 +147,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setComments(version.comments || []);
   }, [version.comments]);
 
-  // CRITICAL FIX: Only reset state when the Version ID changes, NOT when comments (and thus the version object) updates.
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
@@ -164,11 +159,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setIsFpsDetected(false);
     setIsVerticalVideo(false);
     
-    // Check if we switched versions to see if local file is valid
     if (version.localFileUrl) {
         setLocalFileSrc(version.localFileUrl);
         setLocalFileName(version.localFileName || 'Local File');
-        // Do NOT blindly set videoError to false here, wait for load
     } else {
         setLocalFileSrc(null);
         setLocalFileName(null);
@@ -179,7 +172,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         videoRef.current.currentTime = 0;
         videoRef.current.load();
     }
-  }, [version.id]); // <--- Only depend on ID
+  }, [version.id]);
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -193,12 +186,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     const handleOrientationChange = () => {
         const isLandscape = window.matchMedia("(orientation: landscape)").matches;
         const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-        if (isMobile) {
-            if (isLandscape) {
-                 toggleFullScreen(true);
-            }
-        }
+        if (isMobile && isLandscape) toggleFullScreen(true);
     };
 
     document.addEventListener('fullscreenchange', handleFsChange);
@@ -212,17 +200,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   useEffect(() => {
     if (!isPlaying && !isScrubbing) return;
-
     const activeComment = comments.find(c => {
          const duration = c.duration || 3;
          return currentTime >= c.timestamp && currentTime < (c.timestamp + duration);
     });
-
     if (activeComment) {
         const el = document.getElementById(`comment-${activeComment.id}`);
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [currentTime, isPlaying, isScrubbing, comments]);
 
@@ -239,25 +223,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           const now = performance.now();
           const delta = now - fpsDetectionRef.current.lastTime;
           fpsDetectionRef.current.lastTime = now;
-          
           if (delta > 5 && delta < 100) {
               fpsDetectionRef.current.frames.push(delta);
           }
-
           if (fpsDetectionRef.current.frames.length > 30) {
               const avgDelta = fpsDetectionRef.current.frames.reduce((a, b) => a + b, 0) / fpsDetectionRef.current.frames.length;
               const estimatedFps = 1000 / avgDelta;
-              
               const closest = VALID_FPS.reduce((prev, curr) => 
                 Math.abs(curr - estimatedFps) < Math.abs(prev - estimatedFps) ? curr : prev
               );
-
               setVideoFps(closest);
               setIsFpsDetected(true);
               fpsDetectionRef.current.active = false;
           }
       }
-
       if (compareVideoRef.current && Math.abs(compareVideoRef.current.currentTime - videoRef.current.currentTime) > 0.1) {
          compareVideoRef.current.currentTime = videoRef.current.currentTime;
       }
@@ -270,18 +249,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       animationFrameRef.current = requestAnimationFrame(updateTimeLoop);
       if (!isFpsDetected) startFpsDetection();
     } else {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       fpsDetectionRef.current.active = false;
     }
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, [isPlaying, updateTimeLoop, isFpsDetected]);
-
 
   const filteredComments = comments.filter(c => {
     return c.text.toLowerCase().includes(searchQuery.toLowerCase());
@@ -316,24 +290,19 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleLocalFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
         const file = e.target.files[0];
-        
         if (file.name !== version.filename) {
             const confirmed = window.confirm(
                 `Filename Mismatch Warning!\n\nExpected: "${version.filename}"\nSelected: "${file.name}"\n\nThe comments might be out of sync. Continue?`
             );
-            
             if (!confirmed) {
                 if (localFileRef.current) localFileRef.current.value = ''; 
                 return;
             }
         }
-
         const url = URL.createObjectURL(file);
-        
         setLocalFileSrc(url);
         setLocalFileName(file.name);
         setVideoError(false);
-
         persistLocalFile(url, file.name);
         notify("Local file linked successfully", "success");
     }
@@ -344,33 +313,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       notify("Voice input is not supported in this browser.", "error");
       return;
     }
-
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = navigator.language || 'en-US';
     recognition.continuous = false;
     recognition.interimResults = true;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
+    recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event: any) => {
       let finalTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        }
+        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
       }
-      if (finalTranscript) {
-          setNewCommentText(prev => prev ? `${prev} ${finalTranscript}` : finalTranscript);
-      }
+      if (finalTranscript) setNewCommentText(prev => prev ? `${prev} ${finalTranscript}` : finalTranscript);
     };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
+    recognition.onend = () => setIsListening(false);
     recognition.start();
     recognitionRef.current = recognition;
   };
@@ -382,9 +338,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const toggleListening = () => {
     if (isLocked) return;
-    if (isListening) {
-      stopListening();
-    } else {
+    if (isListening) stopListening();
+    else {
       if (isPlaying) togglePlay(); 
       startListening();
     }
@@ -404,7 +359,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (videoRef.current) {
       shouldPlay ? videoRef.current.play().catch(() => setIsPlaying(false)) : videoRef.current.pause();
     }
-    
     if (viewMode !== 'single' && compareVideoRef.current) {
        shouldPlay ? compareVideoRef.current.play().catch(() => {}) : compareVideoRef.current.pause();
     }
@@ -412,7 +366,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const toggleFullScreen = (forceEnter?: boolean) => {
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    
     if (!isIOS && document.fullscreenEnabled) {
         if (forceEnter || !document.fullscreenElement) {
             playerContainerRef.current?.requestFullscreen().catch(() => setIsFullscreen(true));
@@ -484,16 +437,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handlePointerDown = (e: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
     if (videoError || showVoiceModal) return;
     if ((e.target as HTMLElement).closest('.floating-controls')) return;
-
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.PointerEvent).clientX;
-    
-    scrubStartDataRef.current = {
-        x: clientX,
-        time: currentTime,
-        wasPlaying: isPlaying
-    };
+    scrubStartDataRef.current = { x: clientX, time: currentTime, wasPlaying: isPlaying };
     isDragRef.current = false; 
-
     if (isPlaying) {
         setIsPlaying(false);
         videoRef.current?.pause();
@@ -502,36 +448,25 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const handlePointerMove = (e: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
     if (!scrubStartDataRef.current) return;
-    
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.PointerEvent).clientX;
     const diffX = clientX - scrubStartDataRef.current.x;
-
     if (Math.abs(diffX) > 5) {
         isDragRef.current = true;
         if (!isScrubbing) setIsScrubbing(true);
     }
-
     if (isScrubbing) {
         const frameTime = 1 / videoFps;
         const framesMoved = diffX / 10; 
         const timeDiff = framesMoved * frameTime;
-        
         const newTime = Math.max(0, Math.min(duration, scrubStartDataRef.current.time + timeDiff));
-        
         setCurrentTime(newTime);
-        if (videoRef.current) {
-            videoRef.current.currentTime = newTime;
-        }
+        if (videoRef.current) videoRef.current.currentTime = newTime;
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
     if (!scrubStartDataRef.current) return;
-
-    if (!isDragRef.current) {
-        togglePlay();
-    }
-
+    if (!isDragRef.current) togglePlay();
     setIsScrubbing(false);
     scrubStartDataRef.current = null;
     isDragRef.current = false;
@@ -551,28 +486,21 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (isLocked) return;
     e.stopPropagation();
     setMarkerInPoint(currentTime);
-    if (markerOutPoint !== null && markerOutPoint <= currentTime) {
-      setMarkerOutPoint(null);
-    }
+    if (markerOutPoint !== null && markerOutPoint <= currentTime) setMarkerOutPoint(null);
   };
 
   const handleSetOutPoint = (e: React.MouseEvent) => {
     if (isLocked) return;
     e.stopPropagation();
     const outTime = currentTime;
-    if (markerInPoint !== null && outTime > markerInPoint) {
-      setMarkerOutPoint(outTime);
-    } else {
+    if (markerInPoint !== null && outTime > markerInPoint) setMarkerOutPoint(outTime);
+    else {
       if (markerInPoint === null) setMarkerInPoint(Math.max(0, outTime - 5));
       setMarkerOutPoint(outTime);
     }
-
     if (isPlaying) togglePlay();
-    if (isFullscreen) {
-        setShowVoiceModal(true);
-    } else {
-        setTimeout(() => sidebarInputRef.current?.focus(), 100);
-    }
+    if (isFullscreen) setShowVoiceModal(true);
+    else setTimeout(() => sidebarInputRef.current?.focus(), 100);
     startListening(); 
   };
   
@@ -582,20 +510,15 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setMarkerInPoint(currentTime);
       setMarkerOutPoint(null);
       if (isPlaying) togglePlay();
-
-      if (isFullscreen) {
-          setShowVoiceModal(true);
-      } else {
-          setTimeout(() => sidebarInputRef.current?.focus(), 100);
-      }
+      if (isFullscreen) setShowVoiceModal(true);
+      else setTimeout(() => sidebarInputRef.current?.focus(), 100);
       startListening();
   };
 
   const closeVoiceModal = (save: boolean) => {
       stopListening();
-      if (save) {
-          handleAddComment();
-      } else {
+      if (save) handleAddComment();
+      else {
           setMarkerInPoint(null);
           setMarkerOutPoint(null);
           setNewCommentText('');
@@ -608,6 +531,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setMarkerOutPoint(null);
   };
 
+  // UPDATED: persistComments handles LOCAL updates, but calls onUpdateProject with skipSync=true for comments.
   const persistComments = (updatedComments: Comment[]) => {
     setComments(updatedComments);
     const updatedVersions = [...asset.versions];
@@ -617,22 +541,22 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (!updatedTeam.some(u => u.id === currentUser.id)) {
        updatedTeam = [...updatedTeam, currentUser];
     }
-    onUpdateProject({ ...project, assets: updatedAssets, team: updatedTeam });
+    
+    // IMPORTANT: Skip forceSync for comments to prevent overwriting server state with stale client data.
+    // The separate syncCommentAction API handles persistence.
+    onUpdateProject({ ...project, assets: updatedAssets, team: updatedTeam }, true);
   };
 
   const handleAddComment = () => {
     if (!newCommentText.trim() || isLocked) return;
-
     const timestamp = markerInPoint !== null ? markerInPoint : currentTime;
     let commentDuration = undefined;
-    if (markerOutPoint !== null && markerInPoint !== null) {
-      commentDuration = markerOutPoint - markerInPoint;
-    }
+    if (markerOutPoint !== null && markerInPoint !== null) commentDuration = markerOutPoint - markerInPoint;
 
     const newComment: Comment = {
       id: `nc-${generateId()}`,
       userId: currentUser.id,
-      authorName: currentUser.name, // SAVE NAME PERSISTENTLY
+      authorName: currentUser.name, 
       timestamp: timestamp,
       duration: commentDuration,
       text: newCommentText,
@@ -643,22 +567,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     persistComments([...comments, newComment]);
     syncCommentAction('create', newComment); 
     notify("Comment added", "success");
-    
     setNewCommentText('');
     setMarkerInPoint(null);
     setMarkerOutPoint(null);
-    
-    // Don't auto-resume play here if the user wants to stay on the frame, but previous logic was:
-    if (videoRef.current) {
-        // videoRef.current.play().catch(e => console.log('Playback resume failed', e));
-        // setIsPlaying(true);
-        // Changed per request: Player should NOT jump or reset. 
-        // It should stay at current position. We just removed auto-play resume.
-    }
-
-    setTimeout(() => {
-        commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
 
   const startEditing = (comment: Comment) => {
@@ -715,7 +627,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   
   const handleBulkResolve = () => {
       if (!confirm(`Mark ${filteredComments.filter(c => c.status === CommentStatus.OPEN).length} comments as resolved?`)) return;
-      
       const updated = comments.map(c => {
           const isVisible = filteredComments.some(fc => fc.id === c.id);
           if (isVisible && c.status === CommentStatus.OPEN) {
@@ -730,11 +641,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const handleToggleLock = () => {
       if (!isManager) return;
-      const newLockState = !isLocked;
+      // Note: This function only locks the VERSION, not the project.
+      const newLockState = !version.isLocked;
       const updatedVersions = [...asset.versions];
       updatedVersions[currentVersionIdx] = { ...updatedVersions[currentVersionIdx], isLocked: newLockState };
       const updatedAssets = project.assets.map(a => a.id === asset.id ? { ...a, versions: updatedVersions } : a);
       
+      // Locking is a structural change, so we ALLOW sync here (skipSync=false)
       onUpdateProject({ ...project, assets: updatedAssets });
       notify(newLockState ? "Version locked" : "Version unlocked", "info");
   };
@@ -752,11 +665,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     const currentY = e.touches[0].clientY;
     const diffX = currentX - touchStartRef.current.x;
     const diffY = currentY - touchStartRef.current.y;
-
     if (Math.abs(diffX) > Math.abs(diffY)) {
-        if (Math.abs(diffX) > 10) {
-            e.preventDefault(); 
-        }
+        if (Math.abs(diffX) > 10) e.preventDefault(); 
         const limitedOffset = Math.max(-100, Math.min(100, diffX));
         setSwipeOffset(limitedOffset);
     }
@@ -764,17 +674,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const handleTouchEnd = (commentId: string) => {
       if (!swipeCommentId) return;
-      
       const isOwner = comments.find(c => c.id === commentId)?.userId === currentUser.id;
       const canDelete = isManager || isOwner;
       const canEdit = isOwner || (isManager && currentUser.role === UserRole.ADMIN);
 
       if (swipeOffset < -60) {
-          if (canDelete) {
-              handleDeleteComment(commentId);
-          } else {
-              setSwipeOffset(0);
-          }
+          if (canDelete) handleDeleteComment(commentId);
+          else setSwipeOffset(0);
       } else if (swipeOffset > 60) {
           if (canEdit) {
               const c = comments.find(com => com.id === commentId);
@@ -789,33 +695,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       touchStartRef.current = null;
   };
 
-  // Improved Author lookup:
-  // 1. Check persisted name (Best for deleted/removed users)
-  // 2. Check current team list (Backwards compatibility)
-  // 3. Fallback to "Unknown" (NEVER default to currentUser blindly)
   const getAuthorDisplay = (comment: Comment): { name: string, role: UserRole | 'Unknown' } => {
-      // Priority 1: Persisted Name
       if (comment.authorName) {
-           // Try to find role if they are still in team
            const teamMember = users.find(u => u.id === comment.userId);
            return { 
                name: comment.authorName, 
-               role: teamMember ? teamMember.role : 'Unknown' // Or 'Unknown' if we don't know role anymore
+               role: teamMember ? teamMember.role : 'Unknown'
            };
       }
-
-      // Priority 2: Active Team Lookup
       const teamMember = users.find(u => u.id === comment.userId);
-      if (teamMember) {
-          return { name: teamMember.name, role: teamMember.role };
-      }
-
-      // Priority 3: Is it me?
-      if (comment.userId === currentUser.id) {
-          return { name: currentUser.name, role: currentUser.role };
-      }
-
-      // Fallback
+      if (teamMember) return { name: teamMember.name, role: teamMember.role };
+      if (comment.userId === currentUser.id) return { name: currentUser.name, role: currentUser.role };
       return { name: 'Unknown User', role: 'Unknown' };
   };
 
@@ -967,9 +857,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              <div className="absolute bottom-24 lg:bottom-12 left-4 z-20 flex flex-col items-start gap-2 pointer-events-none w-[80%] md:w-[60%] lg:w-[40%]">
                  {activeOverlayComments.map(c => {
                     const author = getAuthorDisplay(c);
+                    const color = stringToColor(c.userId);
                     return (
                         <div key={c.id} className="bg-black/60 text-white px-3 py-1.5 rounded-lg text-sm backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 border border-white/5 shadow-lg max-w-full break-words">
-                            <span className="font-bold text-indigo-400 mr-2 text-xs uppercase">{author.name.split(' ')[0]}:</span>
+                            <span style={{ color: color }} className="font-bold mr-2 text-xs uppercase">{author.name.split(' ')[0]}:</span>
                             <span className="text-zinc-100">{c.text}</span>
                         </div>
                     );
@@ -1110,11 +1001,19 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                   const left = (c.timestamp / duration) * 100;
                   const width = c.duration ? (c.duration / duration) * 100 : 0.5;
                   const colorClass = c.status === 'resolved' ? 'bg-green-500' : 'bg-yellow-500';
+                  // Use unique color for timeline marker
+                  const userColor = stringToColor(c.userId);
+                  
                   return (
                     <div 
                       key={c.id}
-                      className={`absolute top-1/2 -translate-y-1/2 h-2.5 rounded-sm z-10 opacity-80 pointer-events-none ${colorClass}`}
-                      style={{ left: `${left}%`, width: `${Math.max(0.5, width)}%`, minWidth: '4px' }}
+                      className={`absolute top-1/2 -translate-y-1/2 h-2.5 rounded-sm z-10 opacity-80 pointer-events-none`}
+                      style={{ 
+                          left: `${left}%`, 
+                          width: `${Math.max(0.5, width)}%`, 
+                          minWidth: '4px',
+                          backgroundColor: c.status === 'resolved' ? '#22c55e' : userColor
+                      }}
                     />
                   );
                 })}
@@ -1154,10 +1053,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                              <>
                                 <button 
                                     onClick={handleToggleLock}
-                                    className={`p-1.5 rounded transition-colors ${isLocked ? 'bg-red-900/20 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                                    title={isLocked ? "Unlock Comments" : "Lock Comments"}
+                                    className={`p-1.5 rounded transition-colors ${version.isLocked ? 'bg-red-900/20 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                                    title={version.isLocked ? "Unlock Comments" : "Lock Comments"}
                                 >
-                                    {isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                                    {version.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
                                 </button>
                                  <div className="relative">
                                      <button 
@@ -1222,6 +1121,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         const offset = isSwiping ? swipeOffset : 0;
 
                         const isActive = currentTime >= comment.timestamp && currentTime < (comment.timestamp + (comment.duration || 3));
+                        
+                        // Generate consistent color for this user
+                        const userColor = stringToColor(comment.userId);
 
                         return (
                         <div key={comment.id} className="relative group/wrapper" id={`comment-${comment.id}`}>
@@ -1260,7 +1162,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             >
                                 <div className="flex justify-between items-start mb-1">
                                     <div className="flex items-center gap-2">
-                                        <span className={`font-semibold ${isGuestComment ? 'text-orange-200' : 'text-zinc-200'}`}>
+                                        <span className="font-semibold" style={{ color: userColor }}>
                                             {author.name.split(' ')[0]}
                                         </span>
                                         
