@@ -22,10 +22,22 @@ export default async function handler(req, res) {
         console.log("✅ Connection Successful");
     } catch (connErr) {
         console.error("❌ Connection Failed:", connErr);
+        
+        let hint = "The Vercel Postgres database might be suspended or credentials are invalid.";
+        
+        // Handle specific Neon "Not Found" error (HTTP 404 from DB proxy)
+        if (connErr.message && connErr.message.includes('HTTP status 404')) {
+            hint = "CRITICAL: The Database URL in your environment variables points to a database that does not exist or has been deleted. Please go to Vercel Dashboard -> Storage -> Connect Store, then Redeploy.";
+        }
+
+        // Masked URL for debugging
+        const maskedUrl = process.env.POSTGRES_URL ? process.env.POSTGRES_URL.replace(/:[^:@]+@/, ':****@') : 'N/A';
+
         return res.status(500).json({
             error: "Database Connection Failed",
             details: connErr.message,
-            hint: "The Vercel Postgres database might be suspended or credentials are invalid."
+            hint: hint,
+            debugUrl: maskedUrl
         });
     }
 
