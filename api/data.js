@@ -50,26 +50,34 @@ export default async function handler(req, res) {
   // GET: Retrieve Projects for this User
   if (req.method === 'GET') {
     try {
-      // Allow if: User is Owner OR User is in Team
+      // FIX: Replaced the brittle `@>` operator with explicit array iteration using EXISTS.
+      // This prevents "invalid input syntax" errors when casting parameters to jsonb.
+      // Also added check ensuring 'team' is actually an array to prevent crashes on bad data.
+      
       const { rows } = await client.sql`
         SELECT data FROM projects 
         WHERE owner_id = ${user.id} 
-        OR data->'team' @> ${JSON.stringify([{ id: user.id }])}::jsonb;
+        OR (
+            jsonb_typeof(data->'team') = 'array' 
+            AND EXISTS (
+                SELECT 1 
+                FROM jsonb_array_elements(data->'team') AS member 
+                WHERE member->>'id' = ${user.id}
+            )
+        );
       `;
       
       const projects = rows.map(r => r.data);
       return res.status(200).json(projects);
     } catch (error) {
-       console.error("DB Read Error", error);
-       return res.status(500).json({ error: error.message });
+       // Detailed logging for Vercel Dashboard
+       console.error("DB Read Error DETAILS:", error); 
+       return res.status(500).json({ error: error.message, details: error.toString() });
     }
   } 
   
   // POST: Sync Projects (Upsert)
   if (req.method === 'POST') {
-    // SECURITY UPDATE: 
-    // Allow Google Verified users OR Manual Admins (ID starts with 'admin-') to save data.
-    // This enables the "Continue as Guest/Admin" flow to actually work with the DB.
     const isManualAdmin = user.id.startsWith('admin-');
     
     if (!user.isVerified && !isManualAdmin) {
@@ -84,23 +92,26 @@ export default async function handler(req, res) {
       }
 
       for (const project of projectsToSync) {
-          // Double check ownership/membership
           const isOwner = project.ownerId === user.id;
           const isTeam = project.team && project.team.some(m => m.id === user.id);
           
           if (isOwner || isTeam) {
+              // Ensure we are saving valid JSON string.
+              // Note: We cast to ::jsonb explicitly on the stringified object.
+              const projectJson = JSON.stringify(project);
+              
               await client.sql`
                 INSERT INTO projects (id, owner_id, data, updated_at, created_at)
                 VALUES (
                     ${project.id}, 
                     ${project.ownerId || user.id}, 
-                    ${JSON.stringify(project)}::jsonb, 
+                    ${projectJson}::jsonb, 
                     ${Date.now()}, 
                     ${project.createdAt || Date.now()}
                 )
                 ON CONFLICT (id) 
                 DO UPDATE SET 
-                    data = ${JSON.stringify(project)}::jsonb,
+                    data = ${projectJson}::jsonb,
                     updated_at = ${Date.now()};
               `;
           }
@@ -108,7 +119,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ success: true });
     } catch (error) {
-      console.error("DB Write Error", error);
+      console.error("DB Write Error DETAILS:", error);
       return res.status(500).json({ error: error.message });
     }
   }
