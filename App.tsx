@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteUpdate = useRef(false);
   const isJoiningFlow = useRef(false);
+  const offlineModeNotified = useRef(false);
 
   // TOAST HANDLER
   const notify = (message: string, type: ToastType = 'info') => {
@@ -80,11 +81,15 @@ const App: React.FC = () => {
                 isRemoteUpdate.current = true;
                 setProjects(data);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                offlineModeNotified.current = false; // Reset if we successfully fetched
             }
-         } else {
-             if (res.status === 401) {
-                 handleLogout();
-                 notify("Session expired. Please login again.", "error");
+         } else if (res.status === 401) {
+             handleLogout();
+             notify("Session expired. Please login again.", "error");
+         } else if (res.status === 503) {
+             if (!offlineModeNotified.current) {
+                console.warn("Backend 503: Offline Mode active");
+                // Don't spam notifications on polling
              }
          }
        } catch (e) {
@@ -110,13 +115,21 @@ const App: React.FC = () => {
           });
           
           if (!res.ok) {
-             // AUTO-REPAIR Logic
-             if (!isRetry) {
+             // 503 means DB is definitely gone (Neon 404). 
+             // Do NOT try to setup/repair, it will fail and cause loops.
+             if (res.status === 503) {
+                 if (!offlineModeNotified.current) {
+                     notify("Offline Mode: Cloud DB disconnected. Changes saved locally.", "error");
+                     offlineModeNotified.current = true;
+                 }
+                 return;
+             }
+
+             // AUTO-REPAIR Logic for other errors (like Table Missing)
+             if (!isRetry && res.status !== 404 && res.status !== 500) {
                  try {
-                     // Try to setup DB silently
                      const setupRes = await fetch('/api/setup');
                      if (setupRes.ok) {
-                        // Retry sync immediately if setup worked
                         await forceSync(projectsData, true);
                         return;
                      }
@@ -125,12 +138,12 @@ const App: React.FC = () => {
                  }
              }
 
-             // Only notify if it's a real logic error, not a 404/500 connection issue (to avoid spamming user)
              if (res.status !== 404 && res.status !== 500) {
                 notify("Warning: Cloud save failed.", "error");
-             } else {
-                console.warn("Backend unavailable (DB not linked?)");
              }
+          } else {
+             // Success
+             offlineModeNotified.current = false;
           }
       } catch (e) {
           console.error("Force sync network error", e);
@@ -304,6 +317,7 @@ const App: React.FC = () => {
                 }
             } else {
                 if (joinRes.status === 404) notify("Project not found.", "error");
+                else if (joinRes.status === 503) notify("Cloud Storage Offline. Cannot Join.", "error");
                 else notify("Failed to join project", "error");
             }
             await fetchCloudData(user);

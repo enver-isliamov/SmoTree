@@ -35,6 +35,15 @@ async function getAuthenticatedUser(req) {
     return null;
 }
 
+// Helper to identify fatal DB connection errors
+const isDbConnectionError = (err) => {
+    return err.message && (
+        err.message.includes('HTTP status 404') || 
+        err.message.includes('does not exist') ||
+        err.code === 'ENOTFOUND'
+    );
+};
+
 // --- DB INIT HELPER ---
 async function ensureProjectsTable() {
     try {
@@ -50,8 +59,12 @@ async function ensureProjectsTable() {
         await sql`CREATE INDEX IF NOT EXISTS idx_owner_id ON projects (owner_id);`;
         console.log("✅ Table 'projects' ensured.");
     } catch (e) {
+        if (isDbConnectionError(e)) {
+            console.warn("⚠️ Database unavailable (404/Offline). Skipping table creation.");
+            throw e; // Propagate so we stop trying
+        }
         console.error("Failed to create table:", e);
-        throw e; // Re-throw to handle in caller
+        throw e;
     }
 }
 
@@ -82,14 +95,16 @@ export default async function handler(req, res) {
           return res.status(200).json(projects);
 
         } catch (dbError) {
-           // CRITICAL FIX: Only return empty array if the TABLE IS MISSING (code 42P01).
-           // Do NOT treat connection errors (like Neon 404) as empty DB, otherwise local data gets wiped.
+           if (isDbConnectionError(dbError)) {
+               console.error("DB Connection Dead:", dbError.message);
+               return res.status(503).json({ error: "Database Disconnected", code: "DB_OFFLINE" });
+           }
+           
            if (dbError.code === '42P01') {
                return res.status(200).json([]);
            }
            
            console.error("DB GET Error Details:", dbError); 
-           // Return 500 so frontend knows to keep using local data (Offline Mode)
            return res.status(500).json({ error: "Database error", details: dbError.message });
         }
       } 
@@ -136,11 +151,13 @@ export default async function handler(req, res) {
                             updated_at = ${Date.now()};
                     `;
                 } catch (dbError) {
-                    // Lazy Init: If table missing (42P01), create and retry.
-                    // If it's a connection error (404), ensureProjectsTable will also fail, 
-                    // throwing back to the main catch block -> returns 500 -> Frontend keeps local data.
+                    if (isDbConnectionError(dbError)) {
+                        return res.status(503).json({ error: "Database Unavailable", code: "DB_OFFLINE" });
+                    }
+
                     if (dbError.code === '42P01') {
                         console.warn("Table missing, attempting creation...");
+                        // If ensuring table fails (e.g. 404), it will throw, catch below, and return 500/503
                         await ensureProjectsTable();
                         
                         // Retry ONCE
@@ -178,7 +195,7 @@ export default async function handler(req, res) {
           try {
             await sql`DELETE FROM projects WHERE id = ${projectId} AND owner_id = ${user.id};`;
           } catch (e) {
-             // Ignore table missing errors on delete
+             if (isDbConnectionError(e)) return res.status(503).json({ error: "DB Offline" });
           }
           return res.status(200).json({ success: true });
       }
@@ -186,6 +203,9 @@ export default async function handler(req, res) {
       return res.status(405).send("Method not allowed");
 
   } catch (globalError) {
+      if (isDbConnectionError(globalError)) {
+          return res.status(503).json({ error: "Critical: Database Disconnected" });
+      }
       console.error("Critical API Error:", globalError);
       return res.status(500).json({ error: "Critical Server Error", details: globalError.message });
   }

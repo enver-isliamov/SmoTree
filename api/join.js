@@ -24,6 +24,12 @@ export default async function handler(req, res) {
         const result = await sql`SELECT data FROM projects WHERE id = ${projectId};`;
         rows = result.rows;
     } catch (dbError) {
+        // Handle specific Neon DB 404 (Database deleted/paused)
+        if (dbError.message && dbError.message.includes('HTTP status 404')) {
+            console.error("Join failed: DB 404");
+            return res.status(503).json({ error: "Project hosting is currently offline (Database Disconnected)." });
+        }
+
         // If table doesn't exist, the project definitely doesn't exist.
         if (dbError.code === '42P01') {
             console.warn("Join failed: DB Table missing.");
