@@ -19,24 +19,30 @@ export default async function handler(req, res) {
     }
 
     // 1. Fetch current project data
-    const { rows } = await sql`
-        SELECT data FROM projects WHERE id = ${projectId};
-    `;
+    let rows = [];
+    try {
+        const result = await sql`SELECT data FROM projects WHERE id = ${projectId};`;
+        rows = result.rows;
+    } catch (dbError) {
+        // If table doesn't exist, the project definitely doesn't exist.
+        if (dbError.code === '42P01') {
+            console.warn("Join failed: DB Table missing.");
+            return res.status(404).json({ error: "Project not found (System not initialized)" });
+        }
+        throw dbError;
+    }
 
     if (rows.length === 0) {
-        // This is the common 404 error. It means the Admin hasn't synced the project yet.
         console.warn(`Join failed: Project ${projectId} not found in DB.`);
         return res.status(404).json({ error: "Project not found. The owner may not have synced changes yet." });
     }
 
     let projectData = rows[0].data;
 
-    // 2. Ensure team array exists
     if (!Array.isArray(projectData.team)) {
         projectData.team = [];
     }
 
-    // 3. Check if user is already in team
     const existingMemberIndex = projectData.team.findIndex(m => m.id === user.id);
 
     if (existingMemberIndex === -1) {

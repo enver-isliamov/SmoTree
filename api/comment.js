@@ -37,7 +37,14 @@ export default async function handler(req, res) {
       }
 
       // 1. Fetch Project
-      const { rows } = await sql`SELECT data, owner_id FROM projects WHERE id = ${projectId};`;
+      let rows = [];
+      try {
+        const result = await sql`SELECT data, owner_id FROM projects WHERE id = ${projectId};`;
+        rows = result.rows;
+      } catch (e) {
+         if (e.code === '42P01') return res.status(404).json({ error: "Project not found (DB empty)" });
+         throw e;
+      }
 
       if (rows.length === 0) return res.status(404).json({ error: "Project not found" });
 

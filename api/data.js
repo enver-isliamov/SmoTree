@@ -37,6 +37,21 @@ async function getAuthenticatedUser(req) {
     return null;
 }
 
+// --- DB INIT HELPER ---
+async function ensureProjectsTable() {
+    await sql`
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        data JSONB NOT NULL,
+        updated_at BIGINT,
+        created_at BIGINT
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_owner_id ON projects (owner_id);`;
+    console.log("✅ Table 'projects' created automatically.");
+}
+
 export default async function handler(req, res) {
   try {
       const user = await getAuthenticatedUser(req);
@@ -48,10 +63,6 @@ export default async function handler(req, res) {
       // GET: Retrieve Projects
       if (req.method === 'GET') {
         try {
-          // SQL Logic:
-          // 1. Owner: owner_id matches user.id
-          // 2. Team: data->'team' is an array AND contains an element with id == user.id
-          
           const { rows } = await sql`
             SELECT data FROM projects 
             WHERE owner_id = ${user.id} 
@@ -64,13 +75,15 @@ export default async function handler(req, res) {
                 )
             );
           `;
-          
           const projects = rows.map(r => r.data);
           return res.status(200).json(projects);
 
         } catch (dbError) {
+           // ERROR 42P01: undefined_table (Table doesn't exist yet)
+           if (dbError.code === '42P01') {
+               return res.status(200).json([]); // No tables = No projects. Return empty array.
+           }
            console.error("DB GET Error Details:", dbError); 
-           // Return detailed error for debugging (remove in production if strict)
            return res.status(500).json({ error: "Database error", details: dbError.message });
         }
       } 
@@ -83,18 +96,15 @@ export default async function handler(req, res) {
         }
 
         let projectsToSync = req.body;
-        
-        // Safety: Manual parse if string (sometimes happens in serverless)
         if (typeof projectsToSync === 'string') {
             try { projectsToSync = JSON.parse(projectsToSync); } catch(e) {}
         }
         
         if (!Array.isArray(projectsToSync)) {
-            return res.status(400).json({ error: "Expected array of projects", received: typeof projectsToSync });
+            return res.status(400).json({ error: "Expected array of projects" });
         }
 
         for (const project of projectsToSync) {
-            // Validate minimal fields
             if (!project.id) continue;
 
             const isOwner = project.ownerId === user.id;
@@ -103,20 +113,44 @@ export default async function handler(req, res) {
             if (isOwner || isTeam) {
                 const projectJson = JSON.stringify(project);
                 
-                await sql`
-                    INSERT INTO projects (id, owner_id, data, updated_at, created_at)
-                    VALUES (
-                        ${project.id}, 
-                        ${project.ownerId || user.id}, 
-                        ${projectJson}::jsonb, 
-                        ${Date.now()}, 
-                        ${project.createdAt || Date.now()}
-                    )
-                    ON CONFLICT (id) 
-                    DO UPDATE SET 
-                        data = ${projectJson}::jsonb,
-                        updated_at = ${Date.now()};
-                `;
+                try {
+                    await sql`
+                        INSERT INTO projects (id, owner_id, data, updated_at, created_at)
+                        VALUES (
+                            ${project.id}, 
+                            ${project.ownerId || user.id}, 
+                            ${projectJson}::jsonb, 
+                            ${Date.now()}, 
+                            ${project.createdAt || Date.now()}
+                        )
+                        ON CONFLICT (id) 
+                        DO UPDATE SET 
+                            data = ${projectJson}::jsonb,
+                            updated_at = ${Date.now()};
+                    `;
+                } catch (dbError) {
+                    // Lazy Init: If table missing, create it and retry ONCE
+                    if (dbError.code === '42P01') {
+                        await ensureProjectsTable();
+                        // Retry the query
+                        await sql`
+                            INSERT INTO projects (id, owner_id, data, updated_at, created_at)
+                            VALUES (
+                                ${project.id}, 
+                                ${project.ownerId || user.id}, 
+                                ${projectJson}::jsonb, 
+                                ${Date.now()}, 
+                                ${project.createdAt || Date.now()}
+                            )
+                            ON CONFLICT (id) 
+                            DO UPDATE SET 
+                                data = ${projectJson}::jsonb,
+                                updated_at = ${Date.now()};
+                        `;
+                    } else {
+                        throw dbError;
+                    }
+                }
             }
         }
         return res.status(200).json({ success: true });
@@ -132,10 +166,15 @@ export default async function handler(req, res) {
           const projectId = req.query.id;
           if (!projectId) return res.status(400).json({ error: "Missing project ID" });
 
-          await sql`
-            DELETE FROM projects 
-            WHERE id = ${projectId} AND owner_id = ${user.id};
-          `;
+          try {
+            await sql`
+                DELETE FROM projects 
+                WHERE id = ${projectId} AND owner_id = ${user.id};
+            `;
+          } catch (e) {
+             if (e.code === '42P01') return res.status(200).json({ success: true }); // Table missing = already deleted
+             throw e;
+          }
           
           return res.status(200).json({ success: true });
       }
