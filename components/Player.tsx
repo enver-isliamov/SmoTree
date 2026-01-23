@@ -168,10 +168,11 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (version.localFileUrl) {
         setLocalFileSrc(version.localFileUrl);
         setLocalFileName(version.localFileName || 'Local File');
-        setVideoError(false);
+        // Do NOT blindly set videoError to false here, wait for load
     } else {
         setLocalFileSrc(null);
         setLocalFileName(null);
+        setVideoError(false);
     }
 
     if (videoRef.current) {
@@ -1010,9 +1011,22 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                </div>
              )}
 
+             {/* Moved Offline UI Here */}
              {videoError && (
-                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                     <p className="text-zinc-700 font-mono font-bold text-lg tracking-[0.2em] uppercase">Media Offline</p>
+                 <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 p-6 text-center animate-in fade-in duration-300">
+                     <div className="bg-zinc-800 p-4 rounded-full mb-4 ring-1 ring-zinc-700">
+                        <FileVideo size={32} className="text-zinc-400" />
+                    </div>
+                     <p className="text-zinc-300 font-bold text-lg mb-2">Media Offline</p>
+                     <p className="text-xs text-zinc-500 max-w-[280px] mb-6 leading-relaxed">
+                        The source file <strong>"{localFileName || version.filename}"</strong> is no longer accessible. Please re-select it to continue.
+                    </p>
+                    <button 
+                        onClick={() => localFileRef.current?.click()}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm shadow-lg shadow-indigo-900/20"
+                    >
+                        <Upload size={16} /> Link Local File
+                    </button>
                  </div>
              )}
 
@@ -1099,23 +1113,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
         {!isFullscreen && (
         <div className="w-full lg:w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col shrink-0 h-[45vh] lg:h-auto z-10 shadow-2xl lg:shadow-none pb-20 lg:pb-0 relative">
-           {videoError ? (
-               <div className="flex flex-col h-full items-center justify-center p-6 text-center animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="bg-zinc-800 p-4 rounded-full mb-4 ring-1 ring-zinc-700">
-                        <FileVideo size={32} className="text-zinc-400" />
-                    </div>
-                    <h3 className="text-lg font-bold text-white mb-2">Media Offline</h3>
-                    <p className="text-xs text-zinc-400 max-w-[200px] mb-6 leading-relaxed">
-                        The cloud file is inaccessible. Please link a local copy of <strong>"{version.filename}"</strong> to continue reviewing.
-                    </p>
-                    <button 
-                        onClick={() => localFileRef.current?.click()}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm"
-                    >
-                        <Upload size={16} /> Link Local File
-                    </button>
-               </div>
-           ) : (
              <>
                 <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900 sticky top-0 z-10">
                     <div className="flex items-center gap-3">
@@ -1329,7 +1326,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     </div>
                 </div>
              </>
-           )}
         </div>
         )}
 
