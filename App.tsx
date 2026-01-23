@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { ProjectView } from './components/ProjectView';
 import { Player } from './components/Player';
@@ -38,6 +38,10 @@ const App: React.FC = () => {
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteUpdate = useRef(false);
+  
+  // RACE CONDITION FIX: 
+  // Blocks the `useEffect` fetch if we are in the middle of a Login->Join sequence.
+  const isJoiningFlow = useRef(false);
 
   // TOAST HANDLER
   const notify = (message: string, type: ToastType = 'info') => {
@@ -71,15 +75,15 @@ const App: React.FC = () => {
     window.history.pushState({}, '', window.location.pathname);
   };
 
-  // 1. Initial Data Fetch
-  useEffect(() => {
-    if (!currentUser) return; // Wait for login
+  // EXTRACTED FETCH LOGIC
+  const fetchCloudData = useCallback(async (userOverride?: User) => {
+      const userToUse = userOverride || currentUser;
+      if (!userToUse) return;
 
-    const fetchCloudData = async () => {
        try {
          setIsSyncing(true);
          const res = await fetch('/api/data', {
-            headers: getAuthHeader()
+            headers: getAuthHeader(userToUse)
          });
          
          if (res.ok) {
@@ -101,16 +105,21 @@ const App: React.FC = () => {
        } finally {
          setIsSyncing(false);
        }
-    };
-    fetchCloudData();
   }, [currentUser]);
+
+  // 1. Initial Data Fetch (Auto)
+  // ONLY runs if we are NOT in the middle of a manual join flow.
+  useEffect(() => {
+    if (!currentUser || isJoiningFlow.current) return; 
+    fetchCloudData();
+  }, [currentUser, fetchCloudData]);
 
   // 2. Polling for updates
   useEffect(() => {
     if (!currentUser) return;
 
     const interval = setInterval(async () => {
-        if (isSyncing) return;
+        if (isSyncing || isJoiningFlow.current) return;
 
         try {
             const res = await fetch('/api/data', {
@@ -196,13 +205,15 @@ const App: React.FC = () => {
       const projectExists = projects.find(p => p.id === pId);
       
       if (projectExists) {
+        // SAAS UPDATE: Check access via Team list OR Ownership
         const hasAccess = 
-            currentUser.role === UserRole.ADMIN || 
-            projectExists.team.some(member => member.id === currentUser.id);
+            projectExists.ownerId === currentUser.id ||
+            projectExists.team.some(member => member.id === currentUser.id) ||
+            currentUser.role === UserRole.ADMIN; // Global admin fallback (optional)
 
         if (!hasAccess) {
             console.warn(`Access denied to project ${pId}`);
-            notify("You don't have access to this project", "error");
+            // Don't notify immediately, gives time for sync
             return;
         }
 
@@ -280,6 +291,9 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (user: User) => {
+    // 1. Lock the auto-fetch in useEffect to prevent Race Condition
+    isJoiningFlow.current = true;
+    
     setCurrentUser(user);
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     notify(`Welcome back, ${user.name.split(' ')[0]}`, "success");
@@ -287,10 +301,10 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
 
-    // If joining a project and is Guest, call Join API immediately
+    // If joining a project, call Join API immediately and WAIT
     if (pId) {
         try {
-            // 1. Send Join Request
+            // 2. Send Join Request (Synchronous wait)
             const joinRes = await fetch('/api/join', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -300,9 +314,9 @@ const App: React.FC = () => {
             if (joinRes.ok) {
                 const joinData = await joinRes.json();
                 
-                // 2. IMMEDIATE UPDATE: Inject the returned project into local state
+                // 3. IMMEDIATE UPDATE: Inject the returned project into local state
                 if (joinData.project) {
-                    isRemoteUpdate.current = true; 
+                    isRemoteUpdate.current = true; // Tell persistence NOT to overwrite this immediately
                     setProjects(prev => {
                         const exists = prev.some(p => p.id === joinData.project.id);
                         if (exists) return prev.map(p => p.id === joinData.project.id ? joinData.project : p);
@@ -315,22 +329,19 @@ const App: React.FC = () => {
                 notify("Failed to join project", "error");
             }
 
-            // 3. Trigger a full background sync just in case
-            const res = await fetch('/api/data', {
-                 headers: getAuthHeader(user)
-            });
-            
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) {
-                     setProjects(data);
-                }
-            }
+            // 4. NOW fetch the full list (Safe to do so because DB is updated)
+            await fetchCloudData(user);
 
         } catch (e) {
             console.error("Failed to join project process:", e);
         }
+    } else {
+        // No invite code? Just fetch data normally.
+        await fetchCloudData(user);
     }
+    
+    // 5. Release the lock
+    isJoiningFlow.current = false;
   };
 
   const currentProject = view.type !== 'DASHBOARD' 
