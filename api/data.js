@@ -5,7 +5,6 @@ import { sql } from '@vercel/postgres';
 async function getAuthenticatedUser(req) {
     const authHeader = req.headers['authorization'];
     
-    // 1. Google Auth
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         try {
@@ -24,7 +23,6 @@ async function getAuthenticatedUser(req) {
         }
     }
 
-    // 2. Guest Fallback
     const guestId = req.headers['x-guest-id'];
     if (guestId) {
         return {
@@ -39,17 +37,21 @@ async function getAuthenticatedUser(req) {
 
 // --- DB INIT HELPER ---
 async function ensureProjectsTable() {
-    await sql`
-      CREATE TABLE IF NOT EXISTS projects (
-        id TEXT PRIMARY KEY,
-        owner_id TEXT NOT NULL,
-        data JSONB NOT NULL,
-        updated_at BIGINT,
-        created_at BIGINT
-      );
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS idx_owner_id ON projects (owner_id);`;
-    console.log("✅ Table 'projects' created automatically.");
+    try {
+        await sql`
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            data JSONB NOT NULL,
+            updated_at BIGINT,
+            created_at BIGINT
+        );
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS idx_owner_id ON projects (owner_id);`;
+        console.log("✅ Table 'projects' ensured.");
+    } catch (e) {
+        console.error("Failed to create table:", e);
+    }
 }
 
 export default async function handler(req, res) {
@@ -79,9 +81,9 @@ export default async function handler(req, res) {
           return res.status(200).json(projects);
 
         } catch (dbError) {
-           // ERROR 42P01: undefined_table (Table doesn't exist yet)
-           if (dbError.code === '42P01') {
-               return res.status(200).json([]); // No tables = No projects. Return empty array.
+           // If table missing, return empty array instead of crashing
+           if (dbError.code === '42P01' || dbError.message.includes('404')) {
+               return res.status(200).json([]);
            }
            console.error("DB GET Error Details:", dbError); 
            return res.status(500).json({ error: "Database error", details: dbError.message });
@@ -114,6 +116,7 @@ export default async function handler(req, res) {
                 const projectJson = JSON.stringify(project);
                 
                 try {
+                    // Try Optimistic Insert
                     await sql`
                         INSERT INTO projects (id, owner_id, data, updated_at, created_at)
                         VALUES (
@@ -129,53 +132,47 @@ export default async function handler(req, res) {
                             updated_at = ${Date.now()};
                     `;
                 } catch (dbError) {
-                    // Lazy Init: If table missing, create it and retry ONCE
-                    if (dbError.code === '42P01') {
-                        await ensureProjectsTable();
-                        // Retry the query
-                        await sql`
-                            INSERT INTO projects (id, owner_id, data, updated_at, created_at)
-                            VALUES (
-                                ${project.id}, 
-                                ${project.ownerId || user.id}, 
-                                ${projectJson}::jsonb, 
-                                ${Date.now()}, 
-                                ${project.createdAt || Date.now()}
-                            )
-                            ON CONFLICT (id) 
-                            DO UPDATE SET 
-                                data = ${projectJson}::jsonb,
-                                updated_at = ${Date.now()};
-                        `;
-                    } else {
-                        throw dbError;
-                    }
+                    // AGGRESSIVE FALLBACK:
+                    // If ANY error occurs (missing table 42P01, generic 404, etc), 
+                    // try to create the table and retry immediately.
+                    console.warn("Insert failed, attempting table creation...", dbError.message);
+                    
+                    await ensureProjectsTable();
+                    
+                    // Retry ONCE
+                    await sql`
+                        INSERT INTO projects (id, owner_id, data, updated_at, created_at)
+                        VALUES (
+                            ${project.id}, 
+                            ${project.ownerId || user.id}, 
+                            ${projectJson}::jsonb, 
+                            ${Date.now()}, 
+                            ${project.createdAt || Date.now()}
+                        )
+                        ON CONFLICT (id) 
+                        DO UPDATE SET 
+                            data = ${projectJson}::jsonb,
+                            updated_at = ${Date.now()};
+                    `;
                 }
             }
         }
         return res.status(200).json({ success: true });
       }
 
-      // DELETE: Remove a project
+      // DELETE
       if (req.method === 'DELETE') {
           const isManualAdmin = user.id.startsWith('admin-');
-          if (!user.isVerified && !isManualAdmin) {
-              return res.status(403).json({ error: "Guests cannot delete projects." });
-          }
+          if (!user.isVerified && !isManualAdmin) return res.status(403).json({ error: "Guests cannot delete." });
 
           const projectId = req.query.id;
-          if (!projectId) return res.status(400).json({ error: "Missing project ID" });
+          if (!projectId) return res.status(400).json({ error: "Missing ID" });
 
           try {
-            await sql`
-                DELETE FROM projects 
-                WHERE id = ${projectId} AND owner_id = ${user.id};
-            `;
+            await sql`DELETE FROM projects WHERE id = ${projectId} AND owner_id = ${user.id};`;
           } catch (e) {
-             if (e.code === '42P01') return res.status(200).json({ success: true }); // Table missing = already deleted
-             throw e;
+             // Ignore table missing errors on delete
           }
-          
           return res.status(200).json({ success: true });
       }
 

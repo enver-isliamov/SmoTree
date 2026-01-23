@@ -32,15 +32,10 @@ const App: React.FC = () => {
 
   const [view, setView] = useState<ViewState>({ type: 'DASHBOARD' });
   const [isSyncing, setIsSyncing] = useState(false);
-  
-  // TOAST STATE
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteUpdate = useRef(false);
-  
-  // RACE CONDITION FIX: 
-  // Blocks the `useEffect` fetch if we are in the middle of a Login->Join sequence.
   const isJoiningFlow = useRef(false);
 
   // TOAST HANDLER
@@ -53,17 +48,11 @@ const App: React.FC = () => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Helper to get token OR guest ID
   const getAuthHeader = (overrideUser?: User) => {
     const token = localStorage.getItem('smotree_auth_token');
-    if (token) {
-        return { 'Authorization': `Bearer ${token}` };
-    }
-    // Fallback for guests to read projects they are part of
+    if (token) return { 'Authorization': `Bearer ${token}` };
     const targetUser = overrideUser || currentUser;
-    if (targetUser) {
-        return { 'X-Guest-ID': targetUser.id };
-    }
+    if (targetUser) return { 'X-Guest-ID': targetUser.id };
     return {};
   };
 
@@ -75,7 +64,6 @@ const App: React.FC = () => {
     window.history.pushState({}, '', window.location.pathname);
   };
 
-  // EXTRACTED FETCH LOGIC
   const fetchCloudData = useCallback(async (userOverride?: User) => {
       const userToUse = userOverride || currentUser;
       if (!userToUse) return;
@@ -95,7 +83,6 @@ const App: React.FC = () => {
             }
          } else {
              if (res.status === 401) {
-                 console.warn("Session expired. Logging out.");
                  handleLogout();
                  notify("Session expired. Please login again.", "error");
              }
@@ -107,8 +94,8 @@ const App: React.FC = () => {
        }
   }, [currentUser]);
 
-  // Force Sync Function (used on Create/Update critical actions)
-  const forceSync = async (projectsData: Project[]) => {
+  // SELF-HEALING SYNC
+  const forceSync = async (projectsData: Project[], isRetry = false) => {
       if (!currentUser || currentUser.role === UserRole.GUEST) return;
       
       try {
@@ -123,11 +110,23 @@ const App: React.FC = () => {
           });
           
           if (!res.ok) {
+             // AUTO-REPAIR Logic:
+             // If save failed (likely DB missing), try to run setup and retry once.
+             if (!isRetry) {
+                 console.warn("Sync failed, attempting auto-repair (DB Setup)...");
+                 try {
+                     await fetch('/api/setup'); // Trigger DB creation
+                     // Retry sync immediately
+                     await forceSync(projectsData, true);
+                     return;
+                 } catch (setupError) {
+                     console.error("Auto-repair failed", setupError);
+                 }
+             }
+
              const err = await res.text();
              console.error("Force sync failed", err);
              notify("Warning: Cloud save failed. Guest links won't work yet.", "error");
-          } else {
-             // notify("Saved to cloud", "success");
           }
       } catch (e) {
           console.error("Force sync network error", e);
@@ -137,62 +136,44 @@ const App: React.FC = () => {
       }
   };
 
-  // 1. Initial Data Fetch (Auto)
-  // ONLY runs if we are NOT in the middle of a manual join flow.
   useEffect(() => {
     if (!currentUser || isJoiningFlow.current) return; 
     fetchCloudData();
   }, [currentUser, fetchCloudData]);
 
-  // 2. Polling for updates
   useEffect(() => {
     if (!currentUser) return;
-
     const interval = setInterval(async () => {
         if (isSyncing || isJoiningFlow.current) return;
-
         try {
-            const res = await fetch('/api/data', {
-                headers: getAuthHeader()
-            });
-
+            const res = await fetch('/api/data', { headers: getAuthHeader() });
             if (res.ok) {
                 const cloudData = await res.json();
                 if (cloudData && Array.isArray(cloudData)) {
                     setProjects(prevCurrent => {
-                        // Simple equality check to avoid re-renders
                         if (JSON.stringify(prevCurrent) !== JSON.stringify(cloudData)) {
                             isRemoteUpdate.current = true;
-                            // Optional: notify("Project data updated from cloud", "info"); 
                             return cloudData;
                         }
                         return prevCurrent;
                     });
                 }
             }
-        } catch (e) {
-            // Silent fail
-        }
+        } catch (e) {}
     }, POLLING_INTERVAL_MS);
-
     return () => clearInterval(interval);
   }, [isSyncing, currentUser]);
 
-  // 3. Persist Changes (Debounced Sync) - POST only allowed for verified users
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-
     if (isRemoteUpdate.current) {
         isRemoteUpdate.current = false;
         return;
     }
-    
-    // GUESTS cannot write to main data API directly via POST
     const isGuest = currentUser?.role === UserRole.GUEST;
     if (!currentUser || isGuest) return;
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-    
     syncTimeoutRef.current = setTimeout(() => {
         forceSync(projects);
     }, SYNC_DEBOUNCE_MS);
@@ -202,7 +183,6 @@ const App: React.FC = () => {
     };
   }, [projects, currentUser]);
 
-  // 4. Deep Linking & Security
   useEffect(() => {
     if (!currentUser) return;
 
@@ -211,28 +191,19 @@ const App: React.FC = () => {
     const aId = params.get('assetId');
 
     if (pId) {
-      // Look in local projects first, but also wait for fetch
       const projectExists = projects.find(p => p.id === pId);
-      
       if (projectExists) {
-        // SAAS UPDATE: Check access via Team list OR Ownership
         const hasAccess = 
             projectExists.ownerId === currentUser.id ||
             projectExists.team.some(member => member.id === currentUser.id) ||
-            currentUser.role === UserRole.ADMIN; // Global admin fallback (optional)
+            currentUser.role === UserRole.ADMIN;
 
-        if (!hasAccess) {
-            console.warn(`Access denied to project ${pId}`);
-            return;
-        }
+        if (!hasAccess) return;
 
         if (aId) {
            const assetExists = projectExists.assets.find(a => a.id === aId);
-           if (assetExists) {
-             setView({ type: 'PLAYER', projectId: pId, assetId: aId });
-           } else {
-             setView({ type: 'PROJECT_VIEW', projectId: pId });
-           }
+           if (assetExists) setView({ type: 'PLAYER', projectId: pId, assetId: aId });
+           else setView({ type: 'PROJECT_VIEW', projectId: pId });
         } else {
            setView({ type: 'PROJECT_VIEW', projectId: pId });
         }
@@ -270,8 +241,6 @@ const App: React.FC = () => {
   const handleUpdateProject = (updatedProject: Project) => {
     const newProjects = projects.map(p => p.id === updatedProject.id ? updatedProject : p);
     setProjects(newProjects);
-    // FORCE SYNC IMMEDIATE when explicitly updating (e.g. uploading asset)
-    // This helps avoid the case where invite is sent before debounce fires
     forceSync(newProjects);
   };
 
@@ -279,16 +248,13 @@ const App: React.FC = () => {
     const newProjects = [newProject, ...projects];
     setProjects(newProjects);
     notify("Project created successfully", "success");
-    // FORCE SYNC IMMEDIATE
     forceSync(newProjects);
   };
 
   const handleDeleteProject = async (projectId: string) => {
-      // Optimistic local update
       setProjects(prev => prev.filter(p => p.id !== projectId));
       notify("Project deleted", "info");
       
-      // Send explicit delete command to server
       if (currentUser) {
           try {
              const token = localStorage.getItem('smotree_auth_token');
@@ -300,16 +266,13 @@ const App: React.FC = () => {
              console.error("Delete sync failed", e);
           }
       }
-
       if (view.type !== 'DASHBOARD' && view.projectId === projectId) {
           handleBackToDashboard();
       }
   };
 
   const handleLogin = async (user: User) => {
-    // 1. Lock the auto-fetch in useEffect to prevent Race Condition
     isJoiningFlow.current = true;
-    
     setCurrentUser(user);
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     notify(`Welcome back, ${user.name.split(' ')[0]}`, "success");
@@ -317,10 +280,8 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
 
-    // If joining a project, call Join API immediately and WAIT
     if (pId) {
         try {
-            // 2. Send Join Request (Synchronous wait)
             const joinRes = await fetch('/api/join', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -329,10 +290,8 @@ const App: React.FC = () => {
             
             if (joinRes.ok) {
                 const joinData = await joinRes.json();
-                
-                // 3. IMMEDIATE UPDATE: Inject the returned project into local state
                 if (joinData.project) {
-                    isRemoteUpdate.current = true; // Tell persistence NOT to overwrite this immediately
+                    isRemoteUpdate.current = true;
                     setProjects(prev => {
                         const exists = prev.some(p => p.id === joinData.project.id);
                         if (exists) return prev.map(p => p.id === joinData.project.id ? joinData.project : p);
@@ -341,41 +300,23 @@ const App: React.FC = () => {
                     notify("Joined project successfully", "success");
                 }
             } else {
-                console.error("Join failed", await joinRes.text());
-                // Show more helpful message if 404
-                if (joinRes.status === 404) {
-                    notify("Project not found. The owner might not have synced it yet.", "error");
-                } else {
-                    notify("Failed to join project", "error");
-                }
+                if (joinRes.status === 404) notify("Project not found.", "error");
+                else notify("Failed to join project", "error");
             }
-
-            // 4. NOW fetch the full list (Safe to do so because DB is updated)
             await fetchCloudData(user);
-
         } catch (e) {
             console.error("Failed to join project process:", e);
         }
     } else {
-        // No invite code? Just fetch data normally.
         await fetchCloudData(user);
     }
-    
-    // 5. Release the lock
     isJoiningFlow.current = false;
   };
 
-  const currentProject = view.type !== 'DASHBOARD' 
-    ? projects.find(p => p.id === view.projectId) 
-    : null;
+  const currentProject = view.type !== 'DASHBOARD' ? projects.find(p => p.id === view.projectId) : null;
+  const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
-  const currentAsset = (view.type === 'PLAYER' && currentProject)
-    ? currentProject.assets.find(a => a.id === view.assetId)
-    : null;
-
-  if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
-  }
+  if (!currentUser) return <Login onLogin={handleLogin} />;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
@@ -391,7 +332,6 @@ const App: React.FC = () => {
             notify={notify}
           />
         )}
-
         {view.type === 'PROJECT_VIEW' && currentProject && (
           <ProjectView 
             project={currentProject} 
@@ -402,7 +342,6 @@ const App: React.FC = () => {
             notify={notify}
           />
         )}
-
         {view.type === 'PLAYER' && currentProject && currentAsset && (
           <Player 
             asset={currentAsset} 
@@ -415,7 +354,6 @@ const App: React.FC = () => {
             notify={notify}
           />
         )}
-
         <ToastContainer toasts={toasts} removeToast={removeToast} />
       </main>
     </div>

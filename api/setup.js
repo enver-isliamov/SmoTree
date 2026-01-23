@@ -2,12 +2,16 @@
 import { sql } from '@vercel/postgres';
 
 export default async function handler(req, res) {
+  // Allow running setup simply by visiting the URL (GET) or via POST
+  
   if (!process.env.POSTGRES_URL) {
-      return res.status(500).json({ error: "Database configuration missing." });
+      return res.status(500).json({ error: "Database configuration missing (POSTGRES_URL)." });
   }
 
   try {
-    // 1. Projects Table
+    console.log("🛠 Starting Database Setup...");
+
+    // 1. Projects Table - The core table
     await sql`
       CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
@@ -17,33 +21,23 @@ export default async function handler(req, res) {
         created_at BIGINT
       );
     `;
+    
+    // 2. Index for performance
     await sql`CREATE INDEX IF NOT EXISTS idx_owner_id ON projects (owner_id);`;
 
-    // 2. Placeholder tables for future use
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE,
-        name TEXT,
-        avatar TEXT,
-        role TEXT
-      );
-    `;
+    console.log("✅ Tables created/verified.");
 
-    await sql`
-      CREATE TABLE IF NOT EXISTS assets (
-        id TEXT PRIMARY KEY,
-        project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
-        title TEXT,
-        thumbnail TEXT,
-        current_version_index INTEGER DEFAULT 0,
-        versions JSONB
-      );
-    `;
+    return res.status(200).json({ 
+        success: true, 
+        message: "Database initialized successfully. You can now use the app." 
+    });
 
-    return res.status(200).json({ message: "Database initialized successfully" });
   } catch (error) {
     console.error("Setup failed:", error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ 
+        error: "Setup Failed", 
+        details: error.message,
+        hint: "Check if your Vercel Project has the Postgres Store connected."
+    });
   }
 }
