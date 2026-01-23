@@ -2,7 +2,7 @@
 import { sql } from '@vercel/postgres';
 
 async function getAuthenticatedUser(req) {
-    const authHeader = req.headers.get('authorization');
+    const authHeader = req.headers['authorization']; // Node.js style
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         try {
@@ -13,7 +13,7 @@ async function getAuthenticatedUser(req) {
             }
         } catch (e) {}
     }
-    const guestId = req.headers.get('x-guest-id');
+    const guestId = req.headers['x-guest-id']; // Node.js style
     if (guestId) return { id: guestId, name: 'Guest', role: 'Guest', isVerified: false };
     return null;
 }
@@ -25,7 +25,8 @@ export default async function handler(req, res) {
   if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const { projectId, assetId, versionId, action, payload } = await req.json();
+    // Vercel Node.js runtime: Use req.body
+    const { projectId, assetId, versionId, action, payload } = req.body;
 
     if (!projectId || !assetId || !versionId || !action) {
         return res.status(400).json({ error: "Missing required fields" });

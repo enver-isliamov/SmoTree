@@ -7,7 +7,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, user } = await req.json();
+    // Vercel Node.js runtime: Use req.body instead of req.json()
+    const { projectId, user } = req.body;
 
     if (!projectId || !user || !user.id) {
         return res.status(400).json({ error: "Missing required fields" });

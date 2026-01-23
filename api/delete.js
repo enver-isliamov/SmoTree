@@ -3,7 +3,7 @@ import { del } from '@vercel/blob';
 
 // Helper to verify Google Token
 async function isAuthorized(req) {
-    const authHeader = req.headers.get('authorization');
+    const authHeader = req.headers['authorization']; // Node.js style
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return false;
     }
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { urls } = req.body;
+    const { urls } = req.body; // Node.js style
     
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
         return res.status(400).json({ error: "No URLs provided for deletion" });

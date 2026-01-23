@@ -1,9 +1,9 @@
 
 import { sql } from '@vercel/postgres';
 
-// --- AUTH HELPER ---
+// --- AUTH HELPER (Node.js Runtime Compatible) ---
 async function getAuthenticatedUser(req) {
-    const authHeader = req.headers.get('authorization');
+    const authHeader = req.headers['authorization']; // Node.js style headers
     
     // 1. Google Auth
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -25,7 +25,7 @@ async function getAuthenticatedUser(req) {
     }
 
     // 2. Guest Fallback
-    const guestId = req.headers.get('x-guest-id');
+    const guestId = req.headers['x-guest-id']; // Node.js style headers
     if (guestId) {
         return {
             id: guestId,
@@ -47,8 +47,6 @@ export default async function handler(req, res) {
   // GET: Retrieve Projects
   if (req.method === 'GET') {
     try {
-      // FIX 1: Use `sql` directly to handle connection pooling automatically (fixes Connection Leaks).
-      // FIX 2: Use broad text search (LIKE) then filter in JS. This bypasses fragile JSONB SQL syntax errors.
       const userIdPattern = `%${user.id}%`;
       
       const { rows } = await sql`
@@ -57,7 +55,7 @@ export default async function handler(req, res) {
         OR data::text LIKE ${userIdPattern};
       `;
       
-      // JS Filtering for 100% accuracy and security
+      // JS Filtering
       const projects = rows
         .map(r => r.data)
         .filter(p => {
@@ -81,11 +79,12 @@ export default async function handler(req, res) {
     }
 
     try {
-      const projectsToSync = await req.json(); 
+      // Vercel/Node.js automatically parses JSON into req.body
+      const projectsToSync = req.body; 
+      
       if (!Array.isArray(projectsToSync)) return res.status(400).json({ error: "Expected array" });
 
       for (const project of projectsToSync) {
-          // Security: Only save if owner or team member
           if (project.ownerId === user.id || (project.team && project.team.some(m => m.id === user.id))) {
               const projectJson = JSON.stringify(project);
               
@@ -120,8 +119,8 @@ export default async function handler(req, res) {
       }
 
       try {
-          const url = new URL(req.url, `http://${req.headers.host}`);
-          const projectId = url.searchParams.get('id');
+          // req.query contains query parameters in Vercel functions
+          const projectId = req.query.id;
 
           if (!projectId) return res.status(400).json({ error: "Missing project ID" });
 
