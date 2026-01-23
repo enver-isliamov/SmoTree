@@ -88,7 +88,7 @@ const App: React.FC = () => {
              }
          }
        } catch (e) {
-         console.warn("Offline or no backend detected, using local data.");
+         // Silent fail on fetch
        } finally {
          setIsSyncing(false);
        }
@@ -110,27 +110,30 @@ const App: React.FC = () => {
           });
           
           if (!res.ok) {
-             // AUTO-REPAIR Logic:
-             // If save failed (likely DB missing), try to run setup and retry once.
+             // AUTO-REPAIR Logic
              if (!isRetry) {
-                 console.warn("Sync failed, attempting auto-repair (DB Setup)...");
                  try {
-                     await fetch('/api/setup'); // Trigger DB creation
-                     // Retry sync immediately
-                     await forceSync(projectsData, true);
-                     return;
+                     // Try to setup DB silently
+                     const setupRes = await fetch('/api/setup');
+                     if (setupRes.ok) {
+                        // Retry sync immediately if setup worked
+                        await forceSync(projectsData, true);
+                        return;
+                     }
                  } catch (setupError) {
                      console.error("Auto-repair failed", setupError);
                  }
              }
 
-             const err = await res.text();
-             console.error("Force sync failed", err);
-             notify("Warning: Cloud save failed. Guest links won't work yet.", "error");
+             // Only notify if it's a real logic error, not a 404/500 connection issue (to avoid spamming user)
+             if (res.status !== 404 && res.status !== 500) {
+                notify("Warning: Cloud save failed.", "error");
+             } else {
+                console.warn("Backend unavailable (DB not linked?)");
+             }
           }
       } catch (e) {
           console.error("Force sync network error", e);
-          notify("Network error saving to cloud", "error");
       } finally {
           setIsSyncing(false);
       }
