@@ -20,6 +20,7 @@ export interface User {
 export interface Comment {
   id: string;
   userId: string;
+  authorName?: string; // New: Persist name to handle removed users
   timestamp: number; // in seconds (Start time)
   duration?: number; // Optional duration in seconds
   text: string;

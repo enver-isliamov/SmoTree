@@ -35,7 +35,7 @@ async function getAuthenticatedUser(req) {
     return null;
 }
 
-// Helper to identify fatal DB connection errors
+// Helper to identify fatal DB connection errors (Wrong URL, Deleted DB)
 const isDbConnectionError = (err) => {
     return err.message && (
         err.message.includes('HTTP status 404') || 
@@ -61,7 +61,7 @@ async function ensureProjectsTable() {
     } catch (e) {
         if (isDbConnectionError(e)) {
             console.warn("⚠️ Database unavailable (404/Offline). Skipping table creation.");
-            throw e; // Propagate so we stop trying
+            throw e; // Stop trying if DB is dead
         }
         console.error("Failed to create table:", e);
         throw e;
@@ -95,11 +95,14 @@ export default async function handler(req, res) {
           return res.status(200).json(projects);
 
         } catch (dbError) {
+           // If DB is deleted/wrong URL (404), return 503 Service Unavailable.
+           // Frontend will see this and stay in "Offline Mode".
            if (isDbConnectionError(dbError)) {
                console.error("DB Connection Dead:", dbError.message);
                return res.status(503).json({ error: "Database Disconnected", code: "DB_OFFLINE" });
            }
            
+           // If table doesn't exist yet, return empty list (New Project)
            if (dbError.code === '42P01') {
                return res.status(200).json([]);
            }
@@ -157,24 +160,27 @@ export default async function handler(req, res) {
 
                     if (dbError.code === '42P01') {
                         console.warn("Table missing, attempting creation...");
-                        // If ensuring table fails (e.g. 404), it will throw, catch below, and return 500/503
-                        await ensureProjectsTable();
-                        
-                        // Retry ONCE
-                        await sql`
-                            INSERT INTO projects (id, owner_id, data, updated_at, created_at)
-                            VALUES (
-                                ${project.id}, 
-                                ${project.ownerId || user.id}, 
-                                ${projectJson}::jsonb, 
-                                ${Date.now()}, 
-                                ${project.createdAt || Date.now()}
-                            )
-                            ON CONFLICT (id) 
-                            DO UPDATE SET 
-                                data = ${projectJson}::jsonb,
-                                updated_at = ${Date.now()};
-                        `;
+                        try {
+                            await ensureProjectsTable();
+                            // Retry ONCE
+                            await sql`
+                                INSERT INTO projects (id, owner_id, data, updated_at, created_at)
+                                VALUES (
+                                    ${project.id}, 
+                                    ${project.ownerId || user.id}, 
+                                    ${projectJson}::jsonb, 
+                                    ${Date.now()}, 
+                                    ${project.createdAt || Date.now()}
+                                )
+                                ON CONFLICT (id) 
+                                DO UPDATE SET 
+                                    data = ${projectJson}::jsonb,
+                                    updated_at = ${Date.now()};
+                            `;
+                        } catch (retryErr) {
+                             if (isDbConnectionError(retryErr)) return res.status(503).json({error: "DB Offline"});
+                             throw retryErr;
+                        }
                     } else {
                         throw dbError;
                     }

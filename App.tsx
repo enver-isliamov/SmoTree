@@ -298,7 +298,13 @@ const App: React.FC = () => {
   const handleUpdateProject = (updatedProject: Project) => {
     const newProjects = projects.map(p => p.id === updatedProject.id ? updatedProject : p);
     setProjects(newProjects);
-    forceSync(newProjects);
+    
+    // CRITICAL FIX: Guests should NOT trigger full project sync via forceSync.
+    // They use granular API calls (comments) which are handled in components.
+    // If we let this run for guests, it returns 403 or 500 error from api/data.
+    if (currentUser?.role !== UserRole.GUEST) {
+        forceSync(newProjects);
+    }
   };
 
   const handleAddProject = (newProject: Project) => {

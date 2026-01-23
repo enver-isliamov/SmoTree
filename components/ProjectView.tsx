@@ -367,15 +367,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                {project.team.length > 3 ? `+${project.team.length - 3}` : '+'}
              </div>
           </div>
-          <div className="h-6 w-px bg-zinc-800 mx-1"></div>
-          <button 
-            onClick={handleShareProject}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors text-xs md:text-sm font-medium"
-            title="Invite Client"
-          >
-            <UserPlus size={16} />
-            <span className="hidden md:inline">Invite</span>
-          </button>
+          
+          {!isGuest && (
+            <>
+              <div className="h-6 w-px bg-zinc-800 mx-1"></div>
+              <button 
+                onClick={handleShareProject}
+                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors text-xs md:text-sm font-medium"
+                title="Invite Client"
+              >
+                <UserPlus size={16} />
+                <span className="hidden md:inline">Invite</span>
+              </button>
+            </>
+          )}
         </div>
       </header>
 

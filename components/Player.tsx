@@ -632,6 +632,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     const newComment: Comment = {
       id: `nc-${generateId()}`,
       userId: currentUser.id,
+      authorName: currentUser.name, // SAVE NAME PERSISTENTLY
       timestamp: timestamp,
       duration: commentDuration,
       text: newCommentText,
@@ -788,7 +789,35 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       touchStartRef.current = null;
   };
 
-  const getAuthor = (userId: string) => users.find(u => u.id === userId) || currentUser;
+  // Improved Author lookup:
+  // 1. Check persisted name (Best for deleted/removed users)
+  // 2. Check current team list (Backwards compatibility)
+  // 3. Fallback to "Unknown" (NEVER default to currentUser blindly)
+  const getAuthorDisplay = (comment: Comment): { name: string, role: UserRole | 'Unknown' } => {
+      // Priority 1: Persisted Name
+      if (comment.authorName) {
+           // Try to find role if they are still in team
+           const teamMember = users.find(u => u.id === comment.userId);
+           return { 
+               name: comment.authorName, 
+               role: teamMember ? teamMember.role : 'Unknown' // Or 'Unknown' if we don't know role anymore
+           };
+      }
+
+      // Priority 2: Active Team Lookup
+      const teamMember = users.find(u => u.id === comment.userId);
+      if (teamMember) {
+          return { name: teamMember.name, role: teamMember.role };
+      }
+
+      // Priority 3: Is it me?
+      if (comment.userId === currentUser.id) {
+          return { name: currentUser.name, role: currentUser.role };
+      }
+
+      // Fallback
+      return { name: 'Unknown User', role: 'Unknown' };
+  };
 
   return (
     <div className="flex flex-col h-[100dvh] bg-zinc-950 overflow-hidden select-none fixed inset-0">
@@ -937,7 +966,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
              <div className="absolute bottom-24 lg:bottom-12 left-4 z-20 flex flex-col items-start gap-2 pointer-events-none w-[80%] md:w-[60%] lg:w-[40%]">
                  {activeOverlayComments.map(c => {
-                    const author = getAuthor(c.userId);
+                    const author = getAuthorDisplay(c);
                     return (
                         <div key={c.id} className="bg-black/60 text-white px-3 py-1.5 rounded-lg text-sm backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 border border-white/5 shadow-lg max-w-full break-words">
                             <span className="font-bold text-indigo-400 mr-2 text-xs uppercase">{author.name.split(' ')[0]}:</span>
@@ -1184,7 +1213,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     
                     {filteredComments.map(comment => {
                         const isSelected = selectedCommentId === comment.id;
-                        const author = getAuthor(comment.userId);
+                        const author = getAuthorDisplay(comment);
                         const canResolve = isManager;
                         const isEditing = editingCommentId === comment.id;
                         const isGuestComment = author.role === UserRole.GUEST;
