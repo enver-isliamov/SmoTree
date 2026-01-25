@@ -116,6 +116,18 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     localStorage.setItem('smotree_controls_pos', JSON.stringify(controlsPos));
   }, [controlsPos]);
 
+  // Helper for precise seeking
+  const seekByFrame = (frames: number) => {
+      if (!videoRef.current) return;
+      
+      const frameDuration = 1 / videoFps;
+      const newTime = Math.min(Math.max(videoRef.current.currentTime + (frames * frameDuration), 0), duration);
+      
+      videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+      if (compareVideoRef.current) compareVideoRef.current.currentTime = newTime;
+  };
+
   // --- KEYBOARD SHORTCUTS ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -123,18 +135,22 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         
         // Don't trigger shortcuts if user is typing in an input
         const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+        
+        // Ignore system shortcuts with modifiers
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-        switch (e.key.toLowerCase()) {
-            case ' ':
+        // Use e.code for layout-independent shortcuts (works in RU/EN/JP etc)
+        switch (e.code) {
+            case 'Space':
                 e.preventDefault(); // Prevent scrolling
                 togglePlay();
                 break;
-            case 'i':
+            case 'KeyI':
                 setMarkerInPoint(currentTime);
                 if (markerOutPoint !== null && markerOutPoint <= currentTime) setMarkerOutPoint(null);
                 break;
-            case 'o':
+            case 'KeyO':
                 // Set Out Point and Trigger Input
                 const outTime = currentTime;
                 if (markerInPoint !== null && outTime > markerInPoint) setMarkerOutPoint(outTime);
@@ -147,7 +163,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 else setTimeout(() => sidebarInputRef.current?.focus(), 100);
                 startListening();
                 break;
-            case 'm':
+            case 'KeyM':
                 // Quick Marker
                 setMarkerInPoint(currentTime);
                 setMarkerOutPoint(null);
@@ -156,12 +172,30 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 else setTimeout(() => sidebarInputRef.current?.focus(), 100);
                 startListening();
                 break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                if (isPlaying) togglePlay(); // Pause to step precisely
+                seekByFrame(-1);
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                if (isPlaying) togglePlay(); // Pause to step precisely
+                seekByFrame(1);
+                break;
+            case 'KeyJ':
+                 // Optional: Shuttle rewind if needed
+                 seek(-5);
+                 break;
+            case 'KeyL':
+                 // Optional: Shuttle forward
+                 seek(5);
+                 break;
         }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLocked, isPlaying, currentTime, markerInPoint, markerOutPoint, isFullscreen]);
+  }, [isLocked, isPlaying, currentTime, markerInPoint, markerOutPoint, isFullscreen, videoFps, duration]);
 
   const syncCommentAction = async (action: 'create' | 'update' | 'delete', payload: any) => {
     try {
