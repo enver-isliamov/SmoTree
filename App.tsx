@@ -11,6 +11,7 @@ import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
 import { generateId } from './services/utils';
 import { LanguageProvider } from './services/i18n';
+import { MainLayout } from './components/MainLayout';
 
 type ViewState = 
   | { type: 'DASHBOARD' }
@@ -400,6 +401,7 @@ const AppContent: React.FC = () => {
           case 'WORKFLOW': setView({ type: 'WORKFLOW' }); break;
           case 'ABOUT': setView({ type: 'ABOUT' }); break;
           case 'PRICING': setView({ type: 'PRICING' }); break;
+          case 'PROFILE': setView({ type: 'PROFILE' }); break;
           default: setView({ type: 'DASHBOARD' });
       }
   };
@@ -443,37 +445,48 @@ const AppContent: React.FC = () => {
   const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
-  // Render Static Pages
-  if (view.type === 'WORKFLOW') return <WorkflowPage onBack={handleBackToDashboard} onNavigate={handleNavigate} isLoggedIn={!!currentUser} />;
-  if (view.type === 'ABOUT') return <AboutPage onBack={handleBackToDashboard} onNavigate={handleNavigate} isLoggedIn={!!currentUser} />;
-  if (view.type === 'PRICING') return <PricingPage onBack={handleBackToDashboard} onNavigate={handleNavigate} isLoggedIn={!!currentUser} />;
-
   if (!currentUser) return <Login onLogin={handleLogin} onNavigate={handleNavigate} />;
-  
+
+  // Persistent Layout Logic
+  // We wrap "Platform" pages (Dashboard, Profile, Static) in MainLayout.
+  // We leave "Editor" pages (ProjectView, Player) standalone for immersive experience.
+  const isPlatformView = ['DASHBOARD', 'PROFILE', 'WORKFLOW', 'ABOUT', 'PRICING'].includes(view.type);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
       <main className="h-full">
-        {view.type === 'DASHBOARD' && (
-          <Dashboard 
-            projects={projects} 
-            currentUser={currentUser}
-            onSelectProject={handleSelectProject}
-            onAddProject={handleAddProject}
-            onDeleteProject={handleDeleteProject}
-            onEditProject={handleEditProject}
-            onLogout={handleLogout}
-            onNavigate={handleNavigate}
-            notify={notify}
-          />
-        )}
-        {view.type === 'PROFILE' && (
-            <Profile 
-                currentUser={currentUser}
+        {isPlatformView && (
+            <MainLayout 
+                currentUser={currentUser} 
+                currentView={view.type} 
+                onNavigate={handleNavigate}
                 onBack={handleBackToDashboard}
-                onLogout={handleLogout}
-                onMigrate={handleGuestMigration}
-            />
+            >
+                {view.type === 'DASHBOARD' && (
+                <Dashboard 
+                    projects={projects} 
+                    currentUser={currentUser}
+                    onSelectProject={handleSelectProject}
+                    onAddProject={handleAddProject}
+                    onDeleteProject={handleDeleteProject}
+                    onEditProject={handleEditProject}
+                    onNavigate={handleNavigate}
+                    notify={notify}
+                />
+                )}
+                {view.type === 'PROFILE' && (
+                    <Profile 
+                        currentUser={currentUser}
+                        onLogout={handleLogout}
+                        onMigrate={handleGuestMigration}
+                    />
+                )}
+                {view.type === 'WORKFLOW' && <WorkflowPage />}
+                {view.type === 'ABOUT' && <AboutPage />}
+                {view.type === 'PRICING' && <PricingPage />}
+            </MainLayout>
         )}
+
         {view.type === 'PROJECT_VIEW' && currentProject && (
           <ProjectView 
             project={currentProject} 

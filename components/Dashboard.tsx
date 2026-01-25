@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Plus, X, Loader2, FileVideo, Clapperboard, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save, Crown, Zap, Shield, ArrowRight } from 'lucide-react';
+import { Plus, X, Loader2, FileVideo, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save, Crown, Zap, Shield, ArrowRight } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 import { ToastType } from './Toast';
 import { useLanguage } from '../services/i18n';
-import { LanguageSelector } from './LanguageSelector';
 
 interface DashboardProps {
   projects: Project[];
@@ -14,12 +13,11 @@ interface DashboardProps {
   onAddProject: (project: Project) => void;
   onDeleteProject: (projectId: string) => void;
   onEditProject: (projectId: string, data: Partial<Project>) => void;
-  onLogout: () => void;
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string) => void; // Kept for upsell buttons
   notify: (msg: string, type: ToastType) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onEditProject, onLogout, onNavigate, notify }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onEditProject, onNavigate, notify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const { t } = useLanguage();
@@ -309,73 +307,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   };
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950">
-      
-      {/* UNIFIED HEADER STRUCTURE */}
-      <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
-        <div className="flex items-center gap-4 overflow-hidden flex-1">
-          {/* LOGO AREA - IDENTICAL TO STATIC PAGES */}
-          <div className="flex items-center gap-3 select-none">
-            <div className="flex items-center justify-center w-8 h-8 bg-indigo-600 rounded-lg shrink-0">
-                <Clapperboard size={18} className="text-white" />
-            </div>
-            
-            <div className="flex flex-col justify-center h-8">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">SmoTree</span>
-                <span className="text-sm font-bold text-zinc-100 uppercase tracking-wide leading-none">{t(`nav.dashboard`)}</span>
-            </div>
-          </div>
-          
-          <div className="h-6 w-px bg-zinc-800 hidden lg:block"></div>
-
-          {/* Main Navigation */}
-          <div className="hidden lg:flex items-center gap-1">
-               {['workflow', 'pricing', 'about'].map(page => (
-                   <button 
-                     key={page}
-                     onClick={() => onNavigate(page.toUpperCase())}
-                     className="px-3 py-1.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors uppercase tracking-wide"
-                   >
-                       {t(`nav.${page}`)}
-                   </button>
-               ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-           {/* Clickable Profile Section */}
-           <div 
-             onClick={() => window.dispatchEvent(new CustomEvent('NAVIGATE_PROFILE'))}
-             className="hidden md:flex items-center gap-2 text-right cursor-pointer hover:bg-zinc-800 py-1 px-2 rounded-lg transition-colors group"
-           >
-              <div>
-                 <div className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors uppercase">{currentUser.name}</div>
-                 <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{currentUser.role}</div>
-              </div>
-              <img src={currentUser.avatar} className="w-8 h-8 rounded-full border border-zinc-700 group-hover:border-indigo-500 transition-colors" alt="User" />
-           </div>
-
-           <div className="h-6 w-px bg-zinc-800 hidden md:block"></div>
-           
-           <LanguageSelector />
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
-        <div className="max-w-[1600px] mx-auto">
-          <div className="flex justify-between items-center mb-6">
-             <div className="lg:hidden flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-                 {/* Removed Docs from mobile scroll menu */}
-                 {['workflow', 'pricing', 'about'].map(page => (
-                   <button 
-                     key={page}
-                     onClick={() => onNavigate(page.toUpperCase())}
-                     className="whitespace-nowrap px-3 py-1.5 text-xs font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg uppercase tracking-wide"
-                   >
-                       {t(`nav.${page}`)}
-                   </button>
-               ))}
-             </div>
+    <>
+      <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-white tracking-tight hidden lg:block">Dashboard</h2>
+             
+             {/* Spacer for alignment on mobile where header controls are */}
+            <div className="lg:hidden"></div>
 
             {canCreateProject && (
               <button 
@@ -386,9 +323,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                 {t('dash.new_project')}
               </button>
             )}
-          </div>
+      </div>
 
-          {myProjects.length === 0 && sharedProjects.length === 0 && isGuest && (
+      {myProjects.length === 0 && sharedProjects.length === 0 && isGuest && (
              <div className="flex flex-col items-center justify-center h-[30vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
                 <Lock size={48} className="mb-4 opacity-50" />
                 <h3 className="text-lg font-bold text-zinc-300">{t('dash.no_projects')}</h3>
@@ -396,58 +333,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                    {t('dash.no_access')}
                 </p>
              </div>
-          )}
+      )}
 
-          {renderProjectGrid(myProjects, t('dash.my_projects'))}
-          {renderProjectGrid(sharedProjects, t('dash.shared_projects'))}
+      {renderProjectGrid(myProjects, t('dash.my_projects'))}
+      {renderProjectGrid(sharedProjects, t('dash.shared_projects'))}
+      
+      {/* UPSELL BLOCK */}
+      <div className="mt-12 bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 md:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-indigo-900/10 to-transparent pointer-events-none"></div>
           
-          {/* UPSELL BLOCK */}
-          <div className="mt-12 bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 md:p-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-indigo-900/10 to-transparent pointer-events-none"></div>
+          <div className="relative z-10">
+              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2 uppercase tracking-wide">
+                   <Zap size={20} className="text-yellow-500" fill="currentColor"/> {t('upsell.title')}
+              </h3>
               
-              <div className="relative z-10">
-                  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2 uppercase tracking-wide">
-                       <Zap size={20} className="text-yellow-500" fill="currentColor"/> {t('upsell.title')}
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
-                      {/* Left: Free/Guest */}
-                      <div className="space-y-4 opacity-60 grayscale">
-                           <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase text-xs tracking-wider border-b border-zinc-800 pb-2">
-                               <Lock size={12} /> {t('upsell.free.title')}
-                           </div>
-                           <ul className="space-y-3 text-sm text-zinc-500 font-medium">
-                               <li className="flex items-center gap-2"><Check size={14}/> {t('upsell.free.feat1')}</li>
-                               <li className="flex items-center gap-2 text-zinc-600"><X size={14}/> {t('upsell.free.feat2')}</li>
-                               <li className="flex items-center gap-2 text-zinc-600"><X size={14}/> {t('upsell.free.feat3')}</li>
-                           </ul>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
+                  {/* Left: Free/Guest */}
+                  <div className="space-y-4 opacity-60 grayscale">
+                       <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase text-xs tracking-wider border-b border-zinc-800 pb-2">
+                           <Lock size={12} /> {t('upsell.free.title')}
+                       </div>
+                       <ul className="space-y-3 text-sm text-zinc-500 font-medium">
+                           <li className="flex items-center gap-2"><Check size={14}/> {t('upsell.free.feat1')}</li>
+                           <li className="flex items-center gap-2 text-zinc-600"><X size={14}/> {t('upsell.free.feat2')}</li>
+                           <li className="flex items-center gap-2 text-zinc-600"><X size={14}/> {t('upsell.free.feat3')}</li>
+                       </ul>
+                  </div>
 
-                      {/* Right: Founder */}
-                      <div className="space-y-4">
-                           <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase text-xs tracking-wider border-b border-indigo-500/30 pb-2">
-                               <Crown size={12} fill="currentColor"/> {t('upsell.founder.title')}
-                           </div>
-                           <ul className="space-y-3 text-sm text-zinc-300 font-medium">
-                               <li className="flex items-center gap-2"><Check size={14} className="text-green-400"/> {t('upsell.founder.feat1')}</li>
-                               <li className="flex items-center gap-2"><Check size={14} className="text-green-400"/> {t('upsell.founder.feat2')}</li>
-                               <li className="flex items-center gap-2"><Shield size={14} className="text-indigo-400"/> {t('upsell.founder.feat3')}</li>
-                           </ul>
-                           
-                           <div className="pt-2 flex gap-3">
-                               <button onClick={() => onNavigate('PRICING')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-bold uppercase tracking-wide flex items-center gap-2 shadow-lg shadow-indigo-900/20 transition-all">
-                                   {t('upsell.cta')} <ArrowRight size={14} />
-                               </button>
-                               <button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide border border-zinc-700">
-                                   {t('upsell.donate')}
-                               </button>
-                           </div>
-                      </div>
+                  {/* Right: Founder */}
+                  <div className="space-y-4">
+                       <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase text-xs tracking-wider border-b border-indigo-500/30 pb-2">
+                           <Crown size={12} fill="currentColor"/> {t('upsell.founder.title')}
+                       </div>
+                       <ul className="space-y-3 text-sm text-zinc-300 font-medium">
+                           <li className="flex items-center gap-2"><Check size={14} className="text-green-400"/> {t('upsell.founder.feat1')}</li>
+                           <li className="flex items-center gap-2"><Check size={14} className="text-green-400"/> {t('upsell.founder.feat2')}</li>
+                           <li className="flex items-center gap-2"><Shield size={14} className="text-indigo-400"/> {t('upsell.founder.feat3')}</li>
+                       </ul>
+                       
+                       <div className="pt-2 flex gap-3">
+                           <button onClick={() => onNavigate('PRICING')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-bold uppercase tracking-wide flex items-center gap-2 shadow-lg shadow-indigo-900/20 transition-all">
+                               {t('upsell.cta')} <ArrowRight size={14} />
+                           </button>
+                           <button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide border border-zinc-700">
+                               {t('upsell.donate')}
+                           </button>
+                       </div>
                   </div>
               </div>
           </div>
-
-        </div>
       </div>
 
       {/* CREATE MODAL */}
@@ -538,7 +472,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             </div>
           </div>
       )}
-
-    </div>
+    </>
   );
 };
