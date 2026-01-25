@@ -110,7 +110,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   const handleShareClick = (e: React.MouseEvent, project: Project) => {
       e.stopPropagation();
       if (project.isLocked) {
-          notify("Cannot share a locked project. Unlock it first.", "error");
+          notify(t('dash.locked_msg'), "error");
           return;
       }
       setSharingProject(project);
@@ -122,12 +122,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
       navigator.clipboard.writeText(url);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
-      notify("Link copied!", "success");
+      notify(t('common.link_copied'), "success");
   };
 
   const handleDeleteClick = async (e: React.MouseEvent, project: Project) => {
       e.stopPropagation();
-      if (!confirm(`Are you sure you want to delete "${project.name}"?\nThis will permanently delete ALL videos and comments.`)) {
+      if (!confirm(t('dash.delete_confirm'))) {
           return;
       }
 
@@ -155,7 +155,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
               });
           } catch (err) {
               console.error("Failed to delete blobs", err);
-              notify("Warning: Could not delete video files from cloud. Project entry will be removed.", "error");
+              notify(t('common.error'), "error");
           }
       }
 
@@ -215,13 +215,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                 {project.createdAt && daysLeft <= 2 && !expired && (
                                     <div className="bg-orange-500/10 text-orange-500 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20 flex items-center gap-1">
                                         <CalendarClock size={10} />
-                                        {daysLeft}d left
+                                        {daysLeft} {t('dash.days_left')}
                                     </div>
                                 )}
                                 {expired && (
                                     <div className="bg-red-500/10 text-red-500 text-[9px] px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
                                         <AlertTriangle size={10} />
-                                        Expired
+                                        {t('dash.expired')}
                                     </div>
                                 )}
                             </div>
@@ -263,28 +263,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                         <button 
                                             onClick={(e) => handleToggleLock(e, project)}
                                             className={`p-1.5 rounded hover:bg-zinc-800 ${project.isLocked ? 'text-red-400' : 'text-zinc-500 hover:text-white'}`}
-                                            title={project.isLocked ? "Unlock Project" : "Lock Project"}
+                                            title={project.isLocked ? t('common.unlock') : t('common.lock')}
                                         >
                                             {project.isLocked ? <Lock size={14} /> : <Unlock size={14} />}
                                         </button>
                                         <button 
                                             onClick={(e) => handleOpenEdit(e, project)}
                                             className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded"
-                                            title="Edit Details"
+                                            title={t('common.edit')}
                                         >
                                             <Edit2 size={14} />
                                         </button>
                                         <button 
                                             onClick={(e) => handleShareClick(e, project)}
                                             className={`p-1.5 rounded hover:bg-zinc-800 ${project.isLocked ? 'text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-indigo-400'}`}
-                                            title={project.isLocked ? "Cannot share locked project" : "Share Project"}
+                                            title={t('common.share')}
                                         >
                                             <Share2 size={14} />
                                         </button>
                                         <button 
                                             onClick={(e) => handleDeleteClick(e, project)}
                                             className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded"
-                                            title="Delete Project"
+                                            title={t('common.delete')}
                                         >
                                             <Trash2 size={14} />
                                         </button>
@@ -309,7 +309,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   return (
     <>
       <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-white tracking-tight hidden lg:block">Dashboard</h2>
+            <h2 className="text-2xl font-bold text-white tracking-tight hidden lg:block">{t('nav.dashboard')}</h2>
              
              {/* Spacer for alignment on mobile where header controls are */}
             <div className="lg:hidden"></div>
@@ -399,16 +399,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
               <h2 className="text-xl font-bold text-white mb-6">{t('dash.new_project')}</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Project Name</label>
+                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">{t('dash.field.name')}</label>
                   <input autoFocus type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Summer Campaign 2024" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Client Name</label>
+                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">{t('dash.field.client')}</label>
                   <input type="text" required value={client} onChange={(e) => setClient(e.target.value)} placeholder="e.g. Acme Corp" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Description</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief details about the project..." className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all resize-none h-24 font-medium" />
+                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">{t('dash.field.desc')}</label>
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all resize-none h-24 font-medium" />
                 </div>
               </div>
               <div className="mt-8 flex justify-end gap-3">
@@ -429,15 +429,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                     <h2 className="text-xl font-bold text-white mb-6">{t('edit')}</h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Project Name</label>
+                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">{t('dash.field.name')}</label>
                             <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-medium" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Client Name</label>
+                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">{t('dash.field.client')}</label>
                             <input type="text" required value={editClient} onChange={(e) => setEditClient(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-medium" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Description</label>
+                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">{t('dash.field.desc')}</label>
                             <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none resize-none h-24 font-medium" />
                         </div>
                     </div>
@@ -457,15 +457,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                 <button onClick={() => setSharingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
                 <div className="flex items-center gap-2 mb-1">
                     <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400"><Share2 size={18} /></div>
-                    <h2 className="text-lg font-bold text-white">Share Project</h2>
+                    <h2 className="text-lg font-bold text-white">{t('common.share')}</h2>
                 </div>
-                <p className="text-xs text-zinc-400 mb-4 font-medium">Share this link with your client or team.</p>
+                <p className="text-xs text-zinc-400 mb-4 font-medium">{t('pv.share.desc')}</p>
                 <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 mb-2">
-                    <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Project Link</div>
+                    <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">{t('pv.share.link')}</div>
                     <div className="flex items-center gap-2">
                         <input type="text" readOnly value={`${window.location.origin}?projectId=${sharingProject.id}`} className="bg-transparent flex-1 text-xs text-zinc-300 outline-none truncate font-mono" />
                         <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-bold ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
-                            {isCopied ? <Check size={12} /> : <Copy size={12} />}{isCopied ? 'Copied' : 'Copy'}
+                            {isCopied ? <Check size={12} /> : <Copy size={12} />}{isCopied ? t('common.copied') : t('common.copy')}
                         </button>
                     </div>
                 </div>

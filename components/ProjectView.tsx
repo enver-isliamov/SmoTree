@@ -161,12 +161,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       };
       
       onUpdateProject(updatedProject);
-      notify("Asset uploaded successfully", "success");
-      if (isLocalFallback) notify("Offline mode: Using local file", "info");
+      notify(t('common.success'), "success");
+      if (isLocalFallback) notify(t('player.media_offline'), "info");
 
     } catch (error) {
       console.error("Critical error adding asset", error);
-      notify("Failed to upload asset", "error");
+      notify(t('common.error'), "error");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -240,11 +240,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         };
 
         onUpdateProject(updatedProject);
-        notify(`Version ${nextVersionNum} uploaded`, "success");
+        notify(`${t('pv.version')} ${nextVersionNum}`, "success");
 
       } catch (e) {
           console.error(e);
-          notify("Failed to upload version", "error");
+          notify(t('common.error'), "error");
       } finally {
           setIsUploading(false);
           if (versionInputRef.current) versionInputRef.current.value = '';
@@ -253,7 +253,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
 
   const handleDeleteAsset = async (e: React.MouseEvent, asset: ProjectAsset) => {
     e.stopPropagation();
-    if (!confirm(`Delete asset "${asset.title}"?`)) return;
+    if (!confirm(t('pv.delete_asset_confirm'))) return;
 
     setIsDeletingAsset(asset.id);
 
@@ -283,7 +283,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     const updatedAssets = project.assets.filter(a => a.id !== asset.id);
     onUpdateProject({ ...project, assets: updatedAssets });
     setIsDeletingAsset(null);
-    notify("Asset deleted", "info");
+    notify(t('common.success'), "info");
   };
 
   const handleShareProject = () => {
@@ -295,7 +295,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const handleShareAsset = (e: React.MouseEvent, asset: ProjectAsset) => {
     e.stopPropagation(); 
     if (isLocked) {
-        notify("Project is locked. Sharing disabled.", "error");
+        notify(t('dash.locked_msg'), "error");
         return;
     }
     setShareTarget({ type: 'asset', id: asset.id, name: asset.title });
@@ -314,14 +314,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       if (!isProjectOwner) return;
 
       if (memberId === project.ownerId) {
-          notify("Cannot remove the project owner.", "error");
+          notify(t('common.error'), "error");
           return;
       }
-      if (!confirm("Are you sure you want to remove this user from the team?")) return;
+      if (!confirm(t('pv.remove_confirm'))) return;
 
       const updatedTeam = project.team.filter(m => m.id !== memberId);
       onUpdateProject({ ...project, team: updatedTeam });
-      notify("User removed from team", "info");
+      notify(t('common.success'), "info");
   };
 
   const handleCopyLink = () => {
@@ -334,15 +334,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     }
     navigator.clipboard.writeText(url);
     setIsCopied(true);
-    notify("Link copied to clipboard", "success");
+    notify(t('common.link_copied'), "success");
     setTimeout(() => setIsCopied(false), 2000);
   };
 
   // Helper to determine display role
   const getDisplayRole = (member: User) => {
-      if (member.id === project.ownerId) return 'Owner';
-      if (member.role === UserRole.GUEST) return 'Guest';
-      return 'Creator';
+      if (member.id === project.ownerId) return t('pv.role.owner');
+      if (member.role === UserRole.GUEST) return t('pv.role.guest');
+      return t('pv.role.creator');
   };
 
   return (
@@ -358,7 +358,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
 
           <div className="flex flex-col truncate">
             <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                SmoTree <span className="text-zinc-600">/</span> {isGuest ? 'Shared' : <span className="cursor-pointer hover:text-zinc-200 transition-colors" onClick={onBack}>{t('nav.dashboard')}</span>}
+                SmoTree <span className="text-zinc-600">/</span> {isGuest ? t('dash.shared_projects') : <span className="cursor-pointer hover:text-zinc-200 transition-colors" onClick={onBack}>{t('nav.dashboard')}</span>}
             </span>
             <div className="flex items-center gap-1 font-semibold text-sm md:text-base leading-tight text-zinc-100 truncate">
                <span className="truncate">{project.name}</span>
@@ -374,7 +374,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           <div 
             onClick={() => setIsParticipantsModalOpen(true)}
             className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity ml-2"
-            title="View Team"
+            title={t('pv.team')}
           >
              {project.team.slice(0, 3).map((member) => (
                 <img key={member.id} src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full border-2 border-zinc-950" />
@@ -390,10 +390,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
               <button 
                 onClick={handleShareProject}
                 className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors text-xs md:text-sm font-medium"
-                title="Invite Client"
+                title={t('pv.invite')}
               >
                 <UserPlus size={16} />
-                <span className="hidden md:inline">Invite</span>
+                <span className="hidden md:inline">{t('pv.invite')}</span>
               </button>
             </>
           )}
@@ -404,14 +404,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       {isLocked && (
           <div className="bg-red-900/20 border-b border-red-900/30 text-red-400 text-xs py-1 text-center font-medium flex items-center justify-center gap-2">
               <Lock size={12} />
-              Project is locked. Editing and sharing are disabled.
+              {t('pv.locked_banner')}
           </div>
       )}
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-[1600px] mx-auto">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-sm md:text-base font-semibold text-zinc-200">Assets <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
+                <h2 className="text-sm md:text-base font-semibold text-zinc-200">{t('pv.assets')} <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
                 
                 {canEditProject && !isLocked && (
                     <div>
@@ -424,7 +424,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                         className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors text-xs md:text-sm font-medium border border-zinc-700"
                     >
                         {isUploading ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14} />}
-                        {isUploading ? 'Uploading...' : 'Upload Asset'}
+                        {isUploading ? t('common.uploading') : t('pv.upload_asset')}
                     </button>
                     </div>
                 )}
@@ -450,7 +450,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                             <button 
                                 onClick={(e) => handleShareAsset(e, asset)}
                                 className="p-1.5 bg-black/60 hover:bg-indigo-600 text-white rounded-md backdrop-blur-sm transition-colors"
-                                title="Copy Direct Link"
+                                title={t('pv.copy_link')}
                             >
                                 <LinkIcon size={12} />
                             </button>
@@ -461,14 +461,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                                 <button 
                                     onClick={(e) => handleAddVersionClick(e, asset.id)}
                                     className="p-1.5 bg-black/60 hover:bg-blue-500 text-white rounded-md backdrop-blur-sm transition-colors"
-                                    title="Upload New Version"
+                                    title={t('pv.upload_new_ver')}
                                 >
                                     <History size={12} />
                                 </button>
                                 <button 
                                     onClick={(e) => handleDeleteAsset(e, asset)}
                                     className="p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md backdrop-blur-sm transition-colors"
-                                    title="Delete Asset"
+                                    title={t('pv.delete_asset')}
                                 >
                                     {isDeletingAsset === asset.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                                 </button>
@@ -486,7 +486,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                     <div className="flex justify-between items-center text-[10px] text-zinc-500">
                         <span className="flex items-center gap-1">
                         <Clock size={10} />
-                        {asset.versions[asset.versions.length-1]?.comments.length} comments
+                        {asset.versions[asset.versions.length-1]?.comments.length}
                         </span>
                         <span>{asset.versions[asset.versions.length-1]?.uploadedAt}</span>
                     </div>
@@ -513,15 +513,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                       <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400">
                           <UserPlus size={18} />
                       </div>
-                      <h2 className="text-lg font-bold text-white">Invite to Review</h2>
+                      <h2 className="text-lg font-bold text-white">{t('pv.share.title')}</h2>
                   </div>
                   
                   <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
-                     Share this link with your client or team. They will join as a <strong>Guest</strong> and can comment on this {shareTarget.type}.
+                     {t('pv.share.desc')}
                   </p>
                   
                   <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 mb-2">
-                    <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Review Link</div>
+                    <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">{t('pv.share.link')}</div>
                     <div className="flex items-center gap-2">
                         <input 
                         type="text" 
@@ -531,7 +531,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                         />
                         <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-medium ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
                         {isCopied ? <Check size={12} /> : <Copy size={12} />}
-                        {isCopied ? 'Copied' : 'Copy'}
+                        {isCopied ? t('common.copied') : t('common.copy')}
                         </button>
                     </div>
                   </div>
@@ -539,7 +539,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                   <div className="flex items-start gap-2 bg-indigo-900/10 p-2 rounded border border-indigo-500/10">
                       <Info size={14} className="text-indigo-400 mt-0.5 shrink-0" />
                       <p className="text-[10px] text-indigo-200/70">
-                          Guests cannot delete files or create new projects.
+                          {t('pv.share.info')}
                       </p>
                   </div>
                 </>
@@ -547,7 +547,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
 
               {isParticipantsModalOpen && (
                 <>
-                  <h2 className="text-lg font-bold text-white mb-4">Project Team</h2>
+                  <h2 className="text-lg font-bold text-white mb-4">{t('pv.team')}</h2>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {project.team.map(member => (
                         <div key={member.id} className="flex items-center justify-between p-2 rounded hover:bg-zinc-800/50 group">
@@ -558,7 +558,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                                     {member.name}
                                     {member.id === currentUser.id && <span className="text-[10px] text-zinc-500">(You)</span>}
                                 </div>
-                                <div className={`text-[10px] uppercase font-bold ${getDisplayRole(member) === 'Guest' ? 'text-orange-400' : 'text-indigo-400'}`}>
+                                <div className={`text-[10px] uppercase font-bold ${getDisplayRole(member) === t('pv.role.guest') ? 'text-orange-400' : 'text-indigo-400'}`}>
                                     {getDisplayRole(member)}
                                 </div>
                               </div>
@@ -568,7 +568,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                               <button 
                                 onClick={() => handleRemoveMember(member.id)}
                                 className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
-                                title="Remove User"
+                                title={t('pv.remove_user')}
                               >
                                 <Trash2 size={14} />
                               </button>

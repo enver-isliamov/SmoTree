@@ -5,6 +5,7 @@ import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 import { generateId, stringToColor } from '../services/utils';
 import { ToastType } from './Toast';
+import { useLanguage } from '../services/i18n';
 
 interface PlayerProps {
   asset: ProjectAsset;
@@ -27,6 +28,7 @@ const canManageProject = (user: User, project: Project) => {
 };
 
 export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onBack, users, onUpdateProject, isSyncing, notify }) => {
+  const { t } = useLanguage();
   const [currentVersionIdx, setCurrentVersionIdx] = useState(asset.currentVersionIndex);
   const version = asset.versions[currentVersionIdx] || asset.versions[0];
   
@@ -221,7 +223,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         });
     } catch (e) {
         console.error("Failed to sync comment action", e);
-        notify("Failed to sync comment to server", "error");
+        notify(t('common.error'), "error");
     }
   };
 
@@ -386,7 +388,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         setLocalFileName(file.name);
         setVideoError(false);
         persistLocalFile(url, file.name);
-        notify("Local file linked successfully", "success");
+        notify(t('common.success'), "success");
     }
   };
 
@@ -513,7 +515,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           downloadFile(`${filename}_v${version.versionNumber}.xml`, content, 'text/xml');
       }
       setShowExportMenu(false);
-      notify("Markers exported successfully", "success");
+      notify(t('common.success'), "success");
   };
 
   const handlePointerDown = (e: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
@@ -648,7 +650,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
     persistComments([...comments, newComment]);
     syncCommentAction('create', newComment); 
-    notify("Comment added", "success");
+    notify(t('common.success'), "success");
     setNewCommentText('');
     setMarkerInPoint(null);
     setMarkerOutPoint(null);
@@ -670,7 +672,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     syncCommentAction('update', { id: commentId, text: editText });
     setEditingCommentId(null);
     setEditText('');
-    notify("Comment updated", "success");
+    notify(t('common.success'), "success");
   };
 
   const cancelEdit = () => {
@@ -680,7 +682,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   const handleDeleteComment = (commentId: string) => {
     if (isLocked) return;
-    if (!confirm("Delete comment?")) {
+    if (!confirm(t('common.delete') + "?")) {
         setSwipeCommentId(null);
         setSwipeOffset(0);
         return;
@@ -691,7 +693,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     if (selectedCommentId === commentId) setSelectedCommentId(null);
     setSwipeCommentId(null);
     setSwipeOffset(0);
-    notify("Comment deleted", "info");
+    notify(t('common.success'), "info");
   };
 
   const handleResolveComment = (e: React.MouseEvent, commentId: string) => {
@@ -718,7 +720,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           return c;
       });
       persistComments(updated);
-      notify("Bulk resolve successful", "success");
+      notify(t('common.success'), "success");
   };
 
   const handleToggleLock = () => {
@@ -731,7 +733,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       
       // Locking is a structural change, so we ALLOW sync here (skipSync=false)
       onUpdateProject({ ...project, assets: updatedAssets });
-      notify(newLockState ? "Version locked" : "Version unlocked", "info");
+      notify(newLockState ? t('player.lock_ver') : t('player.unlock_ver'), "info");
   };
 
   const handleTouchStart = (e: React.TouchEvent, commentId: string) => {
@@ -805,18 +807,18 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             {(!isSearchOpen || window.innerWidth > 768) && (
               <div className="flex flex-col truncate">
                 <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                    <span onClick={onBack} className="cursor-pointer hover:text-zinc-200 transition-colors">{project.name}</span> <span className="text-zinc-600">/</span> {isGuest ? 'Shared' : 'Asset'}
+                    <span onClick={onBack} className="cursor-pointer hover:text-zinc-200 transition-colors">{project.name}</span> <span className="text-zinc-600">/</span> {isGuest ? t('dash.shared_projects') : t('pv.assets')}
                 </span>
                 <div className="flex items-center gap-2 text-sm text-zinc-100 font-semibold leading-none truncate">
                    <span>{localFileName || asset.title}</span>
                    <span className="bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded text-[10px]">v{version.versionNumber}</span>
                    
                    {isSyncing ? (
-                      <div className="flex items-center gap-1 text-zinc-500 animate-pulse" title="Syncing changes...">
+                      <div className="flex items-center gap-1 text-zinc-500 animate-pulse" title={t('player.syncing')}>
                           <Cloud size={12} />
                       </div>
                    ) : (
-                      <div className="flex items-center gap-1 text-zinc-600" title="All changes saved">
+                      <div className="flex items-center gap-1 text-zinc-600" title={t('player.saved')}>
                           <CheckCircle size={12} />
                       </div>
                    )}
@@ -824,13 +826,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                    <button 
                         onClick={() => localFileRef.current?.click()}
                         className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors text-[10px] ${localFileName ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
-                        title="Link Local File (High Quality / Offline)"
+                        title={t('player.link_local')}
                     >
                         <HardDrive size={10} />
                         <span>{localFileName ? 'Local' : 'Cloud'}</span>
                     </button>
 
-                   {videoError && !localFileName && <span className="text-red-400 flex items-center gap-1 text-[10px]"><Flag size={8}/> Source Missing</span>}
+                   {videoError && !localFileName && <span className="text-red-400 flex items-center gap-1 text-[10px]"><Flag size={8}/> {t('player.source_missing')}</span>}
                 </div>
               </div>
             )}
@@ -842,7 +844,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                    <input 
                      autoFocus
                      className="w-full bg-transparent text-xs text-white outline-none py-1.5"
-                     placeholder="Search..."
+                     placeholder={t('dash.search')}
                      value={searchQuery}
                      onChange={e => setSearchQuery(e.target.value)}
                      onBlur={() => !searchQuery && setIsSearchOpen(false)}
@@ -932,7 +934,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 <button 
                     onClick={cycleFps}
                     className="px-2 py-1 hover:bg-white/10 transition-colors flex items-center gap-1.5 group/fps"
-                    title="Toggle FPS"
+                    title={t('player.fps')}
                 >
                      <span className={`text-[10px] font-mono font-bold ${isFpsDetected ? 'text-indigo-400' : 'text-zinc-400 group-hover/fps:text-zinc-200'}`}>
                         {Number.isInteger(videoFps) ? videoFps : videoFps.toFixed(2)} FPS
@@ -958,7 +960,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     <div className="w-full max-w-md md:max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-2xl flex flex-col md:flex-row md:items-stretch gap-4 md:gap-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex flex-col items-center justify-center md:w-1/3 shrink-0">
                             <h3 className="text-base md:text-lg font-bold text-white mb-2 text-center">
-                                {markerOutPoint ? 'Range Comment' : 'Point Marker'}
+                                {markerOutPoint ? t('player.voice.range') : t('player.voice.point')}
                             </h3>
                             <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs md:text-sm mb-4 md:mb-0 bg-indigo-950/30 px-3 py-1 rounded-full border border-indigo-500/20">
                                 <span>{formatTimecode(markerInPoint || currentTime)}</span>
@@ -978,12 +980,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         </div>
                         <div className="flex flex-col justify-center flex-1 w-full">
                             <p className="text-[10px] md:text-xs text-zinc-500 mb-2 uppercase tracking-wider text-center md:text-left">
-                                {isListening ? 'Listening...' : 'Transcript'}
+                                {isListening ? t('player.voice.listening') : t('player.voice.transcript')}
                             </p>
                             <textarea 
                                 value={newCommentText}
                                 onChange={(e) => setNewCommentText(e.target.value)}
-                                placeholder={isListening ? "Speak now..." : "Type or record a comment..."}
+                                placeholder={isListening ? t('player.voice.listening') : t('player.voice.placeholder')}
                                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white text-base md:text-sm focus:border-indigo-500 outline-none h-24 md:h-32 mb-4 resize-none"
                                 autoFocus
                             />
@@ -992,14 +994,14 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                     onClick={() => closeVoiceModal(false)}
                                     className="flex-1 py-2.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 font-medium transition-colors text-sm"
                                 >
-                                    Cancel
+                                    {t('cancel')}
                                 </button>
                                 <button 
                                     onClick={() => closeVoiceModal(true)}
                                     disabled={!newCommentText.trim() || isLocked}
                                     className="flex-1 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                                 >
-                                    Save
+                                    {t('save')}
                                 </button>
                             </div>
                         </div>
@@ -1023,15 +1025,15 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                      <div className="bg-zinc-800 p-4 rounded-full mb-4 ring-1 ring-zinc-700">
                         <FileVideo size={32} className="text-zinc-400" />
                     </div>
-                     <p className="text-zinc-300 font-bold text-lg mb-2">Media Offline</p>
+                     <p className="text-zinc-300 font-bold text-lg mb-2">{t('player.media_offline')}</p>
                      <p className="text-xs text-zinc-500 max-w-[280px] mb-6 leading-relaxed">
-                        The source file <strong>"{localFileName || version.filename}"</strong> is no longer accessible. Please re-select it to continue.
+                        {t('player.offline_desc')}
                     </p>
                     <button 
                         onClick={() => localFileRef.current?.click()}
                         className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm shadow-lg shadow-indigo-900/20"
                     >
-                        <Upload size={16} /> Link Local File
+                        <Upload size={16} /> {t('player.link_local')}
                     </button>
                  </div>
              )}
@@ -1131,7 +1133,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              <>
                 <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900 sticky top-0 z-10">
                     <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Comments ({filteredComments.length})</span>
+                        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{t('player.comments')} ({filteredComments.length})</span>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -1140,7 +1142,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 <button 
                                     onClick={handleToggleLock}
                                     className={`p-1.5 rounded transition-colors ${version.isLocked ? 'bg-red-900/20 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                                    title={version.isLocked ? "Unlock Comments" : "Lock Comments"}
+                                    title={version.isLocked ? t('player.unlock_ver') : t('player.lock_ver')}
                                 >
                                     {version.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
                                 </button>
@@ -1148,7 +1150,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                      <button 
                                          onClick={() => setShowExportMenu(!showExportMenu)}
                                          className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
-                                         title="Export Markers"
+                                         title={t('player.export.title')}
                                      >
                                          <Download size={16} />
                                      </button>
@@ -1157,15 +1159,15 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                          <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
                                              <button onClick={() => handleExport('xml')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
                                                  <Film size={14} className="text-indigo-400" />
-                                                 DaVinci Resolve (.xml)
+                                                 {t('player.export.xml')}
                                              </button>
                                              <button onClick={() => handleExport('csv')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
                                                  <FileSpreadsheet size={14} className="text-green-400" />
-                                                 Premiere Pro (.csv)
+                                                 {t('player.export.csv')}
                                              </button>
                                               <button onClick={() => handleExport('edl')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
                                                  <FileText size={14} className="text-orange-400" />
-                                                 EDL Generic (.edl)
+                                                 {t('player.export.edl')}
                                              </button>
                                          </div>
                                      )}
@@ -1183,7 +1185,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 className="flex items-center gap-1 text-[10px] bg-green-900/20 text-green-400 border border-green-900/50 hover:bg-green-900/40 px-2 py-1 rounded transition-colors"
                             >
                                 <CheckSquare size={12} />
-                                Resolve All
+                                {t('player.resolve_all')}
                             </button>
                         )}
                     </div>
@@ -1192,7 +1194,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 <div className="flex-1 overflow-y-auto p-3 space-y-3 overflow-x-hidden">
                     {filteredComments.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-32 text-zinc-500 text-sm">
-                            <p>No comments yet.</p>
+                            <p>{t('player.no_comments')}</p>
                         </div>
                     )}
                     
@@ -1216,10 +1218,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             
                             <div className="absolute inset-0 rounded-lg flex items-center justify-between px-4">
                                 <div className="flex items-center text-blue-500 gap-2 font-bold text-xs uppercase opacity-0 transition-opacity duration-200" style={{ opacity: offset > 20 ? 1 : 0 }}>
-                                    <Pencil size={16} /> Edit
+                                    <Pencil size={16} /> {t('common.edit')}
                                 </div>
                                 <div className="flex items-center text-red-500 gap-2 font-bold text-xs uppercase opacity-0 transition-opacity duration-200" style={{ opacity: offset < -20 ? 1 : 0 }}>
-                                    Delete <Trash2 size={16} />
+                                    {t('common.delete')} <Trash2 size={16} />
                                 </div>
                             </div>
 
@@ -1283,9 +1285,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                         autoFocus
                                     />
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={cancelEdit} className="px-2 py-1 text-xs text-zinc-400 hover:text-white">Cancel</button>
+                                        <button onClick={cancelEdit} className="px-2 py-1 text-xs text-zinc-400 hover:text-white">{t('cancel')}</button>
                                         <button onClick={() => saveEdit(comment.id)} className="px-3 py-1 bg-indigo-600 text-white rounded text-xs flex items-center gap-1">
-                                            <Save size={12} /> Save
+                                            <Save size={12} /> {t('save')}
                                         </button>
                                     </div>
                                     </div>
@@ -1305,7 +1307,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         <div className="flex items-center gap-2 mb-2 px-1">
                             <div className="text-[10px] text-indigo-400 flex items-center gap-1 bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
-                                <span>Targeting Range: {formatTimecode(markerInPoint || currentTime)} - {markerOutPoint ? formatTimecode(markerOutPoint) : '...'}</span>
+                                <span>Range: {formatTimecode(markerInPoint || currentTime)} - {markerOutPoint ? formatTimecode(markerOutPoint) : '...'}</span>
                             </div>
                         </div>
                     )}
@@ -1316,7 +1318,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             ref={sidebarInputRef}
                             disabled={isLocked}
                             className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-12 py-3 md:py-2.5 text-base md:text-sm text-white focus:border-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                            placeholder={isLocked ? "Comments are locked" : (isListening ? "Listening..." : "Add a comment...")}
+                            placeholder={isLocked ? "Comments locked" : (isListening ? t('player.voice.listening') : t('player.voice.placeholder'))}
                             value={newCommentText}
                             onChange={e => setNewCommentText(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleAddComment()}
@@ -1380,7 +1382,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             <button 
                 onClick={handleQuickMarker}
                 className="text-zinc-400 hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
-                title="Quick Marker (M)"
+                title={t('player.marker.quick')}
             >
                 <MapPin size={18} />
             </button>
@@ -1397,14 +1399,14 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             <button 
                 onClick={handleSetInPoint} 
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                title="Set In Point (I)"
+                title={t('player.marker.in')}
             >
                 IN
             </button>
             <button 
                 onClick={handleSetOutPoint}
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                title="Set Out Point (O)"
+                title={t('player.marker.out')}
             >
                 OUT
             </button>
