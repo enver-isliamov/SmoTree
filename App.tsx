@@ -445,7 +445,31 @@ const AppContent: React.FC = () => {
   const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
-  if (!currentUser) return <Login onLogin={handleLogin} onNavigate={handleNavigate} />;
+  // ROUTING LOGIC UPDATE:
+  // If not logged in, but viewing a public page, render MainLayout.
+  if (!currentUser) {
+      const isPublicView = ['WORKFLOW', 'ABOUT', 'PRICING'].includes(view.type);
+      
+      if (isPublicView) {
+          return (
+            <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
+                <MainLayout 
+                    currentUser={null} 
+                    currentView={view.type} 
+                    onNavigate={handleNavigate}
+                    onBack={handleBackToDashboard}
+                >
+                    {view.type === 'WORKFLOW' && <WorkflowPage />}
+                    {view.type === 'ABOUT' && <AboutPage />}
+                    {view.type === 'PRICING' && <PricingPage />}
+                </MainLayout>
+                <ToastContainer toasts={toasts} removeToast={removeToast} />
+            </div>
+          );
+      }
+      
+      return <Login onLogin={handleLogin} onNavigate={handleNavigate} />;
+  }
 
   // Persistent Layout Logic
   // We wrap "Platform" pages (Dashboard, Profile, Static) in MainLayout.

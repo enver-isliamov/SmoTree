@@ -43,8 +43,8 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     
     // Auth / Landing
     'nav.login': 'Log In',
-    'hero.title.speed': 'Video feedback 10x faster',
-    'hero.desc_new': 'Forget long email chains. Smotree is a professional space for video collaboration: precise edits, version control, and instant access.',
+    'hero.title.speed': 'Your Video. Perfectly Aligned.',
+    'hero.desc_new': 'A centralized platform for professional review. Frame-accurate edits, version control, and intelligent assistance in one click.',
     'hero.title.1': 'Join the', // Fallback
     'hero.title.2': 'SmoTree',  // Fallback
     'hero.quote': '"I develop SmoTree solo. You fund the development, and I gift you the tool forever."',
@@ -63,13 +63,13 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'footer.rights': 'All rights reserved.',
 
     // Why Smotree Section
-    'why.title': 'Why Smotree?',
-    'why.feat1.title': 'Instant Playback',
-    'why.feat1.desc': 'Automatic proxy generation and local file support allow 4K viewing without lag, even offline.',
-    'why.feat2.title': 'Version Comparison',
-    'why.feat2.desc': 'Side-by-Side mode: watch old and new video versions in one window with a synchronized player.',
-    'why.feat3.title': 'Security',
-    'why.feat3.desc': 'Password protected links and expiration dates. You know exactly who watched your video and when.',
+    'why.title': 'Why SmoTree?',
+    'why.feat1.title': 'Timecode Edits',
+    'why.feat1.desc': 'Leave comments directly on the video. No more "something is off at second 15". Every pixel and frame under control.',
+    'why.feat2.title': 'Versioning 2.0',
+    'why.feat2.desc': 'Compare v1 and v2 in Side-by-Side mode. Watch the project evolve from draft to final render.',
+    'why.feat3.title': 'Direct Access',
+    'why.feat3.desc': 'Share secure links. The client doesn\'t need to register — they simply open the link and leave feedback.',
     
     // Dashboard
     'dash.my_projects': 'My Projects',
@@ -162,6 +162,11 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'page.about.mission': 'SmoTree is a passion project built by a single developer for the filmmaking community. No corporate bloat, just speed.',
     'page.about.story.title': 'The Solo Journey',
     'page.about.story.text': 'I started SmoTree because I was tired of subscription fatigue and sluggish tools. My goal is simple: provide a lightweight, professional review tool that respects your time and your wallet.',
+    'page.about.feat.fast.title': 'Video Feedback 10x Faster',
+    'page.about.feat.fast.desc': 'Forget long email chains. SmoTree is a professional video collaboration space: precise edits, version control, and instant access.',
+    'page.about.feat.instant.title': 'Instant Playback',
+    'page.about.feat.instant.desc': 'Automatic proxy generation and local file handling allows 4K playback without lag, even offline.',
+
     'page.pricing.title': 'Fair Pricing',
     'page.pricing.subtitle': 'Invest once, use forever during the V1 lifecycle.',
     'page.pricing.why_title': 'Why I\'m ending lifetime access soon',
@@ -239,8 +244,8 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
 
     // Auth
     'nav.login': 'Войти',
-    'hero.title.speed': 'Фидбек по видео в 10 раз быстрее',
-    'hero.desc_new': 'Забудьте о длинных цепочках писем. Smotree — это профессиональное пространство для совместной работы над видео: точные правки, управление версиями и мгновенный доступ.',
+    'hero.title.speed': 'Ваше видео. Идеально согласовано.',
+    'hero.desc_new': 'Централизованная платформа для профессионального ревью. Точные правки по кадрам, управление версиями и интеллектуальная помощь в один клик.',
     'hero.title.1': 'Присоединяйтесь к', // Fallback
     'hero.title.2': 'SmoTree', // Fallback
     'hero.quote': '"Я разрабатываю SmoTree в одиночку. Вы финансируете разработку, а я дарю вам инструмент навсегда."',
@@ -257,12 +262,12 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
 
     // Why Smotree Section
     'why.title': 'Почему Smotree?',
-    'why.feat1.title': 'Мгновенный просмотр',
-    'why.feat1.desc': 'Автоматическая генерация прокси и работа с локальными файлами позволяет смотреть 4K видео без лагов даже без интернета.',
-    'why.feat2.title': 'Сравнение версий',
-    'why.feat2.desc': 'Режим Side-by-Side: смотрите старую и новую версию видео в одном окне с синхронным плеером.',
-    'why.feat3.title': 'Безопасность',
-    'why.feat3.desc': 'Ссылки с паролем и сроком действия. Вы точно знаете, кто и когда посмотрел ваше видео.',
+    'why.feat1.title': 'Правки по таймкодам',
+    'why.feat1.desc': 'Оставляйте комментарии прямо на видео. Больше никаких «на 15-й секунде там что-то не то». Каждый пиксель и каждый кадр под контролем.',
+    'why.feat2.title': 'Версионность 2.0',
+    'why.feat2.desc': 'Сравнивайте v1 и v2 в режиме Side-by-Side. Следите за тем, как проект эволюционирует от черновика до финального рендера.',
+    'why.feat3.title': 'Прямой доступ',
+    'why.feat3.desc': 'Делитесь защищенными ссылками. Клиенту не нужно регистрироваться — он просто открывает ссылку и оставляет отзыв.',
     
     // Dashboard
     'dash.my_projects': 'Мои Проекты',
@@ -359,6 +364,11 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'page.about.val.3.desc': 'Прямая связь между разработчиком и пользователем. Ваш фидбек имеет значение.',
     'page.about.story.title': 'Путь Одиночки',
     'page.about.story.text': 'Я начал SmoTree, потому что устал от бесконечных подписок и медленных инструментов. Моя цель проста: предоставить легкий профессиональный инструмент для ревью, который уважает ваше время и кошелек.',
+    'page.about.feat.fast.title': 'Фидбек по видео в 10 раз быстрее',
+    'page.about.feat.fast.desc': 'Забудьте о длинных цепочках писем. SmoTree — это профессиональное пространство для совместной работы над видео: точные правки, управление версиями и мгновенный доступ.',
+    'page.about.feat.instant.title': 'Мгновенный просмотр',
+    'page.about.feat.instant.desc': 'Автоматическая генерация прокси и работа с локальными файлами позволяет смотреть 4K видео без лагов даже без интернета.',
+    
     'page.pricing.title': 'Честные цены',
     'page.pricing.subtitle': 'Инвестируйте один раз, пользуйтесь вечно в рамках версии V1.',
     'page.pricing.why_title': 'Почему я скоро прекращаю предоставлять пожизненный доступ',

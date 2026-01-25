@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Zap, Columns, Shield } from 'lucide-react';
+import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Timer, History, Lock, Menu, X } from 'lucide-react';
 import { generateId } from '../services/utils';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage } from '../services/i18n';
@@ -99,6 +99,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   const [name, setName] = useState('');
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { t, language } = useLanguage();
 
   // Get Client ID from Environment Variables (Vite)
@@ -180,12 +181,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
     <div className="h-screen w-full overflow-y-auto bg-black text-white selection:bg-green-500/30">
       
       {/* Navbar */}
-      <nav className={`border-b border-zinc-900 p-4 flex justify-between items-center z-50 transition-all ${inviteProjectId ? 'bg-transparent border-transparent absolute w-full top-0' : 'bg-black/50 backdrop-blur-md sticky top-0'}`}>
+      <nav className={`h-16 border-b border-zinc-900 px-4 flex justify-between items-center z-50 transition-all ${inviteProjectId ? 'bg-transparent border-transparent absolute w-full top-0' : 'bg-black/50 backdrop-blur-md sticky top-0'}`}>
           <div className="flex items-center gap-2">
              <div className="bg-indigo-600 p-1.5 rounded-lg"><Clapperboard size={20} /></div>
              <span className="font-bold text-lg tracking-tight">{t('app.name')}</span>
              
-             {/* Hide nav links if invite mode */}
+             {/* Desktop Nav Links */}
              {!inviteProjectId && (
                  <div className="hidden md:flex items-center gap-1 ml-4">
                      {['workflow', 'pricing', 'about'].map(page => (
@@ -200,18 +201,59 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                  </div>
              )}
           </div>
+          
           <div className="flex items-center gap-4">
             <LanguageSelector />
+            
+            {/* Desktop Login Link */}
             {!inviteProjectId && (
                 <button 
                     onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="text-sm text-zinc-400 hover:text-white transition-colors"
+                    className="hidden md:block text-sm text-zinc-400 hover:text-white transition-colors"
                 >
                     {t('nav.login')}
                 </button>
             )}
+
+            {/* Mobile Menu Toggle */}
+            {!inviteProjectId && (
+                <button 
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="md:hidden text-zinc-400 hover:text-white p-1"
+                >
+                    {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
+            )}
           </div>
       </nav>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && !inviteProjectId && (
+          <div className="md:hidden fixed top-16 left-0 right-0 bg-zinc-900 border-b border-zinc-800 z-40 p-4 flex flex-col gap-2 shadow-2xl animate-in slide-in-from-top-2">
+                {['workflow', 'pricing', 'about'].map(page => (
+                    <button 
+                        key={page}
+                        onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            onNavigate(page.toUpperCase());
+                        }}
+                        className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                    >
+                        {t(`nav.${page}`)}
+                    </button>
+                ))}
+                <div className="h-px bg-zinc-800 my-1"></div>
+                <button 
+                    onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="w-full text-left px-4 py-3 rounded-lg text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
+                >
+                    {t('nav.login')}
+                </button>
+          </div>
+      )}
 
       {inviteProjectId ? (
           // --- INVITE MODE LAYOUT (FOCUSED) ---
@@ -290,21 +332,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
                             <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-yellow-500 group-hover:scale-110 transition-transform shadow-lg shadow-yellow-500/10">
-                                <Zap size={24} />
+                                <Timer size={24} />
                             </div>
                             <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat1.title')}</h3>
                             <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat1.desc')}</p>
                         </div>
                         <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
                             <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
-                                <Columns size={24} />
+                                <History size={24} />
                             </div>
                             <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat2.title')}</h3>
                             <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat2.desc')}</p>
                         </div>
                         <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
                             <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-green-500 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/10">
-                                <ShieldCheck size={24} />
+                                <Lock size={24} />
                             </div>
                             <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat3.title')}</h3>
                             <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat3.desc')}</p>
