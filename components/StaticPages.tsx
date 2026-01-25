@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Upload, Share2, MessageSquare, Download, Film, Terminal, ArrowRight, Code2, Heart, Zap, Layout, User as UserIcon, Rocket, Shield, Server } from 'lucide-react';
+import { Upload, Share2, MessageSquare, Download, Film, Terminal, ArrowRight, Code2, Heart, Zap, Layout, User as UserIcon, Rocket, Shield, Server, Columns, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../services/i18n';
 import { RoadmapBlock } from './RoadmapBlock';
 
@@ -94,29 +94,35 @@ export const AboutPage: React.FC = () => {
                     <Rocket size={32} />
                 </div>
                 <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
-                    {t('page.about.hero')}
+                    {t('hero.title.speed')}
                 </h2>
                 <p className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-                    {t('page.about.mission')}
+                    {t('hero.desc_new')}
                 </p>
             </div>
 
-            {/* 2. Key Values Grid */}
+            {/* 2. Key Values Grid (Updated to match Main Page 'Why Smotree') */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/20 transition-colors group">
-                    <div className="p-3 bg-zinc-950 rounded-xl mb-4 text-yellow-500 group-hover:scale-110 transition-transform"><Zap size={24} /></div>
-                    <h3 className="font-bold text-white mb-2">{t('page.about.val.1.title')}</h3>
-                    <p className="text-sm text-zinc-500">{t('page.about.val.1.desc')}</p>
+                    <div className="p-3 bg-zinc-950 rounded-xl mb-4 text-yellow-500 group-hover:scale-110 transition-transform shadow-lg shadow-yellow-500/10">
+                        <Zap size={24} />
+                    </div>
+                    <h3 className="font-bold text-white mb-2">{t('why.feat1.title')}</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed">{t('why.feat1.desc')}</p>
                 </div>
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/20 transition-colors group">
-                    <div className="p-3 bg-zinc-950 rounded-xl mb-4 text-blue-500 group-hover:scale-110 transition-transform"><Layout size={24} /></div>
-                    <h3 className="font-bold text-white mb-2">{t('page.about.val.2.title')}</h3>
-                    <p className="text-sm text-zinc-500">{t('page.about.val.2.desc')}</p>
+                    <div className="p-3 bg-zinc-950 rounded-xl mb-4 text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
+                        <Columns size={24} />
+                    </div>
+                    <h3 className="font-bold text-white mb-2">{t('why.feat2.title')}</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed">{t('why.feat2.desc')}</p>
                 </div>
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/20 transition-colors group">
-                    <div className="p-3 bg-zinc-950 rounded-xl mb-4 text-green-500 group-hover:scale-110 transition-transform"><UserIcon size={24} /></div>
-                    <h3 className="font-bold text-white mb-2">{t('page.about.val.3.title')}</h3>
-                    <p className="text-sm text-zinc-500">{t('page.about.val.3.desc')}</p>
+                    <div className="p-3 bg-zinc-950 rounded-xl mb-4 text-green-500 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/10">
+                        <ShieldCheck size={24} />
+                    </div>
+                    <h3 className="font-bold text-white mb-2">{t('why.feat3.title')}</h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed">{t('why.feat3.desc')}</p>
                 </div>
             </div>
 

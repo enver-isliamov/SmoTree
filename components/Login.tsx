@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle } from 'lucide-react';
+import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Zap, Columns, Shield } from 'lucide-react';
 import { generateId } from '../services/utils';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage } from '../services/i18n';
@@ -247,12 +247,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                     {/* Text Content */}
                     <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
                         <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tighter">
-                            {t('hero.title.1')} <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">{t('hero.title.2')}</span>
+                            {t('hero.title.speed')}
                         </h1>
                         
                         <div className="space-y-6 text-lg text-zinc-400 max-w-xl leading-relaxed">
-                            <p>{t('hero.desc')}</p>
+                            <p>{t('hero.desc_new')}</p>
                             <p className="text-sm border-l-2 border-green-500 pl-4 italic">
                                 {t('hero.quote')}
                             </p>
@@ -284,8 +283,38 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                 </div>
             </div>
 
+            {/* WHY SMOTREE SECTION */}
+            <div className="py-20 bg-zinc-900/30 border-y border-zinc-900">
+                <div className="max-w-5xl mx-auto px-4">
+                    <h2 className="text-3xl font-bold text-white text-center mb-12">{t('why.title')}</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
+                            <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-yellow-500 group-hover:scale-110 transition-transform shadow-lg shadow-yellow-500/10">
+                                <Zap size={24} />
+                            </div>
+                            <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat1.title')}</h3>
+                            <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat1.desc')}</p>
+                        </div>
+                        <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
+                            <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
+                                <Columns size={24} />
+                            </div>
+                            <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat2.title')}</h3>
+                            <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat2.desc')}</p>
+                        </div>
+                        <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
+                            <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-green-500 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/10">
+                                <ShieldCheck size={24} />
+                            </div>
+                            <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat3.title')}</h3>
+                            <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat3.desc')}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* ROADMAP SECTION */}
-            <div className="py-20 px-4 border-t border-zinc-900 bg-zinc-950/50">
+            <div className="py-20 px-4 bg-zinc-950/50">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl font-bold mb-4">{t('roadmap.title')}</h2>
                     <p className="text-zinc-400">{t('roadmap.subtitle')}</p>

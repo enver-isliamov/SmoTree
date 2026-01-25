@@ -43,9 +43,10 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     
     // Auth / Landing
     'nav.login': 'Log In',
-    'hero.title.1': 'Join the',
-    'hero.title.2': 'SmoTree',
-    'hero.desc': 'Get lifetime access to the most advanced video review platform. Your tools will always be with you, no subscription required.',
+    'hero.title.speed': 'Video feedback 10x faster',
+    'hero.desc_new': 'Forget long email chains. Smotree is a professional space for video collaboration: precise edits, version control, and instant access.',
+    'hero.title.1': 'Join the', // Fallback
+    'hero.title.2': 'SmoTree',  // Fallback
     'hero.quote': '"I develop SmoTree solo. You fund the development, and I gift you the tool forever."',
     'hero.cta': 'Become a Founder',
     'auth.card.join': 'Join Project',
@@ -60,6 +61,15 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'roadmap.title': 'Choose Your Future',
     'roadmap.subtitle': 'Transparent pricing model for early adopters.',
     'footer.rights': 'All rights reserved.',
+
+    // Why Smotree Section
+    'why.title': 'Why Smotree?',
+    'why.feat1.title': 'Instant Playback',
+    'why.feat1.desc': 'Automatic proxy generation and local file support allow 4K viewing without lag, even offline.',
+    'why.feat2.title': 'Version Comparison',
+    'why.feat2.desc': 'Side-by-Side mode: watch old and new video versions in one window with a synchronized player.',
+    'why.feat3.title': 'Security',
+    'why.feat3.desc': 'Password protected links and expiration dates. You know exactly who watched your video and when.',
     
     // Dashboard
     'dash.my_projects': 'My Projects',
@@ -150,12 +160,6 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'page.about.title': 'About Us',
     'page.about.hero': 'Built for Flow, Not for Shareholders.',
     'page.about.mission': 'SmoTree is a passion project built by a single developer for the filmmaking community. No corporate bloat, just speed.',
-    'page.about.val.1.title': 'Lightning Fast',
-    'page.about.val.1.desc': 'Optimized for instant playback and zero-latency collaboration.',
-    'page.about.val.2.title': 'No Bloatware',
-    'page.about.val.2.desc': 'We only build features you actually use in post-production.',
-    'page.about.val.3.title': 'Indie Spirit',
-    'page.about.val.3.desc': 'Direct connection between developer and user. Your feedback matters.',
     'page.about.story.title': 'The Solo Journey',
     'page.about.story.text': 'I started SmoTree because I was tired of subscription fatigue and sluggish tools. My goal is simple: provide a lightweight, professional review tool that respects your time and your wallet.',
     'page.pricing.title': 'Fair Pricing',
@@ -235,9 +239,10 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
 
     // Auth
     'nav.login': 'Войти',
-    'hero.title.1': 'Присоединяйтесь к',
-    'hero.title.2': 'SmoTree',
-    'hero.desc': 'Получите пожизненный доступ к самой продвинутой платформе для ревью видео. Ваши инструменты будут с вами всегда, без необходимости оформлять подписку.',
+    'hero.title.speed': 'Фидбек по видео в 10 раз быстрее',
+    'hero.desc_new': 'Забудьте о длинных цепочках писем. Smotree — это профессиональное пространство для совместной работы над видео: точные правки, управление версиями и мгновенный доступ.',
+    'hero.title.1': 'Присоединяйтесь к', // Fallback
+    'hero.title.2': 'SmoTree', // Fallback
     'hero.quote': '"Я разрабатываю SmoTree в одиночку. Вы финансируете разработку, а я дарю вам инструмент навсегда."',
     'hero.cta': 'Стать Основателем',
     'auth.card.join': 'Присоединиться',
@@ -249,6 +254,15 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'auth.placeholder.admin': 'Имя Админа',
     'auth.btn.join': 'Присоединиться',
     'auth.btn.login': 'Войти',
+
+    // Why Smotree Section
+    'why.title': 'Почему Smotree?',
+    'why.feat1.title': 'Мгновенный просмотр',
+    'why.feat1.desc': 'Автоматическая генерация прокси и работа с локальными файлами позволяет смотреть 4K видео без лагов даже без интернета.',
+    'why.feat2.title': 'Сравнение версий',
+    'why.feat2.desc': 'Режим Side-by-Side: смотрите старую и новую версию видео в одном окне с синхронным плеером.',
+    'why.feat3.title': 'Безопасность',
+    'why.feat3.desc': 'Ссылки с паролем и сроком действия. Вы точно знаете, кто и когда посмотрел ваше видео.',
     
     // Dashboard
     'dash.my_projects': 'Мои Проекты',
