@@ -311,30 +311,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   return (
     <div className="flex flex-col h-screen bg-zinc-950">
       
+      {/* UNIFIED HEADER STRUCTURE */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-4 overflow-hidden flex-1">
-          <div className="flex items-center gap-2">
+          {/* LOGO AREA - IDENTICAL TO STATIC PAGES */}
+          <div className="flex items-center gap-3 select-none">
             <div className="flex items-center justify-center w-8 h-8 bg-indigo-600 rounded-lg shrink-0">
                 <Clapperboard size={18} className="text-white" />
             </div>
             
-            <div className="flex flex-col">
-                <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider">SmoTree</span>
-                <div className="flex items-center gap-1 text-sm font-semibold text-zinc-100 leading-none">
-                    <span>{t(`nav.dashboard`)}</span>
-                </div>
+            <div className="flex flex-col justify-center h-8">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">SmoTree</span>
+                <span className="text-sm font-bold text-zinc-100 uppercase tracking-wide leading-none">{t(`nav.dashboard`)}</span>
             </div>
           </div>
           
           <div className="h-6 w-px bg-zinc-800 hidden lg:block"></div>
 
-          {/* Main Navigation - Removed DOCS */}
+          {/* Main Navigation */}
           <div className="hidden lg:flex items-center gap-1">
                {['workflow', 'pricing', 'about'].map(page => (
                    <button 
                      key={page}
                      onClick={() => onNavigate(page.toUpperCase())}
-                     className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors uppercase"
+                     className="px-3 py-1.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors uppercase tracking-wide"
                    >
                        {t(`nav.${page}`)}
                    </button>
@@ -349,8 +349,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
              className="hidden md:flex items-center gap-2 text-right cursor-pointer hover:bg-zinc-800 py-1 px-2 rounded-lg transition-colors group"
            >
               <div>
-                 <div className="text-xs font-medium text-white group-hover:text-indigo-400 transition-colors">{currentUser.name}</div>
-                 <div className="text-[10px] text-zinc-500 uppercase">{currentUser.role}</div>
+                 <div className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors uppercase">{currentUser.name}</div>
+                 <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{currentUser.role}</div>
               </div>
               <img src={currentUser.avatar} className="w-8 h-8 rounded-full border border-zinc-700 group-hover:border-indigo-500 transition-colors" alt="User" />
            </div>
@@ -370,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                    <button 
                      key={page}
                      onClick={() => onNavigate(page.toUpperCase())}
-                     className="whitespace-nowrap px-3 py-1.5 text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg uppercase"
+                     className="whitespace-nowrap px-3 py-1.5 text-xs font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg uppercase tracking-wide"
                    >
                        {t(`nav.${page}`)}
                    </button>
@@ -380,7 +380,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             {canCreateProject && (
               <button 
                 onClick={() => setIsModalOpen(true)}
-                className="ml-auto flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-medium shadow-lg shadow-indigo-900/20"
+                className="ml-auto flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-bold uppercase tracking-wide shadow-lg shadow-indigo-900/20"
               >
                 <Plus size={16} />
                 {t('dash.new_project')}
@@ -406,7 +406,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
               <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-indigo-900/10 to-transparent pointer-events-none"></div>
               
               <div className="relative z-10">
-                  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2 uppercase tracking-wide">
                        <Zap size={20} className="text-yellow-500" fill="currentColor"/> {t('upsell.title')}
                   </h3>
                   
@@ -416,7 +416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                            <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase text-xs tracking-wider border-b border-zinc-800 pb-2">
                                <Lock size={12} /> {t('upsell.free.title')}
                            </div>
-                           <ul className="space-y-3 text-sm text-zinc-500">
+                           <ul className="space-y-3 text-sm text-zinc-500 font-medium">
                                <li className="flex items-center gap-2"><Check size={14}/> {t('upsell.free.feat1')}</li>
                                <li className="flex items-center gap-2 text-zinc-600"><X size={14}/> {t('upsell.free.feat2')}</li>
                                <li className="flex items-center gap-2 text-zinc-600"><X size={14}/> {t('upsell.free.feat3')}</li>
@@ -428,17 +428,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                            <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase text-xs tracking-wider border-b border-indigo-500/30 pb-2">
                                <Crown size={12} fill="currentColor"/> {t('upsell.founder.title')}
                            </div>
-                           <ul className="space-y-3 text-sm text-zinc-300">
+                           <ul className="space-y-3 text-sm text-zinc-300 font-medium">
                                <li className="flex items-center gap-2"><Check size={14} className="text-green-400"/> {t('upsell.founder.feat1')}</li>
                                <li className="flex items-center gap-2"><Check size={14} className="text-green-400"/> {t('upsell.founder.feat2')}</li>
                                <li className="flex items-center gap-2"><Shield size={14} className="text-indigo-400"/> {t('upsell.founder.feat3')}</li>
                            </ul>
                            
                            <div className="pt-2 flex gap-3">
-                               <button onClick={() => onNavigate('PRICING')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-indigo-900/20 transition-all">
+                               <button onClick={() => onNavigate('PRICING')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-bold uppercase tracking-wide flex items-center gap-2 shadow-lg shadow-indigo-900/20 transition-all">
                                    {t('upsell.cta')} <ArrowRight size={14} />
                                </button>
-                               <button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-medium border border-zinc-700">
+                               <button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide border border-zinc-700">
                                    {t('upsell.donate')}
                                </button>
                            </div>
@@ -462,24 +462,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             </button>
             
             <form onSubmit={handleCreateProject} className="p-6">
-              <h2 className="text-xl font-bold text-white mb-6">{t('dash.new_project')}</h2>
+              <h2 className="text-xl font-bold text-white mb-6 uppercase tracking-wide">{t('dash.new_project')}</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1.5">Project Name</label>
-                  <input autoFocus type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Summer Campaign 2024" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all" />
+                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Project Name</label>
+                  <input autoFocus type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Summer Campaign 2024" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1.5">Client Name</label>
-                  <input type="text" required value={client} onChange={(e) => setClient(e.target.value)} placeholder="e.g. Acme Corp" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all" />
+                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Client Name</label>
+                  <input type="text" required value={client} onChange={(e) => setClient(e.target.value)} placeholder="e.g. Acme Corp" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1.5">Description</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief details about the project..." className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all resize-none h-24" />
+                  <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Description</label>
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief details about the project..." className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-all resize-none h-24 font-medium" />
                 </div>
               </div>
               <div className="mt-8 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">{t('cancel')}</button>
-                <button type="submit" disabled={isCreating || !name || !client} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors">{isCreating && <Loader2 size={14} className="animate-spin" />}{isCreating ? t('loading') : t('dash.new_project')}</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-bold uppercase text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">{t('cancel')}</button>
+                <button type="submit" disabled={isCreating || !name || !client} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-colors">{isCreating && <Loader2 size={14} className="animate-spin" />}{isCreating ? t('loading') : t('dash.new_project')}</button>
               </div>
             </form>
           </div>
@@ -492,24 +492,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200">
                 <button onClick={() => setEditingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
                 <form onSubmit={handleSubmitEdit} className="p-6">
-                    <h2 className="text-xl font-bold text-white mb-6">{t('edit')}</h2>
+                    <h2 className="text-xl font-bold text-white mb-6 uppercase tracking-wide">{t('edit')}</h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Project Name</label>
-                            <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Project Name</label>
+                            <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-medium" />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Client Name</label>
-                            <input type="text" required value={editClient} onChange={(e) => setEditClient(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Client Name</label>
+                            <input type="text" required value={editClient} onChange={(e) => setEditClient(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-medium" />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Description</label>
-                            <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none resize-none h-24" />
+                            <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Description</label>
+                            <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none resize-none h-24 font-medium" />
                         </div>
                     </div>
                     <div className="mt-8 flex justify-end gap-3">
-                        <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800">{t('cancel')}</button>
-                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2"><Save size={14} /> {t('save')}</button>
+                        <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-xs font-bold uppercase text-zinc-400 hover:text-white hover:bg-zinc-800">{t('cancel')}</button>
+                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2"><Save size={14} /> {t('save')}</button>
                     </div>
                 </form>
             </div>
@@ -523,14 +523,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                 <button onClick={() => setSharingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
                 <div className="flex items-center gap-2 mb-1">
                     <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400"><Share2 size={18} /></div>
-                    <h2 className="text-lg font-bold text-white">Share Project</h2>
+                    <h2 className="text-lg font-bold text-white uppercase tracking-wide">Share Project</h2>
                 </div>
-                <p className="text-xs text-zinc-400 mb-4">Share this link with your client or team.</p>
+                <p className="text-xs text-zinc-400 mb-4 font-medium">Share this link with your client or team.</p>
                 <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 mb-2">
                     <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Project Link</div>
                     <div className="flex items-center gap-2">
                         <input type="text" readOnly value={`${window.location.origin}?projectId=${sharingProject.id}`} className="bg-transparent flex-1 text-xs text-zinc-300 outline-none truncate font-mono" />
-                        <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-medium ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
+                        <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-bold uppercase ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
                             {isCopied ? <Check size={12} /> : <Copy size={12} />}{isCopied ? 'Copied' : 'Copy'}
                         </button>
                     </div>
