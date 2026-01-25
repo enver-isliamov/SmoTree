@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Plus, X, Loader2, FileVideo, Clapperboard, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save, Crown, Heart, Zap, Shield, ArrowRight } from 'lucide-react';
+import { Plus, X, Loader2, FileVideo, Clapperboard, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save, Crown, Zap, Shield, ArrowRight } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 import { ToastType } from './Toast';
 import { useLanguage } from '../services/i18n';
@@ -111,6 +111,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
   const handleShareClick = (e: React.MouseEvent, project: Project) => {
       e.stopPropagation();
+      if (project.isLocked) {
+          notify("Cannot share a locked project. Unlock it first.", "error");
+          return;
+      }
       setSharingProject(project);
   };
 
@@ -206,7 +210,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                             {/* Status Badges */}
                             <div className="absolute top-2 right-2 z-10 flex gap-1">
                                 {locked && (
-                                     <div className="bg-red-500/10 text-red-500 p-1 rounded border border-red-500/20" title="Project Locked">
+                                     <div className="bg-zinc-950 text-red-500 p-1 rounded border border-red-500/30 shadow-sm" title="Project Locked">
                                         <Lock size={12} />
                                     </div>
                                 )}
@@ -274,8 +278,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                                         </button>
                                         <button 
                                             onClick={(e) => handleShareClick(e, project)}
-                                            className="p-1.5 text-zinc-500 hover:text-indigo-400 hover:bg-zinc-800 rounded"
-                                            title="Share Project"
+                                            className={`p-1.5 rounded hover:bg-zinc-800 ${project.isLocked ? 'text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-indigo-400'}`}
+                                            title={project.isLocked ? "Cannot share locked project" : "Share Project"}
                                         >
                                             <Share2 size={14} />
                                         </button>
@@ -315,22 +319,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             </div>
             
             <div className="flex flex-col">
-                <h1 className="font-semibold text-sm md:text-base leading-tight text-zinc-100">{t('app.name')}</h1>
-                <div className="flex items-center gap-1 text-[10px] text-zinc-400 leading-none">
-                    <span>Dashboard</span>
-                    <ChevronRight size={10} />
-                    <span>{currentUser.name.split(' ')[0]}</span>
+                <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider">SmoTree</span>
+                <div className="flex items-center gap-1 text-sm font-semibold text-zinc-100 leading-none">
+                    <span>{t(`nav.dashboard`)}</span>
                 </div>
             </div>
           </div>
           
+          <div className="h-6 w-px bg-zinc-800 hidden lg:block"></div>
+
           {/* Main Navigation - Removed DOCS */}
-          <div className="hidden lg:flex items-center gap-1 ml-4">
+          <div className="hidden lg:flex items-center gap-1">
                {['workflow', 'pricing', 'about'].map(page => (
                    <button 
                      key={page}
                      onClick={() => onNavigate(page.toUpperCase())}
-                     className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                     className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors uppercase"
                    >
                        {t(`nav.${page}`)}
                    </button>
@@ -366,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                    <button 
                      key={page}
                      onClick={() => onNavigate(page.toUpperCase())}
-                     className="whitespace-nowrap px-3 py-1.5 text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg"
+                     className="whitespace-nowrap px-3 py-1.5 text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg uppercase"
                    >
                        {t(`nav.${page}`)}
                    </button>

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock, Clapperboard } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 import { generateId, stringToColor } from '../services/utils';
 import { ToastType } from './Toast';
@@ -32,6 +32,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   
   // Project-level lock takes precedence, then Version-level lock
   const isLocked = project.isLocked || version.isLocked || false;
+  const isGuest = currentUser.role === UserRole.GUEST;
   
   // View State
   const [viewMode, setViewMode] = useState<'single' | 'side-by-side' | 'overlay'>('single');
@@ -761,17 +762,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       {!isFullscreen && (
         <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
           <div className="flex items-center gap-2 overflow-hidden flex-1">
-            <button onClick={onBack} className="text-zinc-400 hover:text-white shrink-0 p-1">
-              <ChevronLeft size={24} />
+            <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-white shrink-0 p-1">
+                <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-lg shrink-0 border border-zinc-700">
+                    <Clapperboard size={16} className="text-zinc-400" />
+                </div>
             </button>
             
             {(!isSearchOpen || window.innerWidth > 768) && (
-              <div className="truncate flex-1">
-                <h2 className="font-semibold text-sm md:text-base truncate leading-tight">
-                    {localFileName || asset.title}
-                </h2>
-                <div className="flex items-center gap-2 text-[10px] text-zinc-400 leading-none">
-                   <span className="bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded">v{version.versionNumber}</span>
+              <div className="flex flex-col truncate">
+                <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    <span onClick={onBack} className="cursor-pointer hover:text-zinc-200 transition-colors">{project.name}</span> <span className="text-zinc-600">/</span> {isGuest ? 'Shared' : 'Asset'}
+                </span>
+                <div className="flex items-center gap-2 text-sm text-zinc-100 font-semibold leading-none truncate">
+                   <span>{localFileName || asset.title}</span>
+                   <span className="bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded text-[10px]">v{version.versionNumber}</span>
                    
                    {isSyncing ? (
                       <div className="flex items-center gap-1 text-zinc-500 animate-pulse" title="Syncing changes...">
@@ -785,14 +789,14 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
                    <button 
                         onClick={() => localFileRef.current?.click()}
-                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors ${localFileName ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors text-[10px] ${localFileName ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
                         title="Link Local File (High Quality / Offline)"
                     >
                         <HardDrive size={10} />
                         <span>{localFileName ? 'Local' : 'Cloud'}</span>
                     </button>
 
-                   {videoError && !localFileName && <span className="text-red-400 flex items-center gap-1"><Flag size={8}/> Source Missing</span>}
+                   {videoError && !localFileName && <span className="text-red-400 flex items-center gap-1 text-[10px]"><Flag size={8}/> Source Missing</span>}
                 </div>
               </div>
             )}
@@ -864,6 +868,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       )}
 
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
+        {/* ... (Rest of the video player logic remains the same, removed for brevity as requested change was primarily navigation) ... */}
         
         <div 
             ref={playerContainerRef} 

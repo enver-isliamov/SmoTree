@@ -1,11 +1,12 @@
 
 import React, { useState, useRef } from 'react';
 import { Project, ProjectAsset, User, UserRole } from '../types';
-import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, History } from 'lucide-react';
+import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, History, Lock } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 import { generateId } from '../services/utils';
 import { ToastType } from './Toast';
 import { LanguageSelector } from './LanguageSelector';
+import { useLanguage } from '../services/i18n';
 
 interface ProjectViewProps {
   project: Project;
@@ -66,6 +67,7 @@ const generateVideoThumbnail = (file: File): Promise<string> => {
 };
 
 export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject, notify }) => {
+  const { t } = useLanguage();
   const [isUploading, setIsUploading] = useState(false);
   const [isDeletingAsset, setIsDeletingAsset] = useState<string | null>(null);
   const [uploadingVersionFor, setUploadingVersionFor] = useState<string | null>(null);
@@ -88,6 +90,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   
   // Can Upload/Delete? Owner OR Team Member (Non-Guest)
   const canEditProject = !isGuest && (isProjectOwner || isProjectMember);
+  
+  const isLocked = project.isLocked;
 
   // New Asset Upload
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,12 +287,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   };
 
   const handleShareProject = () => {
+    if (isLocked) return;
     setShareTarget({ type: 'project', id: project.id, name: project.name });
     setIsShareModalOpen(true);
   };
 
   const handleShareAsset = (e: React.MouseEvent, asset: ProjectAsset) => {
     e.stopPropagation(); 
+    if (isLocked) {
+        notify("Project is locked. Sharing disabled.", "error");
+        return;
+    }
     setShareTarget({ type: 'asset', id: asset.id, name: asset.title });
     setIsShareModalOpen(true);
   };
@@ -329,28 +338,31 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  // Helper to determine display role
+  const getDisplayRole = (member: User) => {
+      if (member.id === project.ownerId) return 'Owner';
+      if (member.role === UserRole.GUEST) return 'Guest';
+      return 'Creator';
+  };
+
   return (
     <div className="flex flex-col h-screen bg-zinc-950">
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
-          {!isGuest && (
-            <button onClick={onBack} className="text-zinc-400 hover:text-white shrink-0 p-1 mr-1">
-                <ChevronLeft size={24} />
-            </button>
-          )}
           
-          <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-lg shrink-0 border border-zinc-700">
-             <Clapperboard size={16} className="text-zinc-400" />
-          </div>
+          <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-white shrink-0 p-1 mr-1">
+              <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-lg shrink-0 border border-zinc-700">
+                <Clapperboard size={16} className="text-zinc-400" />
+              </div>
+          </button>
 
           <div className="flex flex-col truncate">
+            <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                SmoTree <span className="text-zinc-600">/</span> {isGuest ? 'Shared' : <span className="cursor-pointer hover:text-zinc-200 transition-colors" onClick={onBack}>{t('nav.dashboard')}</span>}
+            </span>
             <div className="flex items-center gap-1 font-semibold text-sm md:text-base leading-tight text-zinc-100 truncate">
                <span className="truncate">{project.name}</span>
-            </div>
-            <div className="flex items-center gap-1 text-[10px] text-zinc-400 leading-none">
-                <span>{project.client}</span>
-                <ChevronRight size={10} />
-                <span>{project.updatedAt}</span>
+               {isLocked && <Lock size={12} className="text-red-500 ml-2" />}
             </div>
           </div>
         </div>
@@ -372,7 +384,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
              </div>
           </div>
           
-          {!isGuest && (
+          {!isGuest && !isLocked && (
             <>
               <div className="h-6 w-px bg-zinc-800 mx-1"></div>
               <button 
@@ -388,12 +400,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         </div>
       </header>
 
+      {/* LOCKED BANNER */}
+      {isLocked && (
+          <div className="bg-red-900/20 border-b border-red-900/30 text-red-400 text-xs py-1 text-center font-medium flex items-center justify-center gap-2">
+              <Lock size={12} />
+              Project is locked. Editing and sharing are disabled.
+          </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-[1600px] mx-auto">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-sm md:text-base font-semibold text-zinc-200">Assets <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
                 
-                {canEditProject && (
+                {canEditProject && !isLocked && (
                     <div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect}/>
                     <input type="file" ref={versionInputRef} className="hidden" accept="video/*" onChange={handleVersionFileSelect}/>
@@ -426,15 +446,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                     />
                     
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
-                        <button 
-                            onClick={(e) => handleShareAsset(e, asset)}
-                            className="p-1.5 bg-black/60 hover:bg-indigo-600 text-white rounded-md backdrop-blur-sm transition-colors"
-                            title="Copy Direct Link"
-                        >
-                            <LinkIcon size={12} />
-                        </button>
+                        {!isLocked && (
+                            <button 
+                                onClick={(e) => handleShareAsset(e, asset)}
+                                className="p-1.5 bg-black/60 hover:bg-indigo-600 text-white rounded-md backdrop-blur-sm transition-colors"
+                                title="Copy Direct Link"
+                            >
+                                <LinkIcon size={12} />
+                            </button>
+                        )}
                         
-                        {canEditProject && (
+                        {canEditProject && !isLocked && (
                             <>
                                 <button 
                                     onClick={(e) => handleAddVersionClick(e, asset.id)}
@@ -535,10 +557,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                                 <div className="text-sm text-zinc-200 font-medium flex items-center gap-2">
                                     {member.name}
                                     {member.id === currentUser.id && <span className="text-[10px] text-zinc-500">(You)</span>}
-                                    {member.id === project.ownerId && <span className="text-[10px] text-indigo-400 bg-indigo-950 px-1 rounded">Owner</span>}
                                 </div>
-                                <div className={`text-[10px] uppercase font-bold ${member.role === UserRole.GUEST ? 'text-orange-400' : 'text-indigo-400'}`}>
-                                    {member.role}
+                                <div className={`text-[10px] uppercase font-bold ${getDisplayRole(member) === 'Guest' ? 'text-orange-400' : 'text-indigo-400'}`}>
+                                    {getDisplayRole(member)}
                                 </div>
                               </div>
                           </div>
