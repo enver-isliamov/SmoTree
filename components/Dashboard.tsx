@@ -308,8 +308,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-white tracking-tight hidden lg:block">Dashboard</h2>
+      <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-bold text-white tracking-tight hidden lg:block">Dashboard</h2>
              
              {/* Spacer for alignment on mobile where header controls are */}
             <div className="lg:hidden"></div>
@@ -317,7 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             {canCreateProject && (
               <button 
                 onClick={() => setIsModalOpen(true)}
-                className="ml-auto flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-bold uppercase tracking-wide shadow-lg shadow-indigo-900/20"
+                className="ml-auto flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-bold shadow-lg shadow-indigo-900/20"
               >
                 <Plus size={16} />
                 {t('dash.new_project')}
@@ -343,7 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-indigo-900/10 to-transparent pointer-events-none"></div>
           
           <div className="relative z-10">
-              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2 uppercase tracking-wide">
+              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                    <Zap size={20} className="text-yellow-500" fill="currentColor"/> {t('upsell.title')}
               </h3>
               
@@ -372,10 +372,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                        </ul>
                        
                        <div className="pt-2 flex gap-3">
-                           <button onClick={() => onNavigate('PRICING')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-bold uppercase tracking-wide flex items-center gap-2 shadow-lg shadow-indigo-900/20 transition-all">
+                           <button onClick={() => onNavigate('PRICING')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20 transition-all">
                                {t('upsell.cta')} <ArrowRight size={14} />
                            </button>
-                           <button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wide border border-zinc-700">
+                           <button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-bold border border-zinc-700">
                                {t('upsell.donate')}
                            </button>
                        </div>
@@ -396,7 +396,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             </button>
             
             <form onSubmit={handleCreateProject} className="p-6">
-              <h2 className="text-xl font-bold text-white mb-6 uppercase tracking-wide">{t('dash.new_project')}</h2>
+              <h2 className="text-xl font-bold text-white mb-6">{t('dash.new_project')}</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Project Name</label>
@@ -412,8 +412,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                 </div>
               </div>
               <div className="mt-8 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-bold uppercase text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">{t('cancel')}</button>
-                <button type="submit" disabled={isCreating || !name || !client} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-colors">{isCreating && <Loader2 size={14} className="animate-spin" />}{isCreating ? t('loading') : t('dash.new_project')}</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">{t('cancel')}</button>
+                <button type="submit" disabled={isCreating || !name || !client} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">{isCreating && <Loader2 size={14} className="animate-spin" />}{isCreating ? t('loading') : t('dash.new_project')}</button>
               </div>
             </form>
           </div>
@@ -426,7 +426,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200">
                 <button onClick={() => setEditingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
                 <form onSubmit={handleSubmitEdit} className="p-6">
-                    <h2 className="text-xl font-bold text-white mb-6 uppercase tracking-wide">{t('edit')}</h2>
+                    <h2 className="text-xl font-bold text-white mb-6">{t('edit')}</h2>
                     <div className="space-y-4">
                         <div>
                             <label className="block text-xs font-bold uppercase text-zinc-500 mb-1.5">Project Name</label>
@@ -442,8 +442,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                         </div>
                     </div>
                     <div className="mt-8 flex justify-end gap-3">
-                        <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-xs font-bold uppercase text-zinc-400 hover:text-white hover:bg-zinc-800">{t('cancel')}</button>
-                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2"><Save size={14} /> {t('save')}</button>
+                        <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800">{t('cancel')}</button>
+                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"><Save size={14} /> {t('save')}</button>
                     </div>
                 </form>
             </div>
@@ -457,14 +457,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                 <button onClick={() => setSharingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
                 <div className="flex items-center gap-2 mb-1">
                     <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400"><Share2 size={18} /></div>
-                    <h2 className="text-lg font-bold text-white uppercase tracking-wide">Share Project</h2>
+                    <h2 className="text-lg font-bold text-white">Share Project</h2>
                 </div>
                 <p className="text-xs text-zinc-400 mb-4 font-medium">Share this link with your client or team.</p>
                 <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 mb-2">
                     <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Project Link</div>
                     <div className="flex items-center gap-2">
                         <input type="text" readOnly value={`${window.location.origin}?projectId=${sharingProject.id}`} className="bg-transparent flex-1 text-xs text-zinc-300 outline-none truncate font-mono" />
-                        <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-bold uppercase ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
+                        <button onClick={handleCopyLink} className={`px-3 py-1.5 rounded text-xs transition-all shrink-0 flex items-center gap-1 font-bold ${isCopied ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
                             {isCopied ? <Check size={12} /> : <Copy size={12} />}{isCopied ? 'Copied' : 'Copy'}
                         </button>
                     </div>

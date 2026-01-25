@@ -51,39 +51,39 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
   }, [isGuest, GOOGLE_CLIENT_ID, onMigrate]);
 
   return (
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8 py-8">
             
             <div className="flex justify-between items-center">
-                 <h2 className="text-2xl font-bold text-white uppercase tracking-wide">{t('profile.title')}</h2>
-                 <button onClick={onLogout} className="text-zinc-500 hover:text-red-400 flex items-center gap-2 text-sm px-4 py-2 rounded-lg hover:bg-zinc-800 transition-colors bg-zinc-900 border border-zinc-800 uppercase font-bold">
+                 <h2 className="text-2xl font-bold text-white">{t('profile.title')}</h2>
+                 <button onClick={onLogout} className="text-zinc-500 hover:text-red-400 flex items-center gap-2 text-sm px-4 py-2 rounded-lg hover:bg-zinc-800 transition-colors bg-zinc-900 border border-zinc-800 font-medium">
                     <LogOut size={16} />
                     <span>{t('logout')}</span>
                 </button>
             </div>
             
             {/* Profile Card */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-6 shadow-xl relative overflow-hidden">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-6 shadow-sm relative overflow-hidden">
                 <img 
                     src={currentUser.avatar} 
                     alt={currentUser.name} 
-                    className="w-24 h-24 rounded-full border-4 border-zinc-800 shadow-lg"
+                    className="w-24 h-24 rounded-full border-4 border-zinc-950 shadow-lg object-cover"
                 />
                 <div className="flex-1 text-center md:text-left w-full">
-                    <h2 className="text-2xl font-bold text-white mb-1 flex items-center justify-center md:justify-start gap-2">
+                    <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center md:justify-start gap-2">
                         {currentUser.name}
                         {isFounder && <Crown size={20} className="text-yellow-500" fill="currentColor" />}
                     </h2>
-                    <div className="flex flex-col md:flex-row items-center md:justify-start gap-4 text-sm text-zinc-400 mb-4">
-                        <span className="flex items-center gap-1.5 bg-zinc-950 px-3 py-1 rounded-full border border-zinc-800">
+                    <div className="flex flex-col md:flex-row items-center md:justify-start gap-3 text-sm text-zinc-400 mb-5">
+                        <span className="flex items-center gap-1.5 bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-800/50">
                             <Mail size={14} /> {currentUser.id.includes('@') ? currentUser.id : 'No email'}
                         </span>
-                        <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${isFounder ? 'bg-indigo-900/30 text-indigo-400 border-indigo-500/30' : 'bg-zinc-800 border-zinc-700'}`}>
+                        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isFounder ? 'bg-indigo-900/20 text-indigo-400 border-indigo-500/20' : 'bg-zinc-800 border-zinc-700'}`}>
                             <ShieldCheck size={14} /> {currentUser.role}
                         </span>
                     </div>
                     
                     {isFounder && (
-                        <p className="text-sm text-green-400">
+                        <p className="text-sm text-green-400 bg-green-900/10 border border-green-900/20 p-3 rounded-lg inline-block">
                             {t('profile.founder_msg')}
                         </p>
                     )}
@@ -92,9 +92,9 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
 
             {/* MIGRATION BLOCK FOR GUESTS */}
             {isGuest && (
-                <div className="bg-gradient-to-r from-orange-900/20 to-red-900/20 border border-orange-500/30 rounded-2xl p-6 relative overflow-hidden">
+                <div className="bg-gradient-to-r from-orange-900/10 to-red-900/10 border border-orange-500/20 rounded-2xl p-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-50">
-                        <AlertCircle size={64} className="text-orange-500/20" />
+                        <AlertCircle size={64} className="text-orange-500/10" />
                     </div>
                     
                     <div className="relative z-10">
@@ -116,7 +116,7 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
 
             {/* Roadmap Info for User */}
             <div>
-                <h3 className="text-lg font-bold text-white mb-4 px-2">{t('profile.tiers')}</h3>
+                <h3 className="text-lg font-bold text-white mb-4 px-1">{t('profile.tiers')}</h3>
                 <RoadmapBlock />
             </div>
 
