@@ -5,6 +5,7 @@ import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Glo
 import { generateId } from '../services/utils';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage, LANGUAGES } from '../services/i18n';
+import { LanguageSelector } from './LanguageSelector';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -20,7 +21,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [name, setName] = useState('');
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
-  const { t, language, setLanguage } = useLanguage();
+  const { t, language } = useLanguage();
 
   // Get Client ID from Environment Variables (Vite)
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
@@ -160,19 +161,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
              <span className="font-bold text-lg tracking-tight">{t('app.name')}</span>
           </div>
           <div className="flex items-center gap-4">
-             {/* Language Dropdown (Desktop) */}
-            <div className="hidden md:flex items-center gap-2">
-                {LANGUAGES.map(lang => (
-                    <button 
-                        key={lang.code}
-                        onClick={() => setLanguage(lang.code)}
-                        className={`text-xs p-1.5 rounded ${language === lang.code ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`}
-                        title={lang.label}
-                    >
-                        {lang.flag}
-                    </button>
-                ))}
-            </div>
+            
+            <LanguageSelector />
 
             {!inviteProjectId && (
                 <button 
@@ -222,16 +212,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-30"></div>
                   <LoginCard />
                   <div className="text-center mt-4 md:hidden flex justify-center gap-2">
-                       {/* Mobile Lang Selector */}
-                       {LANGUAGES.map(lang => (
-                        <button 
-                            key={lang.code}
-                            onClick={() => setLanguage(lang.code)}
-                            className={`text-xl ${language === lang.code ? 'opacity-100 scale-110' : 'opacity-50 grayscale'}`}
-                        >
-                            {lang.flag}
-                        </button>
-                       ))}
+                       {/* Mobile Lang Selector fallback or removed as it's in header now */}
                   </div>
               </div>
           </div>

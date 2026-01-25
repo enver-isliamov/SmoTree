@@ -27,7 +27,7 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     // Auth / Landing
     'nav.login': 'Log In',
     'hero.title.1': 'Join the',
-    'hero.title.2': 'Brain Loom',
+    'hero.title.2': 'SmoTree', // Changed
     'hero.desc': 'Get lifetime access to the most advanced video review platform. Your tools will always be with you, no subscription required.',
     'hero.quote': '"I develop SmoTree solo. You fund the development, and I gift you the tool forever."',
     'hero.cta': 'Become a Founder',
@@ -51,6 +51,10 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'dash.no_projects': 'No Projects Found',
     'dash.no_access': 'You don\'t have access to any projects here. Please open the specific link provided to you by the editor.',
     'dash.search': 'Search...',
+    'dash.upsell_title': 'Support Independent Development',
+    'dash.upsell_desc': 'SmoTree is built by a solo developer. Upgrade to the Founder\'s Club to get lifetime access, unlimited projects, and support the future of this tool.',
+    'dash.upsell_btn': 'Get Lifetime Access',
+    'dash.donate_btn': 'Donate',
     
     // Roadmap Cards
     'rm.founders_club': "Founder's Club",
@@ -99,7 +103,7 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'back': 'Назад',
     'nav.login': 'Войти',
     'hero.title.1': 'Присоединяйтесь к',
-    'hero.title.2': 'Мозговому Ткацкому Станку',
+    'hero.title.2': 'SmoTree', // Changed
     'hero.desc': 'Получите пожизненный доступ к самой продвинутой платформе для ревью видео. Ваши инструменты будут с вами всегда, без необходимости оформлять подписку.',
     'hero.quote': '"Я разрабатываю SmoTree в одиночку. Вы финансируете разработку, а я дарю вам инструмент навсегда."',
     'hero.cta': 'Стать Основателем',
@@ -121,6 +125,10 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'dash.no_projects': 'Проекты не найдены',
     'dash.no_access': 'У вас нет доступа к проектам. Пожалуйста, откройте ссылку-приглашение.',
     'dash.search': 'Поиск...',
+    'dash.upsell_title': 'Поддержите разработку',
+    'dash.upsell_desc': 'SmoTree создается разработчиком-одиночкой. Вступите в Клуб Основателей, чтобы получить вечный доступ, безлимит на проекты и поддержать будущее инструмента.',
+    'dash.upsell_btn': 'Получить вечный доступ',
+    'dash.donate_btn': 'Задонатить',
     'rm.founders_club': "Клуб основателей",
     'rm.early_adopter': "Ранний Последователь",
     'rm.saas_launch': "Публичный Запуск SaaS",
@@ -159,7 +167,7 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'loading': 'Cargando...',
     'nav.login': 'Iniciar Sesión',
     'hero.title.1': 'Únete al',
-    'hero.title.2': 'Telar Cerebral',
+    'hero.title.2': 'SmoTree', // Changed
     'hero.desc': 'Obtén acceso de por vida a la plataforma de revisión de video más avanzada. Sin suscripciones.',
     'hero.quote': '"Desarrollo SmoTree solo. Tú financias el desarrollo, yo te regalo la herramienta para siempre."',
     'hero.cta': 'Conviértete en Fundador',
@@ -177,14 +185,17 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'dash.new_project': 'Nuevo Proyecto',
     'logout': 'Cerrar Sesión',
     'back': 'Atrás',
-    // ... (Fill gaps with English defaults if strictly needed, but core added)
+    'dash.upsell_title': 'Apoya el desarrollo independiente',
+    'dash.upsell_desc': 'SmoTree es construido por un desarrollador solitario. Únete al Club de Fundadores para obtener acceso de por vida y apoyar el futuro de esta herramienta.',
+    'dash.upsell_btn': 'Obtener acceso de por vida',
+    'dash.donate_btn': 'Donar',
   },
   ja: {
     'app.name': 'SmoTree',
     'loading': '読み込み中...',
     'nav.login': 'ログイン',
     'hero.title.1': '参加する',
-    'hero.title.2': 'ブレインルーム',
+    'hero.title.2': 'SmoTree', // Changed
     'hero.desc': '最先端のビデオレビュープラットフォームへの生涯アクセスを取得します。サブスクリプションは不要です。',
     'hero.cta': '創設者になる',
     'auth.card.login': 'アカウントログイン',
@@ -201,13 +212,17 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'dash.new_project': '新規プロジェクト',
     'logout': 'ログアウト',
     'back': '戻る',
+    'dash.upsell_title': '独立した開発を支援する',
+    'dash.upsell_desc': 'SmoTreeは一人の開発者によって構築されています。ファウンダーズクラブに参加して、生涯アクセスとツールの未来を支援してください。',
+    'dash.upsell_btn': '生涯アクセスを取得',
+    'dash.donate_btn': '寄付する',
   },
   ko: {
     'app.name': 'SmoTree',
     'loading': '로딩 중...',
     'nav.login': '로그인',
     'hero.title.1': '참여하세요',
-    'hero.title.2': '브레인 룸',
+    'hero.title.2': 'SmoTree', // Changed
     'hero.desc': '가장 진보된 비디오 리뷰 플랫폼에 대한 평생 액세스 권한을 얻으세요. 구독이 필요 없습니다.',
     'hero.cta': '창립자 되기',
     'auth.card.login': '로그인',
@@ -224,13 +239,17 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'dash.new_project': '새 프로젝트',
     'logout': '로그아웃',
     'back': '뒤로',
+    'dash.upsell_title': '독립 개발 지원',
+    'dash.upsell_desc': 'SmoTree는 1인 개발자가 만듭니다. 파운더스 클럽에 가입하여 평생 액세스 권한을 얻고 이 도구의 미래를 후원하세요.',
+    'dash.upsell_btn': '평생 액세스 권한 받기',
+    'dash.donate_btn': '기부하기',
   },
   pt: {
     'app.name': 'SmoTree',
     'loading': 'Carregando...',
     'nav.login': 'Entrar',
     'hero.title.1': 'Junte-se ao',
-    'hero.title.2': 'Tear Cerebral',
+    'hero.title.2': 'SmoTree', // Changed
     'hero.desc': 'Tenha acesso vitalício à plataforma de revisão de vídeo mais avançada. Sem assinaturas.',
     'hero.cta': 'Torne-se um Fundador',
     'auth.card.login': 'Login da Conta',
@@ -247,6 +266,10 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'dash.new_project': 'Novo Projeto',
     'logout': 'Sair',
     'back': 'Voltar',
+    'dash.upsell_title': 'Apoie o desenvolvimento independente',
+    'dash.upsell_desc': 'O SmoTree é construído por um desenvolvedor solo. Faça upgrade para o Clube dos Fundadores para acesso vitalício e apoie o futuro desta ferramenta.',
+    'dash.upsell_btn': 'Obter Acesso Vitalício',
+    'dash.donate_btn': 'Doar',
   }
 };
 

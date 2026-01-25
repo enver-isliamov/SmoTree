@@ -13,7 +13,7 @@ interface ProfileProps {
 
 export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout }) => {
   const isFounder = currentUser.role === UserRole.ADMIN;
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col">
@@ -24,7 +24,7 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
                 </button>
                 <h1 className="font-semibold text-zinc-100">{t('profile.title')}</h1>
             </div>
-            <button onClick={onLogout} className="text-zinc-500 hover:text-red-400 flex items-center gap-2 text-sm px-3 py-1.5 rounded hover:bg-zinc-800 transition-colors">
+            <button onClick={onLogout} className="text-zinc-500 hover:text-red-400 flex items-center gap-2 text-sm px-3 py-1.5 rounded hover:bg-zinc-800 transition-colors bg-zinc-900 border border-zinc-800">
                 <LogOut size={16} />
                 <span>{t('logout')}</span>
             </button>
@@ -54,25 +54,6 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
                             </span>
                         </div>
                         
-                        {/* Language Selector */}
-                        <div className="mb-4 flex flex-col items-center md:items-start">
-                             <label className="text-xs text-zinc-500 mb-1.5 flex items-center gap-1">
-                                <Globe size={12} /> {t('profile.language')}
-                             </label>
-                             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                                {LANGUAGES.map(lang => (
-                                    <button
-                                        key={lang.code}
-                                        onClick={() => setLanguage(lang.code)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 border transition-all ${language === lang.code ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'}`}
-                                    >
-                                        <span>{lang.flag}</span>
-                                        <span>{lang.label}</span>
-                                    </button>
-                                ))}
-                             </div>
-                        </div>
-
                         {isFounder && (
                             <p className="text-sm text-green-400">
                                 {t('profile.founder_msg')}

@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save } from 'lucide-react';
+import { Plus, X, Loader2, FileVideo, Clapperboard, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save, Crown, Heart } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 import { ToastType } from './Toast';
 import { useLanguage } from '../services/i18n';
+import { LanguageSelector } from './LanguageSelector';
 
 interface DashboardProps {
   projects: Project[];
@@ -42,15 +43,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
   // Role Checks
   const isGuest = currentUser.role === UserRole.GUEST;
-  // Admin in global scope means "Registered User". 
-  const isAccountHolder = currentUser.role === UserRole.ADMIN;
+  // Admin in global scope means "Registered User" (Potential Founder). 
+  const isFounder = currentUser.role === UserRole.ADMIN;
+  const canCreateProject = isFounder;
 
   // --- FILTERING LOGIC ---
   const myProjects = projects.filter(p => p.ownerId === currentUser.id);
   const sharedProjects = projects.filter(p => p.ownerId !== currentUser.id && p.team.some(member => member.id === currentUser.id));
 
   // PERMISSION CHECKS
-  const canCreateProject = isAccountHolder;
   const isOwner = (project: Project) => project.ownerId === currentUser.id;
 
   const handleCreateProject = (e: React.FormEvent) => {
@@ -335,10 +336,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
            </div>
 
            <div className="h-6 w-px bg-zinc-800 hidden md:block"></div>
-
-           <button onClick={onLogout} className="text-zinc-500 hover:text-white p-1" title={t('logout')}>
-              <LogOut size={18} />
-           </button>
+           
+           <LanguageSelector />
         </div>
       </header>
 
@@ -357,7 +356,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           </div>
 
           {myProjects.length === 0 && sharedProjects.length === 0 && isGuest && (
-             <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
+             <div className="flex flex-col items-center justify-center h-[30vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
                 <Lock size={48} className="mb-4 opacity-50" />
                 <h3 className="text-lg font-bold text-zinc-300">{t('dash.no_projects')}</h3>
                 <p className="max-w-xs text-center mt-2 text-sm text-zinc-500">
@@ -369,6 +368,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           {renderProjectGrid(myProjects, t('dash.my_projects'))}
           {renderProjectGrid(sharedProjects, t('dash.shared_projects'))}
           
+          {/* UPSELL BLOCK FOR FREE USERS */}
+          {(!isFounder || isGuest) && (
+              <div className="mt-12 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-30 pointer-events-none">
+                       <div className="w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl"></div>
+                  </div>
+                  
+                  <div className="bg-zinc-800/50 p-4 rounded-full text-indigo-400 shrink-0">
+                      <Heart size={32} className="group-hover:text-pink-500 transition-colors duration-500" />
+                  </div>
+                  
+                  <div className="flex-1 text-center md:text-left">
+                      <h3 className="text-lg font-bold text-white mb-2 flex items-center justify-center md:justify-start gap-2">
+                          {t('dash.upsell_title')} <Crown size={16} className="text-yellow-500" />
+                      </h3>
+                      <p className="text-sm text-zinc-400 max-w-2xl">
+                          {t('dash.upsell_desc')}
+                      </p>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+                      <button className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-colors shadow-lg shadow-indigo-900/20">
+                          {t('dash.upsell_btn')}
+                      </button>
+                      <button className="px-5 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-sm transition-colors border border-zinc-700">
+                          {t('dash.donate_btn')}
+                      </button>
+                  </div>
+              </div>
+          )}
+
         </div>
       </div>
 

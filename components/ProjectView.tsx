@@ -5,6 +5,7 @@ import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, Chev
 import { upload } from '@vercel/blob/client';
 import { generateId } from '../services/utils';
 import { ToastType } from './Toast';
+import { LanguageSelector } from './LanguageSelector';
 
 interface ProjectViewProps {
   project: Project;
@@ -355,9 +356,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          
+          <LanguageSelector />
+
           <div 
             onClick={() => setIsParticipantsModalOpen(true)}
-            className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
+            className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity ml-2"
             title="View Team"
           >
              {project.team.slice(0, 3).map((member) => (
