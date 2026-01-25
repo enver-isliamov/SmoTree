@@ -115,6 +115,53 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     localStorage.setItem('smotree_controls_pos', JSON.stringify(controlsPos));
   }, [controlsPos]);
 
+  // --- KEYBOARD SHORTCUTS ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (isLocked) return;
+        
+        // Don't trigger shortcuts if user is typing in an input
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+        switch (e.key.toLowerCase()) {
+            case ' ':
+                e.preventDefault(); // Prevent scrolling
+                togglePlay();
+                break;
+            case 'i':
+                setMarkerInPoint(currentTime);
+                if (markerOutPoint !== null && markerOutPoint <= currentTime) setMarkerOutPoint(null);
+                break;
+            case 'o':
+                // Set Out Point and Trigger Input
+                const outTime = currentTime;
+                if (markerInPoint !== null && outTime > markerInPoint) setMarkerOutPoint(outTime);
+                else {
+                    if (markerInPoint === null) setMarkerInPoint(Math.max(0, outTime - 5));
+                    setMarkerOutPoint(outTime);
+                }
+                if (isPlaying) togglePlay();
+                if (isFullscreen) setShowVoiceModal(true);
+                else setTimeout(() => sidebarInputRef.current?.focus(), 100);
+                startListening();
+                break;
+            case 'm':
+                // Quick Marker
+                setMarkerInPoint(currentTime);
+                setMarkerOutPoint(null);
+                if (isPlaying) togglePlay();
+                if (isFullscreen) setShowVoiceModal(true);
+                else setTimeout(() => sidebarInputRef.current?.focus(), 100);
+                startListening();
+                break;
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLocked, isPlaying, currentTime, markerInPoint, markerOutPoint, isFullscreen]);
+
   const syncCommentAction = async (action: 'create' | 'update' | 'delete', payload: any) => {
     try {
         const token = localStorage.getItem('smotree_auth_token');
@@ -1294,7 +1341,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             <button 
                 onClick={handleQuickMarker}
                 className="text-zinc-400 hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
-                title="Quick Marker"
+                title="Quick Marker (M)"
             >
                 <MapPin size={18} />
             </button>
@@ -1311,12 +1358,14 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             <button 
                 onClick={handleSetInPoint} 
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                title="Set In Point (I)"
             >
                 IN
             </button>
             <button 
                 onClick={handleSetOutPoint}
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                title="Set Out Point (O)"
             >
                 OUT
             </button>

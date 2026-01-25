@@ -6,25 +6,68 @@ import { RoadmapBlock } from './RoadmapBlock';
 
 interface PageProps {
   onBack: () => void;
+  onNavigate: (page: string) => void;
+  isLoggedIn?: boolean;
 }
 
-const PageLayout: React.FC<PageProps & { title: string, children: React.ReactNode }> = ({ onBack, title, children }) => (
-    <div className="min-h-screen bg-zinc-950 flex flex-col">
-        <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-4 shrink-0 sticky top-0 z-30">
-            <h1 className="font-bold text-white text-lg">{title}</h1>
-            <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
-                <X size={20} />
-            </button>
-        </header>
-        <div className="flex-1 overflow-y-auto p-4 md:p-12">
-            <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {children}
+const PageLayout: React.FC<PageProps & { title: string, children: React.ReactNode }> = ({ onBack, onNavigate, isLoggedIn, title, children }) => {
+    const { t } = useLanguage();
+    
+    // "Dashboard" is only visible if the user is logged in (Authorized or Guest via link).
+    const navItems = isLoggedIn 
+        ? ['dashboard', 'workflow', 'pricing', 'about']
+        : ['workflow', 'pricing', 'about'];
+
+    return (
+        <div className="min-h-screen bg-zinc-950 flex flex-col">
+            <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-4 shrink-0 sticky top-0 z-30">
+                <div className="flex items-center gap-4">
+                    <h1 className="font-bold text-white text-lg mr-4">{title}</h1>
+                    
+                    <div className="hidden md:flex items-center gap-1">
+                        {navItems.map(page => (
+                           <button 
+                             key={page}
+                             onClick={() => onNavigate(page.toUpperCase())}
+                             className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors uppercase"
+                           >
+                               {t(`nav.${page}`)}
+                           </button>
+                       ))}
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                    {/* Mobile Nav Button (Simple version for now, relies on back) */}
+                    <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+            </header>
+            
+            {/* Mobile Nav Scroller */}
+            <div className="md:hidden border-b border-zinc-800 bg-zinc-900 px-4 py-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                 {navItems.map(page => (
+                   <button 
+                     key={page}
+                     onClick={() => onNavigate(page.toUpperCase())}
+                     className="inline-block px-3 py-1 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/50 rounded-lg mr-2 uppercase"
+                   >
+                       {t(`nav.${page}`)}
+                   </button>
+               ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-12">
+                <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {children}
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
-export const WorkflowPage: React.FC<PageProps> = ({ onBack }) => {
+export const WorkflowPage: React.FC<PageProps> = (props) => {
     const { t } = useLanguage();
     const steps = [
         { icon: Upload, title: t('page.workflow.step1'), desc: t('page.workflow.step1.desc'), color: 'text-blue-400', bg: 'bg-blue-900/20' },
@@ -34,8 +77,9 @@ export const WorkflowPage: React.FC<PageProps> = ({ onBack }) => {
     ];
 
     return (
-        <PageLayout onBack={onBack} title={t('page.workflow.title')}>
-             <div className="space-y-12 relative">
+        <PageLayout {...props} title={t('page.workflow.title')}>
+             {/* Section 1: The Process */}
+             <div className="space-y-12 relative mb-20">
                 <div className="absolute left-6 md:left-8 top-8 bottom-8 w-0.5 bg-zinc-800 hidden md:block"></div>
                 {steps.map((step, idx) => (
                     <div key={idx} className="relative flex flex-col md:flex-row gap-6 items-start md:items-center bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800/50 hover:border-zinc-700 transition-colors">
@@ -52,14 +96,73 @@ export const WorkflowPage: React.FC<PageProps> = ({ onBack }) => {
                     </div>
                 ))}
              </div>
+
+             {/* Section 2: Technical Docs (Merged from DocsPage) */}
+             <div className="border-t border-zinc-800 pt-12">
+                 <h2 className="text-2xl font-bold text-white mb-8">{t('page.docs.title')}</h2>
+                 <div className="grid gap-8">
+                     <section>
+                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                             <Film size={20} className="text-indigo-400"/> Formats
+                         </h3>
+                         <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
+                             <p className="text-zinc-300">{t('page.docs.formats')}</p>
+                         </div>
+                     </section>
+                     
+                     <section>
+                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                             <Terminal size={20} className="text-green-400"/> Shortcuts
+                         </h3>
+                         <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 font-mono text-sm space-y-2">
+                             <div className="flex justify-between border-b border-zinc-800 pb-2">
+                                 <span className="text-zinc-400">Play / Pause</span>
+                                 <span className="text-white">Space</span>
+                             </div>
+                             <div className="flex justify-between border-b border-zinc-800 pb-2">
+                                 <span className="text-zinc-400">Rewind / Forward</span>
+                                 <span className="text-white">J / L</span>
+                             </div>
+                             <div className="flex justify-between border-b border-zinc-800 pb-2">
+                                 <span className="text-zinc-400">Set In Point</span>
+                                 <span className="text-white">I</span>
+                             </div>
+                             <div className="flex justify-between border-b border-zinc-800 pb-2">
+                                 <span className="text-zinc-400">Set Out Point</span>
+                                 <span className="text-white">O</span>
+                             </div>
+                             <div className="flex justify-between border-b border-zinc-800 pb-2">
+                                 <span className="text-zinc-400">Quick Marker</span>
+                                 <span className="text-white">M</span>
+                             </div>
+                             <div className="flex justify-between">
+                                 <span className="text-zinc-400">Fullscreen</span>
+                                 <span className="text-white">F</span>
+                             </div>
+                         </div>
+                     </section>
+
+                     <section>
+                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                             <Download size={20} className="text-orange-400"/> DaVinci Resolve Workflow
+                         </h3>
+                         <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 text-sm text-zinc-400 space-y-4">
+                             <p>1. Export markers from SmoTree as <strong>.xml</strong>.</p>
+                             <p>2. Open DaVinci Resolve. Go to <strong>File {'>'} Import {'>'} Timeline</strong>.</p>
+                             <p>3. Select the downloaded XML.</p>
+                             <p>4. The markers will appear as a new timeline or overlay on your clips.</p>
+                         </div>
+                     </section>
+                 </div>
+             </div>
         </PageLayout>
     );
 };
 
-export const AboutPage: React.FC<PageProps> = ({ onBack }) => {
+export const AboutPage: React.FC<PageProps> = (props) => {
     const { t } = useLanguage();
     return (
-        <PageLayout onBack={onBack} title={t('page.about.title')}>
+        <PageLayout {...props} title={t('page.about.title')}>
             <div className="prose prose-invert max-w-none">
                 <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 p-8 rounded-3xl border border-indigo-500/20 mb-12 text-center">
                     <Heart size={48} className="mx-auto text-pink-500 mb-6" />
@@ -88,69 +191,15 @@ export const AboutPage: React.FC<PageProps> = ({ onBack }) => {
     );
 };
 
-export const PricingPage: React.FC<PageProps> = ({ onBack }) => {
+export const PricingPage: React.FC<PageProps> = (props) => {
     const { t } = useLanguage();
     return (
-        <PageLayout onBack={onBack} title={t('page.pricing.title')}>
+        <PageLayout {...props} title={t('page.pricing.title')}>
              <div className="text-center mb-12">
                  <h2 className="text-3xl font-bold text-white mb-4">{t('page.pricing.title')}</h2>
                  <p className="text-zinc-400">{t('page.pricing.subtitle')}</p>
              </div>
              <RoadmapBlock />
-        </PageLayout>
-    );
-};
-
-export const DocsPage: React.FC<PageProps> = ({ onBack }) => {
-    const { t } = useLanguage();
-    return (
-        <PageLayout onBack={onBack} title={t('page.docs.title')}>
-             <div className="grid gap-8">
-                 <section>
-                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                         <Film size={20} className="text-indigo-400"/> Formats
-                     </h2>
-                     <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-                         <p className="text-zinc-300">{t('page.docs.formats')}</p>
-                     </div>
-                 </section>
-                 
-                 <section>
-                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                         <Terminal size={20} className="text-green-400"/> Shortcuts
-                     </h2>
-                     <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 font-mono text-sm space-y-2">
-                         <div className="flex justify-between border-b border-zinc-800 pb-2">
-                             <span className="text-zinc-400">Play / Pause</span>
-                             <span className="text-white">Space</span>
-                         </div>
-                         <div className="flex justify-between border-b border-zinc-800 pb-2">
-                             <span className="text-zinc-400">Rewind / Forward</span>
-                             <span className="text-white">J / L</span>
-                         </div>
-                         <div className="flex justify-between border-b border-zinc-800 pb-2">
-                             <span className="text-zinc-400">Add Marker</span>
-                             <span className="text-white">M</span>
-                         </div>
-                         <div className="flex justify-between">
-                             <span className="text-zinc-400">Fullscreen</span>
-                             <span className="text-white">F</span>
-                         </div>
-                     </div>
-                 </section>
-
-                 <section>
-                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                         <Download size={20} className="text-orange-400"/> DaVinci Resolve Workflow
-                     </h2>
-                     <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 text-sm text-zinc-400 space-y-4">
-                         <p>1. Export markers from SmoTree as <strong>.xml</strong>.</p>
-                         <p>2. Open DaVinci Resolve. Go to <strong>File {'>'} Import {'>'} Timeline</strong>.</p>
-                         <p>3. Select the downloaded XML.</p>
-                         <p>4. The markers will appear as a new timeline or overlay on your clips.</p>
-                     </div>
-                 </section>
-             </div>
         </PageLayout>
     );
 };

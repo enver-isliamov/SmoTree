@@ -324,9 +324,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             </div>
           </div>
           
-          {/* Main Navigation */}
+          {/* Main Navigation - Removed DOCS */}
           <div className="hidden lg:flex items-center gap-1 ml-4">
-               {['workflow', 'pricing', 'docs', 'about'].map(page => (
+               {['workflow', 'pricing', 'about'].map(page => (
                    <button 
                      key={page}
                      onClick={() => onNavigate(page.toUpperCase())}
@@ -361,7 +361,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
         <div className="max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-6">
              <div className="lg:hidden flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-                 {['workflow', 'pricing', 'docs', 'about'].map(page => (
+                 {/* Removed Docs from mobile scroll menu */}
+                 {['workflow', 'pricing', 'about'].map(page => (
                    <button 
                      key={page}
                      onClick={() => onNavigate(page.toUpperCase())}
@@ -396,7 +397,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           {renderProjectGrid(myProjects, t('dash.my_projects'))}
           {renderProjectGrid(sharedProjects, t('dash.shared_projects'))}
           
-          {/* UPSELL BLOCK FOR ALL USERS (Non-Founder Logic Check needed in future, currently showing to all to drive value) */}
+          {/* UPSELL BLOCK */}
           <div className="mt-12 bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 md:p-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-indigo-900/10 to-transparent pointer-events-none"></div>
               

@@ -5,7 +5,7 @@ import { ProjectView } from './components/ProjectView';
 import { Player } from './components/Player';
 import { Login } from './components/Login';
 import { Profile } from './components/Profile';
-import { WorkflowPage, AboutPage, PricingPage, DocsPage } from './components/StaticPages';
+import { WorkflowPage, AboutPage, PricingPage } from './components/StaticPages';
 import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
 import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
@@ -19,8 +19,7 @@ type ViewState =
   | { type: 'PROFILE' }
   | { type: 'WORKFLOW' }
   | { type: 'ABOUT' }
-  | { type: 'PRICING' }
-  | { type: 'DOCS' };
+  | { type: 'PRICING' };
 
 const STORAGE_KEY = 'smotree_projects_data';
 const USER_STORAGE_KEY = 'smotree_auth_user';
@@ -44,6 +43,7 @@ const AppContent: React.FC = () => {
   const isRemoteUpdate = useRef(false);
   const isJoiningFlow = useRef(false);
   const offlineModeNotified = useRef(false);
+  const processedInvites = useRef<Set<string>>(new Set()); // Prevent double-joining on strict mode/rerenders
 
   // TOAST HANDLER
   const notify = (message: string, type: ToastType = 'info') => {
@@ -179,6 +179,7 @@ const AppContent: React.FC = () => {
     fetchCloudData();
   }, [currentUser, fetchCloudData]);
 
+  // Polling Sync
   useEffect(() => {
     if (!currentUser) return;
     const interval = setInterval(async () => {
@@ -207,6 +208,57 @@ const AppContent: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
 
+  // CORE LOGIC: Join Project Handler
+  const processInviteLink = async (user: User, projectId: string) => {
+      if (processedInvites.current.has(projectId)) return; // Prevent double join in strict mode
+      
+      console.log(`🔗 Processing invite for project: ${projectId}`);
+      isJoiningFlow.current = true;
+      notify("Accepting invitation...", "info");
+
+      try {
+          const joinRes = await fetch('/api/join', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ projectId: projectId, user: user })
+          });
+          
+          if (joinRes.ok) {
+              const joinData = await joinRes.json();
+              if (joinData.project) {
+                  processedInvites.current.add(projectId);
+                  isRemoteUpdate.current = true;
+                  setProjects(prev => {
+                      const exists = prev.some(p => p.id === joinData.project.id);
+                      if (exists) return prev.map(p => p.id === joinData.project.id ? joinData.project : p);
+                      return [joinData.project, ...prev]; // Add to top
+                  });
+                  notify(`You joined "${joinData.project.name}"`, "success");
+                  
+                  // Auto-open project
+                  setView({ type: 'PROJECT_VIEW', projectId: joinData.project.id });
+                  
+                  // Clean URL
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('projectId');
+                  window.history.replaceState({}, '', url.toString());
+              }
+          } else {
+              if (joinRes.status === 404) notify("Project not found or invitation expired.", "error");
+              else if (joinRes.status === 503) notify("Cloud Offline. Cannot process invite.", "error");
+              else notify("Failed to join project.", "error");
+          }
+      } catch (e) {
+          console.error("Join flow error:", e);
+          notify("Network error joining project.", "error");
+      } finally {
+          // Keep flag true briefly to prevent sync from overwriting immediately, then release
+          setTimeout(() => { isJoiningFlow.current = false; }, 1000);
+          await fetchCloudData(user);
+      }
+  };
+
+  // INITIAL LOAD & INVITE CHECKER (For Already Logged In Users)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -214,26 +266,40 @@ const AppContent: React.FC = () => {
     const pId = params.get('projectId');
     const aId = params.get('assetId');
 
+    // Scenario 1: Processing an Invite Link
+    if (pId && !projects.some(p => p.id === pId)) {
+        // If we don't have the project locally yet, try to join/fetch it
+        processInviteLink(currentUser, pId);
+        return; 
+    } 
+    
+    // Scenario 2: Deep Link Navigation (Project already in list or just viewing)
     if (pId) {
       const projectExists = projects.find(p => p.id === pId);
       if (projectExists) {
+        // Simple permission check mainly for UI, backend is source of truth
         const hasAccess = 
             projectExists.ownerId === currentUser.id ||
             projectExists.team.some(member => member.id === currentUser.id) ||
             currentUser.role === UserRole.ADMIN;
 
-        if (!hasAccess) return;
-
-        if (aId) {
-           const assetExists = projectExists.assets.find(a => a.id === aId);
-           if (assetExists) setView({ type: 'PLAYER', projectId: pId, assetId: aId });
-           else setView({ type: 'PROJECT_VIEW', projectId: pId });
-        } else {
-           setView({ type: 'PROJECT_VIEW', projectId: pId });
+        if (hasAccess) {
+            if (aId) {
+                const assetExists = projectExists.assets.find(a => a.id === aId);
+                if (assetExists) setView({ type: 'PLAYER', projectId: pId, assetId: aId });
+                else setView({ type: 'PROJECT_VIEW', projectId: pId });
+            } else {
+                setView({ type: 'PROJECT_VIEW', projectId: pId });
+            }
         }
+      } else {
+          // If project ID exists in URL but NOT in local list, 
+          // AND we haven't processed it yet (maybe user was removed then clicked link again),
+          // Try to join again to be sure.
+          processInviteLink(currentUser, pId);
       }
     }
-  }, [projects, currentUser]); 
+  }, [currentUser]); // Run when user is confirmed
 
   // Listen for navigation events from Dashboard header
   useEffect(() => {
@@ -314,7 +380,6 @@ const AppContent: React.FC = () => {
   };
 
   const handleLogin = async (user: User) => {
-    isJoiningFlow.current = true;
     setCurrentUser(user);
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     notify(`Welcome back, ${user.name.split(' ')[0]}`, "success");
@@ -323,37 +388,11 @@ const AppContent: React.FC = () => {
     const pId = params.get('projectId');
 
     if (pId) {
-        try {
-            const joinRes = await fetch('/api/join', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: pId, user: user })
-            });
-            
-            if (joinRes.ok) {
-                const joinData = await joinRes.json();
-                if (joinData.project) {
-                    isRemoteUpdate.current = true;
-                    setProjects(prev => {
-                        const exists = prev.some(p => p.id === joinData.project.id);
-                        if (exists) return prev.map(p => p.id === joinData.project.id ? joinData.project : p);
-                        return [...prev, joinData.project];
-                    });
-                    notify("Joined project successfully", "success");
-                }
-            } else {
-                if (joinRes.status === 404) notify("Project not found.", "error");
-                else if (joinRes.status === 503) notify("Cloud Storage Offline. Cannot Join.", "error");
-                else notify("Failed to join project", "error");
-            }
-            await fetchCloudData(user);
-        } catch (e) {
-            console.error("Failed to join project process:", e);
-        }
+        // Reuse the core invite logic
+        await processInviteLink(user, pId);
     } else {
         await fetchCloudData(user);
     }
-    isJoiningFlow.current = false;
   };
   
   const handleNavigate = (page: string) => {
@@ -361,7 +400,6 @@ const AppContent: React.FC = () => {
           case 'WORKFLOW': setView({ type: 'WORKFLOW' }); break;
           case 'ABOUT': setView({ type: 'ABOUT' }); break;
           case 'PRICING': setView({ type: 'PRICING' }); break;
-          case 'DOCS': setView({ type: 'DOCS' }); break;
           default: setView({ type: 'DASHBOARD' });
       }
   };
@@ -405,14 +443,13 @@ const AppContent: React.FC = () => {
   const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
+  // Render Static Pages
+  if (view.type === 'WORKFLOW') return <WorkflowPage onBack={handleBackToDashboard} onNavigate={handleNavigate} isLoggedIn={!!currentUser} />;
+  if (view.type === 'ABOUT') return <AboutPage onBack={handleBackToDashboard} onNavigate={handleNavigate} isLoggedIn={!!currentUser} />;
+  if (view.type === 'PRICING') return <PricingPage onBack={handleBackToDashboard} onNavigate={handleNavigate} isLoggedIn={!!currentUser} />;
+
   if (!currentUser) return <Login onLogin={handleLogin} onNavigate={handleNavigate} />;
   
-  // Render Static Pages
-  if (view.type === 'WORKFLOW') return <WorkflowPage onBack={handleBackToDashboard} />;
-  if (view.type === 'ABOUT') return <AboutPage onBack={handleBackToDashboard} />;
-  if (view.type === 'PRICING') return <PricingPage onBack={handleBackToDashboard} />;
-  if (view.type === 'DOCS') return <DocsPage onBack={handleBackToDashboard} />;
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
       <main className="h-full">

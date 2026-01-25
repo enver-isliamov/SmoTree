@@ -23,9 +23,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'edit': 'Edit',
     'logout': 'Sign Out',
     'back': 'Back',
+    'nav.dashboard': 'Dashboard',
     'nav.workflow': 'Workflow',
     'nav.pricing': 'Pricing',
-    'nav.docs': 'Docs',
     'nav.about': 'About',
     
     // Auth / Landing
@@ -83,7 +83,7 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
 
     'page.about.title': 'The Solo Mission',
     'page.about.p1': 'SmoTree is not a corporation. It is a passion project built by a single developer for the filmmaking community.',
-    'page.about.p2': 'The goal is simple: Create professional tools that you own. No recurring nightmares. No data lock-in.',
+    'page.about.p2': 'The goal is simple: Provide a lightweight, lightning-fast tool for your daily video review workflow. No bloat, just speed and precision.',
     
     'page.pricing.title': 'Fair Pricing',
     'page.pricing.subtitle': 'Invest once, use forever during the V1 lifecycle.',
@@ -140,9 +140,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'edit': 'Редактировать',
     'logout': 'Выйти',
     'back': 'Назад',
+    'nav.dashboard': 'Дашборд',
     'nav.workflow': 'Воркфлоу',
     'nav.pricing': 'Цены',
-    'nav.docs': 'Документация',
     'nav.about': 'О нас',
 
     'nav.login': 'Войти',
@@ -195,7 +195,7 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
 
     'page.about.title': 'Миссия одиночки',
     'page.about.p1': 'SmoTree — это не корпорация. Это проект страсти, созданный одним разработчиком для сообщества фильммейкеров.',
-    'page.about.p2': 'Цель проста: Создать профессиональные инструменты, которыми владеете вы. Никаких подписок. Никакой привязки данных.',
+    'page.about.p2': 'Цель проста: Предоставить вам легкий, молниеносный инструмент для ежедневной работы с видео. Никакого "bloatware", только скорость и точность.',
     
     'page.pricing.title': 'Честные цены',
     'page.pricing.subtitle': 'Инвестируйте один раз, пользуйтесь вечно в рамках версии V1.',
@@ -243,9 +243,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
   es: {
     'app.name': 'SmoTree',
     'nav.login': 'Iniciar Sesión',
+    'nav.dashboard': 'Dashboard',
     'nav.workflow': 'Flujo',
     'nav.pricing': 'Precios',
-    'nav.docs': 'Documentos',
     'nav.about': 'Nosotros',
     'dash.upsell_title': '¿Por qué actualizar?',
     'upsell.title': '¿Por qué actualizar?',
@@ -269,9 +269,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
   ja: {
     'app.name': 'SmoTree',
     'nav.login': 'ログイン',
+    'nav.dashboard': 'ダッシュボード',
     'nav.workflow': 'ワークフロー',
     'nav.pricing': '価格',
-    'nav.docs': 'ドキュメント',
     'nav.about': '約',
     'upsell.title': 'アップグレードする理由',
     'upsell.cta': '生涯アクセスを取得',
@@ -290,9 +290,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
   ko: {
     'app.name': 'SmoTree',
     'nav.login': '로그인',
+    'nav.dashboard': '대시 보드',
     'nav.workflow': '워크플로',
     'nav.pricing': '가격',
-    'nav.docs': '문서',
     'nav.about': '정보',
     'upsell.title': '업그레이드해야 하는 이유',
     'upsell.cta': '평생 액세스 권한 받기',
@@ -311,9 +311,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
   pt: {
     'app.name': 'SmoTree',
     'nav.login': 'Entrar',
+    'nav.dashboard': 'Painel',
     'nav.workflow': 'Fluxo',
     'nav.pricing': 'Preços',
-    'nav.docs': 'Docs',
     'nav.about': 'Sobre',
     'upsell.title': 'Por que atualizar?',
     'upsell.cta': 'Obter Acesso Vitalício',

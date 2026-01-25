@@ -161,9 +161,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
              <div className="bg-indigo-600 p-1.5 rounded-lg"><Clapperboard size={20} /></div>
              <span className="font-bold text-lg tracking-tight">{t('app.name')}</span>
              
-              {/* Navigation Links for Login Page */}
+              {/* Navigation Links for Login Page - NO DASHBOARD HERE */}
              <div className="hidden md:flex items-center gap-1 ml-4">
-                 {['workflow', 'pricing', 'docs', 'about'].map(page => (
+                 {['workflow', 'pricing', 'about'].map(page => (
                    <button 
                      key={page}
                      onClick={() => onNavigate(page.toUpperCase())}
