@@ -11,6 +11,7 @@ import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
 import { generateId } from './services/utils';
 import { LanguageProvider } from './services/i18n';
+import { ThemeProvider } from './services/theme';
 import { MainLayout } from './components/MainLayout';
 
 type ViewState = 
@@ -44,7 +45,7 @@ const AppContent: React.FC = () => {
   const isRemoteUpdate = useRef(false);
   const isJoiningFlow = useRef(false);
   const offlineModeNotified = useRef(false);
-  const processedInvites = useRef<Set<string>>(new Set()); // Prevent double-joining on strict mode/rerenders
+  const processedInvites = useRef<Set<string>>(new Set()); 
 
   // TOAST HANDLER
   const notify = (message: string, type: ToastType = 'info') => {
@@ -105,7 +106,6 @@ const AppContent: React.FC = () => {
        }
   }, [currentUser]);
 
-  // HELPER: Strip local-only fields (Blob URLs) before sending to cloud.
   const sanitizeProjectsForCloud = (projectsList: Project[]): Project[] => {
       return projectsList.map(p => ({
           ...p,
@@ -121,7 +121,6 @@ const AppContent: React.FC = () => {
       }));
   };
 
-  // SELF-HEALING SYNC
   const forceSync = async (projectsData: Project[], isRetry = false) => {
       if (!currentUser || currentUser.role === UserRole.GUEST) return;
       
@@ -180,7 +179,6 @@ const AppContent: React.FC = () => {
     fetchCloudData();
   }, [currentUser, fetchCloudData]);
 
-  // Polling Sync
   useEffect(() => {
     if (!currentUser) return;
     const interval = setInterval(async () => {
@@ -209,9 +207,8 @@ const AppContent: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
 
-  // CORE LOGIC: Join Project Handler
   const processInviteLink = async (user: User, projectId: string) => {
-      if (processedInvites.current.has(projectId)) return; // Prevent double join in strict mode
+      if (processedInvites.current.has(projectId)) return; 
       
       console.log(`🔗 Processing invite for project: ${projectId}`);
       isJoiningFlow.current = true;
@@ -232,14 +229,12 @@ const AppContent: React.FC = () => {
                   setProjects(prev => {
                       const exists = prev.some(p => p.id === joinData.project.id);
                       if (exists) return prev.map(p => p.id === joinData.project.id ? joinData.project : p);
-                      return [joinData.project, ...prev]; // Add to top
+                      return [joinData.project, ...prev]; 
                   });
                   notify(`You joined "${joinData.project.name}"`, "success");
                   
-                  // Auto-open project
                   setView({ type: 'PROJECT_VIEW', projectId: joinData.project.id });
                   
-                  // Clean URL
                   const url = new URL(window.location.href);
                   url.searchParams.delete('projectId');
                   window.history.replaceState({}, '', url.toString());
@@ -253,13 +248,11 @@ const AppContent: React.FC = () => {
           console.error("Join flow error:", e);
           notify("Network error joining project.", "error");
       } finally {
-          // Keep flag true briefly to prevent sync from overwriting immediately, then release
           setTimeout(() => { isJoiningFlow.current = false; }, 1000);
           await fetchCloudData(user);
       }
   };
 
-  // INITIAL LOAD & INVITE CHECKER (For Already Logged In Users)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -267,18 +260,14 @@ const AppContent: React.FC = () => {
     const pId = params.get('projectId');
     const aId = params.get('assetId');
 
-    // Scenario 1: Processing an Invite Link
     if (pId && !projects.some(p => p.id === pId)) {
-        // If we don't have the project locally yet, try to join/fetch it
         processInviteLink(currentUser, pId);
         return; 
     } 
     
-    // Scenario 2: Deep Link Navigation (Project already in list or just viewing)
     if (pId) {
       const projectExists = projects.find(p => p.id === pId);
       if (projectExists) {
-        // Simple permission check mainly for UI, backend is source of truth
         const hasAccess = 
             projectExists.ownerId === currentUser.id ||
             projectExists.team.some(member => member.id === currentUser.id) ||
@@ -294,15 +283,11 @@ const AppContent: React.FC = () => {
             }
         }
       } else {
-          // If project ID exists in URL but NOT in local list, 
-          // AND we haven't processed it yet (maybe user was removed then clicked link again),
-          // Try to join again to be sure.
           processInviteLink(currentUser, pId);
       }
     }
-  }, [currentUser]); // Run when user is confirmed
+  }, [currentUser]); 
 
-  // Listen for navigation events from Dashboard header
   useEffect(() => {
       const handleProfileNav = () => setView({ type: 'PROFILE' });
       window.addEventListener('NAVIGATE_PROFILE', handleProfileNav);
@@ -389,7 +374,6 @@ const AppContent: React.FC = () => {
     const pId = params.get('projectId');
 
     if (pId) {
-        // Reuse the core invite logic
         await processInviteLink(user, pId);
     } else {
         await fetchCloudData(user);
@@ -423,13 +407,10 @@ const AppContent: React.FC = () => {
           if (res.ok) {
               const data = await res.json();
               if (data.user) {
-                  // 1. Update Auth Token
                   localStorage.setItem('smotree_auth_token', googleCredential);
-                  // 2. Update Local User
                   const newUser = { ...data.user, role: UserRole.ADMIN };
                   setCurrentUser(newUser);
                   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
-                  // 3. Refresh Data
                   notify("Account migrated successfully!", "success");
                   await fetchCloudData(newUser);
               }
@@ -445,14 +426,12 @@ const AppContent: React.FC = () => {
   const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
-  // ROUTING LOGIC UPDATE:
-  // If not logged in, but viewing a public page, render MainLayout.
   if (!currentUser) {
       const isPublicView = ['WORKFLOW', 'ABOUT', 'PRICING'].includes(view.type);
       
       if (isPublicView) {
           return (
-            <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
+            <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-indigo-500/30 transition-colors">
                 <MainLayout 
                     currentUser={null} 
                     currentView={view.type} 
@@ -471,13 +450,10 @@ const AppContent: React.FC = () => {
       return <Login onLogin={handleLogin} onNavigate={handleNavigate} />;
   }
 
-  // Persistent Layout Logic
-  // We wrap "Platform" pages (Dashboard, Profile, Static) in MainLayout.
-  // We leave "Editor" pages (ProjectView, Player) standalone for immersive experience.
   const isPlatformView = ['DASHBOARD', 'PROFILE', 'WORKFLOW', 'ABOUT', 'PRICING'].includes(view.type);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-indigo-500/30 transition-colors">
       <main className="h-full">
         {isPlatformView && (
             <MainLayout 
@@ -542,7 +518,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
     return (
         <LanguageProvider>
+          <ThemeProvider>
             <AppContent />
+          </ThemeProvider>
         </LanguageProvider>
     );
 };

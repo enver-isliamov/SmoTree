@@ -13,7 +13,7 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, currentUser, currentView, onNavigate, onBack }) => {
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col transition-colors duration-300">
       <AppHeader 
         currentUser={currentUser} 
         currentView={currentView} 

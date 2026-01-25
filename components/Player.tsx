@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock, Clapperboard } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock, Clapperboard, ChevronRight, CornerUpLeft } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 import { generateId, stringToColor } from '../services/utils';
 import { ToastType } from './Toast';
@@ -794,56 +794,82 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-zinc-950 overflow-hidden select-none fixed inset-0">
+    <div className="flex flex-col h-[100dvh] bg-white dark:bg-zinc-950 overflow-hidden select-none fixed inset-0 transition-colors">
       {!isFullscreen && (
-        <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
-          <div className="flex items-center gap-2 overflow-hidden flex-1">
-            <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-white shrink-0 p-1">
-                <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-lg shrink-0 border border-zinc-700">
-                    <Clapperboard size={16} className="text-zinc-400" />
-                </div>
+        <header className="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20 backdrop-blur-md">
+          {/* REDESIGNED LEFT SIDE: BREADCRUMBS & META */}
+          <div className="flex items-center gap-3 overflow-hidden flex-1">
+            <button 
+                onClick={onBack} 
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors border border-zinc-200 dark:border-zinc-700 shrink-0"
+                title={t('back')}
+            >
+                <CornerUpLeft size={16} />
             </button>
             
             {(!isSearchOpen || window.innerWidth > 768) && (
               <div className="flex flex-col truncate">
-                <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                    <span onClick={onBack} className="cursor-pointer hover:text-zinc-200 transition-colors">{project.name}</span> <span className="text-zinc-600">/</span> {isGuest ? t('dash.shared_projects') : t('pv.assets')}
-                </span>
-                <div className="flex items-center gap-2 text-sm text-zinc-100 font-semibold leading-none truncate">
-                   <span>{localFileName || asset.title}</span>
-                   <span className="bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded text-[10px]">v{version.versionNumber}</span>
+                {/* Breadcrumbs */}
+                <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-zinc-500 font-medium tracking-wide truncate mb-0.5">
+                    <span 
+                        onClick={onBack} 
+                        className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors truncate"
+                    >
+                        {project.name}
+                    </span>
+                    <ChevronRight size={10} className="text-zinc-300 dark:text-zinc-700" />
+                    <span>{isGuest ? t('dash.shared_projects') : t('pv.assets')}</span>
+                </div>
+
+                {/* Main Context Row */}
+                <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 leading-none truncate">
+                   <span className="font-bold text-sm truncate" title={localFileName || asset.title}>{localFileName || asset.title}</span>
                    
+                   {/* Version Badge */}
+                   <span className="shrink-0 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-500/20">
+                       v{version.versionNumber}
+                   </span>
+                   
+                   {/* Status Divider */}
+                   <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-800 mx-0.5"></div>
+
+                   {/* Sync Status */}
                    {isSyncing ? (
-                      <div className="flex items-center gap-1 text-zinc-500 animate-pulse" title={t('player.syncing')}>
+                      <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 animate-pulse text-[10px]" title={t('player.syncing')}>
                           <Cloud size={12} />
                       </div>
                    ) : (
-                      <div className="flex items-center gap-1 text-zinc-600" title={t('player.saved')}>
+                      <div className="flex items-center gap-1 text-green-500 dark:text-green-500/80 text-[10px]" title={t('player.saved')}>
                           <CheckCircle size={12} />
                       </div>
                    )}
 
+                   {/* Source Button (Local/Cloud) */}
                    <button 
                         onClick={() => localFileRef.current?.click()}
-                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors text-[10px] ${localFileName ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
+                        className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors text-[10px] font-medium ml-1
+                            ${localFileName 
+                                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' 
+                                : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                            }`}
                         title={t('player.link_local')}
                     >
                         <HardDrive size={10} />
-                        <span>{localFileName ? 'Local' : 'Cloud'}</span>
+                        <span>{localFileName ? 'Local Source' : 'Cloud'}</span>
                     </button>
 
-                   {videoError && !localFileName && <span className="text-red-400 flex items-center gap-1 text-[10px]"><Flag size={8}/> {t('player.source_missing')}</span>}
+                   {videoError && !localFileName && <span className="text-red-500 dark:text-red-400 flex items-center gap-1 text-[10px] font-bold bg-red-50 dark:bg-red-900/10 px-1.5 py-0.5 rounded border border-red-100 dark:border-red-900/30"><AlertTriangle size={10}/> {t('player.source_missing')}</span>}
                 </div>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-1 md:gap-2 shrink-0">
-             <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'w-40 md:w-64 bg-zinc-950 border border-zinc-800 rounded-lg px-2' : 'w-8 justify-end'}`}>
+          <div className="flex items-center gap-1 md:gap-3 shrink-0">
+             <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'w-40 md:w-56 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2' : 'w-8 justify-end'}`}>
                 {isSearchOpen && (
                    <input 
                      autoFocus
-                     className="w-full bg-transparent text-xs text-white outline-none py-1.5"
+                     className="w-full bg-transparent text-xs text-zinc-900 dark:text-white outline-none py-1.5"
                      placeholder={t('dash.search')}
                      value={searchQuery}
                      onChange={e => setSearchQuery(e.target.value)}
@@ -855,18 +881,18 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     if (isSearchOpen && searchQuery) setSearchQuery('');
                     else setIsSearchOpen(!isSearchOpen);
                   }} 
-                  className={`p-1.5 text-zinc-400 hover:text-white ${isSearchOpen ? 'text-white' : ''}`}
+                  className={`p-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white ${isSearchOpen ? 'text-zinc-900 dark:text-white' : ''}`}
                 >
                   {isSearchOpen && searchQuery ? <XIcon size={16} /> : <Search size={18} />}
                 </button>
              </div>
              
-             <div className="h-6 w-px bg-zinc-800 mx-1"></div>
+             <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-1"></div>
 
              <div className="relative">
                 <button 
                   onClick={() => setShowMobileViewMenu(!showMobileViewMenu)}
-                  className="p-1.5 md:p-2 rounded text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                  className="p-1.5 md:p-2 rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
                 >
                   {viewMode === 'single' && <Monitor size={18} />}
                   {viewMode === 'side-by-side' && <Columns size={18} />}
@@ -875,24 +901,24 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
                 {showMobileViewMenu && (
                    <div 
-                     className="absolute top-full right-0 mt-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl p-1 flex flex-col gap-1 z-50 min-w-[120px]"
+                     className="absolute top-full right-0 mt-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl p-1 flex flex-col gap-1 z-50 min-w-[120px]"
                      onMouseLeave={() => setShowMobileViewMenu(false)}
                    >
                       <button 
                         onClick={() => { setViewMode('single'); setShowMobileViewMenu(false); }}
-                        className={`flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-zinc-800 ${viewMode === 'single' ? 'text-indigo-400' : 'text-zinc-400'}`}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 ${viewMode === 'single' ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-600 dark:text-zinc-400'}`}
                       >
                         <Monitor size={14} /> Single
                       </button>
                       <button 
                         onClick={() => { setViewMode('side-by-side'); setShowMobileViewMenu(false); }}
-                        className={`flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-zinc-800 ${viewMode === 'side-by-side' ? 'text-indigo-400' : 'text-zinc-400'}`}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 ${viewMode === 'side-by-side' ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-600 dark:text-zinc-400'}`}
                       >
                         <Columns size={14} /> Split
                       </button>
                       <button 
                         onClick={() => { setViewMode('overlay'); setShowMobileViewMenu(false); }}
-                        className={`flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-zinc-800 ${viewMode === 'overlay' ? 'text-indigo-400' : 'text-zinc-400'}`}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 ${viewMode === 'overlay' ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-600 dark:text-zinc-400'}`}
                       >
                         <Layers size={14} /> Overlay
                       </button>
@@ -904,7 +930,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       )}
 
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
-        {/* ... (Rest of the video player logic remains the same, removed for brevity as requested change was primarily navigation) ... */}
+        {/* VIDEO CONTAINER (Always Dark Mode for Cinema Experience) */}
         
         <div 
             ref={playerContainerRef} 
@@ -1088,7 +1114,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 {filteredComments.map(c => {
                   const left = (c.timestamp / duration) * 100;
                   const width = c.duration ? (c.duration / duration) * 100 : 0.5;
-                  const colorClass = c.status === 'resolved' ? 'bg-green-500' : 'bg-yellow-500';
                   // Use unique color for timeline marker
                   const userColor = stringToColor(c.userId);
                   
@@ -1129,11 +1154,11 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         </div>
 
         {!isFullscreen && (
-        <div className="w-full lg:w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col shrink-0 h-[45vh] lg:h-auto z-10 shadow-2xl lg:shadow-none pb-20 lg:pb-0 relative">
+        <div className="w-full lg:w-80 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shrink-0 h-[45vh] lg:h-auto z-10 shadow-2xl lg:shadow-none pb-20 lg:pb-0 relative transition-colors">
              <>
-                <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900 sticky top-0 z-10">
+                <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900 sticky top-0 z-10">
                     <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{t('player.comments')} ({filteredComments.length})</span>
+                        <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{t('player.comments')} ({filteredComments.length})</span>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -1141,32 +1166,32 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                              <>
                                 <button 
                                     onClick={handleToggleLock}
-                                    className={`p-1.5 rounded transition-colors ${version.isLocked ? 'bg-red-900/20 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                                    className={`p-1 rounded transition-colors ${version.isLocked ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'text-zinc-400 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                                     title={version.isLocked ? t('player.unlock_ver') : t('player.lock_ver')}
                                 >
-                                    {version.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                                    {version.isLocked ? <Lock size={14} /> : <Unlock size={14} />}
                                 </button>
                                  <div className="relative">
                                      <button 
                                          onClick={() => setShowExportMenu(!showExportMenu)}
-                                         className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+                                         className="p-1 text-zinc-400 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-colors"
                                          title={t('player.export.title')}
                                      >
-                                         <Download size={16} />
+                                         <Download size={14} />
                                      </button>
                                      
                                      {showExportMenu && (
-                                         <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
-                                             <button onClick={() => handleExport('xml')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                                 <Film size={14} className="text-indigo-400" />
+                                         <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
+                                             <button onClick={() => handleExport('xml')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white text-left">
+                                                 <Film size={14} className="text-indigo-500 dark:text-indigo-400" />
                                                  {t('player.export.xml')}
                                              </button>
-                                             <button onClick={() => handleExport('csv')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                                 <FileSpreadsheet size={14} className="text-green-400" />
+                                             <button onClick={() => handleExport('csv')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white text-left">
+                                                 <FileSpreadsheet size={14} className="text-green-500 dark:text-green-400" />
                                                  {t('player.export.csv')}
                                              </button>
-                                              <button onClick={() => handleExport('edl')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                                 <FileText size={14} className="text-orange-400" />
+                                              <button onClick={() => handleExport('edl')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white text-left">
+                                                 <FileText size={14} className="text-orange-500 dark:text-orange-400" />
                                                  {t('player.export.edl')}
                                              </button>
                                          </div>
@@ -1182,18 +1207,18 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         {isManager && filteredComments.some(c => c.status === CommentStatus.OPEN) && (
                             <button 
                                 onClick={handleBulkResolve}
-                                className="flex items-center gap-1 text-[10px] bg-green-900/20 text-green-400 border border-green-900/50 hover:bg-green-900/40 px-2 py-1 rounded transition-colors"
+                                className="flex items-center gap-1 text-[9px] font-bold bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900/50 hover:bg-green-200 dark:hover:bg-green-900/40 px-2 py-0.5 rounded transition-colors uppercase"
                             >
-                                <CheckSquare size={12} />
+                                <CheckSquare size={10} />
                                 {t('player.resolve_all')}
                             </button>
                         )}
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3 overflow-x-hidden">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 overflow-x-hidden bg-zinc-50 dark:bg-zinc-950">
                     {filteredComments.length === 0 && (
-                        <div className="flex flex-col items-center justify-center h-32 text-zinc-500 text-sm">
+                        <div className="flex flex-col items-center justify-center h-32 text-zinc-400 dark:text-zinc-500 text-xs">
                             <p>{t('player.no_comments')}</p>
                         </div>
                     )}
@@ -1242,35 +1267,38 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                         videoRef.current.pause();
                                     }
                                 }}
-                                className={`rounded-lg p-3 border text-sm cursor-pointer transition-all relative z-10 
-                                    ${isSelected ? 'bg-indigo-900/20 border-indigo-500/50' : 'bg-zinc-800/40 border-zinc-800 hover:border-zinc-700'}
-                                    ${isGuestComment && !isSelected ? 'border-orange-500/20' : ''}
-                                    ${isActive && !isSelected ? 'border-l-4 border-l-indigo-500 bg-zinc-800 shadow-md ring-1 ring-inset ring-indigo-500/20' : ''}
+                                className={`rounded-lg p-2 border text-xs cursor-pointer transition-all relative z-10 shadow-sm
+                                    ${isSelected 
+                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-500/50' 
+                                        : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-zinc-700'
+                                    }
+                                    ${isGuestComment && !isSelected ? 'border-orange-200 dark:border-orange-500/20' : ''}
+                                    ${isActive && !isSelected ? 'border-l-4 border-l-indigo-500 bg-zinc-50 dark:bg-zinc-800 shadow-md ring-1 ring-inset ring-indigo-500/20' : ''}
                                 `}
                             >
                                 <div className="flex justify-between items-start mb-1">
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold" style={{ color: userColor }}>
+                                        <span className="font-bold text-zinc-900 dark:text-zinc-100" style={{ color: userColor }}>
                                             {author.name.split(' ')[0]}
                                         </span>
                                         
                                         {isGuestComment && (
-                                            <span className="text-[9px] uppercase font-bold text-orange-400 border border-orange-500/30 px-1 rounded">Guest</span>
+                                            <span className="text-[8px] uppercase font-bold text-orange-500 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30 px-1 rounded bg-orange-50 dark:bg-transparent">Guest</span>
                                         )}
 
-                                        <span className={`font-mono text-xs px-1 rounded flex items-center gap-1 ${isActive ? 'text-indigo-300 bg-indigo-950 border border-indigo-500/30' : 'text-indigo-400 bg-indigo-950/50'}`}>
+                                        <span className={`font-mono text-[10px] px-1 rounded flex items-center gap-1 ${isActive ? 'text-indigo-600 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-500/30' : 'text-zinc-400 dark:text-zinc-500'}`}>
                                         {formatTimecode(comment.timestamp)}
                                         {comment.duration && <span className="opacity-50">→ {formatTimecode(comment.timestamp + comment.duration)}</span>}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {canResolve && !isEditing && (
-                                            <button onClick={(e) => handleResolveComment(e, comment.id)} className={comment.status==='resolved'?'text-green-500':'text-zinc-600 hover:text-green-500'}>
-                                            <CheckCircle size={14} />
+                                            <button onClick={(e) => handleResolveComment(e, comment.id)} className={comment.status==='resolved'?'text-green-500':'text-zinc-300 hover:text-green-500'}>
+                                            <CheckCircle size={12} />
                                             </button>
                                         )}
                                         {!canResolve && !isEditing && (
-                                            <div className={`w-2 h-2 rounded-full ${comment.status==='resolved'?'bg-green-500':'bg-yellow-500'}`} />
+                                            <div className={`w-1.5 h-1.5 rounded-full ${comment.status==='resolved'?'bg-green-500':'bg-yellow-500'}`} />
                                         )}
                                     </div>
                                 </div>
@@ -1278,21 +1306,21 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                 {isEditing ? (
                                     <div className="mt-2" onClick={e => e.stopPropagation()}>
                                     <textarea 
-                                        className="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-base md:text-sm text-white focus:border-indigo-500 outline-none mb-2"
+                                        className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded p-2 text-xs text-zinc-900 dark:text-white focus:border-indigo-500 outline-none mb-2"
                                         value={editText}
                                         onChange={e => setEditText(e.target.value)}
                                         rows={3}
                                         autoFocus
                                     />
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={cancelEdit} className="px-2 py-1 text-xs text-zinc-400 hover:text-white">{t('cancel')}</button>
-                                        <button onClick={() => saveEdit(comment.id)} className="px-3 py-1 bg-indigo-600 text-white rounded text-xs flex items-center gap-1">
-                                            <Save size={12} /> {t('save')}
+                                        <button onClick={cancelEdit} className="px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">{t('cancel')}</button>
+                                        <button onClick={() => saveEdit(comment.id)} className="px-3 py-1 bg-indigo-600 text-white rounded text-[10px] flex items-center gap-1">
+                                            <Save size={10} /> {t('save')}
                                         </button>
                                     </div>
                                     </div>
                                 ) : (
-                                    <p className={`text-zinc-300 mb-1 whitespace-pre-wrap ${comment.status === CommentStatus.RESOLVED ? 'line-through opacity-50' : ''}`}>{comment.text}</p>
+                                    <p className={`text-zinc-700 dark:text-zinc-300 mb-0.5 whitespace-pre-wrap text-xs leading-relaxed ${comment.status === CommentStatus.RESOLVED ? 'line-through opacity-50' : ''}`}>{comment.text}</p>
                                 )}
                         </div>
                         </div>
@@ -1301,11 +1329,11 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     <div ref={commentsEndRef} />
                 </div>
 
-                <div className="fixed bottom-0 left-0 right-0 lg:static lg:w-full bg-zinc-900 border-t border-zinc-800 z-50 p-3 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
+                <div className="fixed bottom-0 left-0 right-0 lg:static lg:w-full bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 z-50 p-2 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
                     
                     {(markerInPoint !== null || markerOutPoint !== null) && (
                         <div className="flex items-center gap-2 mb-2 px-1">
-                            <div className="text-[10px] text-indigo-400 flex items-center gap-1 bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-500/20">
+                            <div className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-500/20 uppercase">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
                                 <span>Range: {formatTimecode(markerInPoint || currentTime)} - {markerOutPoint ? formatTimecode(markerOutPoint) : '...'}</span>
                             </div>
@@ -1317,7 +1345,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             <input
                             ref={sidebarInputRef}
                             disabled={isLocked}
-                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-12 py-3 md:py-2.5 text-base md:text-sm text-white focus:border-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg pl-3 pr-8 py-2 text-xs text-zinc-900 dark:text-white focus:border-indigo-500 focus:bg-white dark:focus:bg-zinc-900 outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             placeholder={isLocked ? "Comments locked" : (isListening ? t('player.voice.listening') : t('player.voice.placeholder'))}
                             value={newCommentText}
                             onChange={e => setNewCommentText(e.target.value)}
@@ -1331,17 +1359,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             <button 
                             onClick={toggleListening}
                             disabled={isLocked}
-                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-zinc-500 hover:text-white disabled:opacity-30'}`}
+                            className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-white disabled:opacity-30'}`}
                             >
-                            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                            {isListening ? <MicOff size={12} /> : <Mic size={12} />}
                             </button>
                         </div>
                         <button 
                             onClick={handleAddComment} 
                             disabled={!newCommentText.trim() || isLocked} 
-                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-3 md:p-2.5 rounded-lg transition-colors shrink-0 disabled:cursor-not-allowed"
+                            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-2 rounded-lg transition-colors shrink-0 disabled:cursor-not-allowed shadow-sm"
                         >
-                            <Send size={18} />
+                            <Send size={14} />
                         </button>
                     </div>
                 </div>
@@ -1368,20 +1396,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             marginLeft: '-110px'
         }}
       >
-        <div className={`flex items-center gap-1 bg-zinc-950/90 backdrop-blur-md rounded-xl p-1.5 border border-zinc-800 shadow-2xl ring-1 ring-white/5 transition-opacity ${isLocked ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`flex items-center gap-1 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md rounded-xl p-1.5 border border-zinc-200 dark:border-zinc-800 shadow-2xl ring-1 ring-black/5 dark:ring-white/5 transition-opacity ${isLocked ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
             
             <div 
                 onPointerDown={handleDragStart}
                 onPointerMove={handleDragMove}
                 onPointerUp={handleDragEnd}
-                className="p-1.5 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing border-r border-zinc-800 mr-1 pointer-events-auto"
+                className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-400 cursor-grab active:cursor-grabbing border-r border-zinc-200 dark:border-zinc-800 mr-1 pointer-events-auto"
             >
                 <GripVertical size={14} />
             </div>
 
             <button 
                 onClick={handleQuickMarker}
-                className="text-zinc-400 hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                className="text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                 title={t('player.marker.quick')}
             >
                 <MapPin size={18} />
@@ -1389,39 +1417,39 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
             <button 
                 onClick={(e) => { e.stopPropagation(); seek(-10); }} 
-                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors pointer-events-auto"
+                className="text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors pointer-events-auto"
             >
                 <RotateCcw size={18} />
             </button>
 
-            <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
+            <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-0.5"></div>
 
             <button 
                 onClick={handleSetInPoint} 
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerInPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                 title={t('player.marker.in')}
             >
                 IN
             </button>
             <button 
                 onClick={handleSetOutPoint}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all border border-transparent ${markerOutPoint !== null ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                 title={t('player.marker.out')}
             >
                 OUT
             </button>
 
-            <div className="w-px h-4 bg-zinc-800 mx-0.5"></div>
+            <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-0.5"></div>
 
             <button 
                 onClick={(e) => { e.stopPropagation(); seek(10); }} 
-                className="text-zinc-400 hover:text-white px-2 py-1.5 hover:bg-zinc-800 rounded-lg transition-colors pointer-events-auto"
+                className="text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors pointer-events-auto"
             >
                 <RotateCw size={18} />
             </button>
 
             {(markerInPoint !== null || markerOutPoint !== null) && (
-                <button onClick={clearMarkers} className="ml-1 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors border-l border-zinc-800 pointer-events-auto">
+                <button onClick={clearMarkers} className="ml-1 p-1.5 text-zinc-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg transition-colors border-l border-zinc-200 dark:border-zinc-800 pointer-events-auto">
                     <XIcon size={14} />
                 </button>
             )}

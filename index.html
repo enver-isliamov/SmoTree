@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
@@ -10,6 +10,35 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              zinc: {
+                950: '#09090b',
+              }
+            },
+            animation: {
+              'gradient-x': 'gradient-x 15s ease infinite',
+            },
+            keyframes: {
+              'gradient-x': {
+                '0%, 100%': {
+                  'background-size': '200% 200%',
+                  'background-position': 'left center'
+                },
+                '50%': {
+                  'background-size': '200% 200%',
+                  'background-position': 'right center'
+                },
+              },
+            }
+          }
+        }
+      }
+    </script>
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -18,16 +47,29 @@
         width: 8px;
         height: 8px;
       }
-      ::-webkit-scrollbar-track {
+      .dark ::-webkit-scrollbar-track {
         background: #18181b; 
       }
-      ::-webkit-scrollbar-thumb {
+      .dark ::-webkit-scrollbar-thumb {
         background: #3f3f46; 
         border-radius: 4px;
       }
-      ::-webkit-scrollbar-thumb:hover {
+      .dark ::-webkit-scrollbar-thumb:hover {
         background: #52525b; 
       }
+
+      /* Light mode scrollbar */
+      ::-webkit-scrollbar-track {
+        background: #f4f4f5;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #d4d4d8;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #a1a1aa;
+      }
+
       /* Prevent pull-to-refresh on mobile to feel native */
       body {
         overscroll-behavior-y: none;
@@ -50,7 +92,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-zinc-950 text-zinc-100 antialiased">
+  <body class="bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
