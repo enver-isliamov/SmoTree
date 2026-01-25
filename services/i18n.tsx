@@ -45,8 +45,8 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'nav.login': 'Log In',
     'hero.title.speed': 'Your Video. Perfectly Aligned.',
     'hero.desc_new': 'A centralized platform for professional review. Frame-accurate edits, version control, and intelligent assistance in one click.',
-    'hero.title.1': 'Join the', // Fallback
-    'hero.title.2': 'SmoTree',  // Fallback
+    'hero.title.1': 'Join the', 
+    'hero.title.2': 'SmoTree',
     'hero.quote': '"I develop SmoTree solo. You fund the development, and I gift you the tool forever."',
     'hero.cta': 'Become a Founder',
     'auth.card.join': 'Join Project',
@@ -61,6 +61,23 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'roadmap.title': 'Choose Your Future',
     'roadmap.subtitle': 'Transparent pricing model for early adopters.',
     'footer.rights': 'All rights reserved.',
+
+    // Landing New Blocks
+    'land.speed.title': 'Speed that changes the game',
+    'land.speed.sub': 'We measured the turnaround time for typical tasks in SmoTree compared to traditional file transfer methods.',
+    'land.stat.92': 'Faster Review',
+    'land.stat.92.desc': '"Reduced advertising spot approval time from 5 days to 4 hours."',
+    'land.stat.0': 'Missed Edits',
+    'land.stat.0.desc': 'Thanks to the checklist system, not a single client request gets lost in chat history.',
+    'land.try_now': 'Try SmoTree Now',
+    'land.flow.title': 'SmoTree turns chaotic edits into a structured workflow.',
+    'land.flow.sub': 'Frame accuracy, instant proxies, and AI assistant in one interface.',
+    'land.roi.title': 'Speed that pays off',
+    'land.roi.94': 'Reduction in "feedback call" time. All info is already in the frame.',
+    'land.roi.0ms': 'Latency when scrubbing timeline in browser. Comfort of a cloud editing station.',
+    'land.chart.wa': 'WhatsApp/Email',
+    'land.chart.cloud': 'Cloud Drives',
+    'land.chart.pro': 'SmoTree Pro',
 
     // Why Smotree Section
     'why.title': 'Why SmoTree?',
@@ -259,6 +276,23 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'auth.placeholder.admin': 'Имя Админа',
     'auth.btn.join': 'Присоединиться',
     'auth.btn.login': 'Войти',
+
+    // Landing New Blocks
+    'land.speed.title': 'Скорость, которая меняет игру',
+    'land.speed.sub': 'Мы измерили время выполнения типичных задач в SmoTree по сравнению с традиционными способами передачи файлов.',
+    'land.stat.92': 'Ускорение ревью',
+    'land.stat.92.desc': '"Сократили время утверждения рекламного ролика с 5 дней до 4 часов."',
+    'land.stat.0': 'Пропущенных правок',
+    'land.stat.0.desc': 'Благодаря системе чек-листов ни одна просьба клиента не теряется в переписке.',
+    'land.try_now': 'Попробовать SmoTree сейчас',
+    'land.flow.title': 'SmoTree превращает хаотичные правки в структурированный рабочий процесс.',
+    'land.flow.sub': 'Точность до кадра, мгновенные прокси и ИИ-ассистент в одном интерфейсе.',
+    'land.roi.title': 'Скорость, которая окупается',
+    'land.roi.94': 'Снижение времени на «созвоны по правкам». Вся информация уже в кадре.',
+    'land.roi.0ms': 'Задержка при прокрутке таймлайна в браузере. Комфорт монтажной станции в облаке.',
+    'land.chart.wa': 'WhatsApp/Email',
+    'land.chart.cloud': 'Облачные диски',
+    'land.chart.pro': 'SmoTree Pro',
 
     // Why Smotree Section
     'why.title': 'Почему Smotree?',

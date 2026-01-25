@@ -89,29 +89,32 @@ export const AboutPage: React.FC = () => {
         <div className="flex flex-col gap-12 max-w-5xl mx-auto py-8">
             
             {/* 1. Hero / Mission */}
-            <div className="bg-gradient-to-b from-indigo-950/40 to-transparent border border-indigo-900/30 rounded-3xl p-8 md:p-12 text-center">
-                <div className="inline-flex items-center justify-center p-3 bg-indigo-500/10 rounded-full mb-6 text-indigo-400">
-                    <Rocket size={32} />
-                </div>
+            <div className="bg-gradient-to-b from-zinc-900/50 to-transparent border border-zinc-800 rounded-3xl p-8 md:p-16 text-center shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
+                
                 <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
                     {t('hero.title.speed')}
                 </h2>
+                <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold mb-8">
+                    <span className="text-indigo-400">SmoTree</span> Mission
+                </div>
                 <p className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
                     {t('hero.desc_new')}
                 </p>
             </div>
 
             {/* 2. 10x Faster Feature Banner (Redesigned) */}
-            <div className="bg-zinc-900/80 border border-zinc-800 p-8 rounded-3xl flex flex-col justify-center items-center text-center relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/20 to-purple-900/20 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+            <div className="bg-zinc-950 border border-zinc-800/80 p-10 md:p-16 rounded-3xl flex flex-col justify-center items-center text-center relative overflow-hidden group">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-zinc-950 to-zinc-950 pointer-events-none"></div>
+                
                 <div className="relative z-10">
-                    <div className="inline-flex p-3 bg-indigo-500/10 rounded-2xl text-indigo-400 mb-6">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-500/10 rounded-2xl text-indigo-400 mb-8 shadow-lg shadow-indigo-900/20 ring-1 ring-indigo-500/20">
                         <Rocket size={32} />
                     </div>
-                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                        {t('page.about.feat.fast.title')}
+                    <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">
+                        {t('page.about.feat.fast.title').replace('SmoTree', '')} <span className="text-indigo-400">SmoTree</span>
                     </h2>
-                    <p className="text-zinc-400 max-w-2xl mx-auto text-lg leading-relaxed">
+                    <p className="text-zinc-400 max-w-2xl mx-auto text-lg leading-relaxed font-light">
                         {t('page.about.feat.fast.desc')}
                     </p>
                 </div>

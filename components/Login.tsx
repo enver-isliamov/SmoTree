@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Timer, History, Lock, Menu, X } from 'lucide-react';
+import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Timer, History, Lock, Menu, X, Sparkles, Play } from 'lucide-react';
 import { generateId } from '../services/utils';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage } from '../services/i18n';
@@ -178,7 +178,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   };
 
   return (
-    <div className="h-screen w-full overflow-y-auto bg-black text-white selection:bg-green-500/30">
+    <div className="min-h-screen w-full bg-black text-white selection:bg-indigo-500/30">
       
       {/* Navbar */}
       <nav className={`h-16 border-b border-zinc-900 px-4 flex justify-between items-center z-50 transition-all ${inviteProjectId ? 'bg-transparent border-transparent absolute w-full top-0' : 'bg-black/50 backdrop-blur-md sticky top-0'}`}>
@@ -193,7 +193,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                        <button 
                          key={page}
                          onClick={() => onNavigate(page.toUpperCase())}
-                         className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                         className="px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
                        >
                            {t(`nav.${page}`)}
                        </button>
@@ -219,7 +219,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
             {!inviteProjectId && (
                 <button 
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="md:hidden text-zinc-400 hover:text-white p-1"
+                    className="md:hidden text-zinc-400 hover:text-white p-2 rounded-lg hover:bg-zinc-800 transition-colors"
                 >
                     {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                 </button>
@@ -229,7 +229,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
 
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && !inviteProjectId && (
-          <div className="md:hidden fixed top-16 left-0 right-0 bg-zinc-900 border-b border-zinc-800 z-40 p-4 flex flex-col gap-2 shadow-2xl animate-in slide-in-from-top-2">
+          <div className="md:hidden fixed top-16 left-0 right-0 bg-zinc-950 border-b border-zinc-800 z-50 p-4 flex flex-col gap-2 shadow-2xl animate-in slide-in-from-top-2">
                 {['workflow', 'pricing', 'about'].map(page => (
                     <button 
                         key={page}
@@ -279,39 +279,51 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
       ) : (
           // --- STANDARD LANDING LAYOUT ---
           <>
-            <div className="relative py-20 px-4 md:py-32">
+            <div className="relative py-20 px-4 md:py-32 overflow-hidden">
                 {/* Background Gradients */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none"></div>
-                <div className="absolute top-20 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-[128px] pointer-events-none"></div>
+                <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-                <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
                     
-                    {/* Text Content */}
-                    <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
-                        <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tighter">
-                            {t('hero.title.speed')}
-                        </h1>
-                        
-                        <div className="space-y-6 text-lg text-zinc-400 max-w-xl leading-relaxed">
-                            <p>{t('hero.desc_new')}</p>
-                            <p className="text-sm border-l-2 border-green-500 pl-4 italic">
-                                {t('hero.quote')}
-                            </p>
+                    {/* Text Content (Wider) */}
+                    <div className="lg:col-span-7 space-y-8 animate-in slide-in-from-bottom-8 duration-700">
+                        {/* Badge */}
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] uppercase font-bold tracking-widest text-zinc-400">
+                            <Sparkles size={12} className="text-indigo-400" />
+                            <span>SmoTree v1.0</span>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                            <button 
+                        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+                            <span className="block text-white mb-2">
+                                {t('hero.title.speed').split('.')[0]}.
+                            </span>
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 animate-gradient-x">
+                                {t('hero.title.speed').split('.')[1]}
+                            </span>
+                        </h1>
+                        
+                        <div className="space-y-6 text-xl md:text-2xl text-zinc-400 max-w-2xl leading-relaxed font-light">
+                            <p>{t('hero.desc_new')}</p>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row gap-4 pt-4 items-start">
+                             <button 
                                 onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
-                                className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-full font-bold text-lg transition-colors flex items-center justify-center gap-2"
+                                className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-xl font-bold text-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                             >
                                 {t('hero.cta')} <ArrowRight size={20} />
                             </button>
+                            <div className="text-sm text-zinc-500 max-w-xs mt-2 italic border-l-2 border-zinc-800 pl-4">
+                                {t('hero.quote')}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Login Card (Floating) */}
-                    <div id="auth-section" className="relative z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-30"></div>
+                    {/* Login Card (Narrower, Floating) */}
+                    <div id="auth-section" className="lg:col-span-5 relative z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200 flex justify-center lg:justify-end">
+                         {/* Card Glow */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 blur-2xl rounded-full transform scale-90"></div>
                         <LoginCard 
                             inviteProjectId={inviteProjectId}
                             isGoogleConfigured={isGoogleConfigured}
@@ -325,31 +337,195 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                 </div>
             </div>
 
-            {/* WHY SMOTREE SECTION */}
-            <div className="py-20 bg-zinc-900/30 border-y border-zinc-900">
-                <div className="max-w-5xl mx-auto px-4">
-                    <h2 className="text-3xl font-bold text-white text-center mb-12">{t('why.title')}</h2>
+            {/* BLOCK 1: SPEED GRAPH & STATS */}
+            <div className="py-24 bg-black border-y border-zinc-900">
+                <div className="max-w-6xl mx-auto px-4">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('land.speed.title')}</h2>
+                        <p className="text-zinc-400 max-w-2xl mx-auto">{t('land.speed.sub')}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                        {/* Graph Card */}
+                        <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 md:p-10 relative overflow-hidden h-[300px] md:h-[400px]">
+                            {/* Simple CSS Line Chart Visual */}
+                            <div className="absolute bottom-10 left-10 right-10 top-20">
+                                {/* Grid Lines */}
+                                <div className="border-b border-zinc-800/50 h-1/4 w-full absolute top-0"></div>
+                                <div className="border-b border-zinc-800/50 h-1/4 w-full absolute top-1/4"></div>
+                                <div className="border-b border-zinc-800/50 h-1/4 w-full absolute top-2/4"></div>
+                                <div className="border-b border-zinc-800/50 h-1/4 w-full absolute top-3/4"></div>
+                                
+                                {/* Curve line SVG */}
+                                <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                                    <path d="M0,0 Q150,250 500,280" stroke="#6366f1" strokeWidth="4" fill="none" className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                                    {/* Points */}
+                                    <circle cx="0" cy="0" r="4" fill="#818cf8" />
+                                    <circle cx="120" cy="140" r="4" fill="#818cf8" />
+                                    <circle cx="250" cy="220" r="4" fill="#818cf8" />
+                                    <circle cx="380" cy="260" r="4" fill="#818cf8" />
+                                    <circle cx="500" cy="280" r="4" fill="#818cf8" />
+                                </svg>
+
+                                {/* Labels X */}
+                                <div className="absolute -bottom-6 flex justify-between w-full text-xs text-zinc-600 font-mono">
+                                    <span>v1</span>
+                                    <span>v2</span>
+                                    <span>v3</span>
+                                    <span>v4</span>
+                                    <span>v5</span>
+                                    <span>v6</span>
+                                </div>
+                                {/* Label Y */}
+                                <div className="absolute -left-6 top-0 bottom-0 flex flex-col justify-between text-xs text-zinc-600 font-mono h-full">
+                                    <span>50</span>
+                                    <span>40</span>
+                                    <span>30</span>
+                                    <span>20</span>
+                                    <span>10</span>
+                                    <span>0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Stats Card */}
+                        <div className="space-y-12">
+                            <div>
+                                <div className="flex items-center gap-4 mb-2">
+                                    <span className="text-6xl font-bold text-indigo-500">92%</span>
+                                    <span className="text-xl font-bold text-white">{t('land.stat.92')}</span>
+                                </div>
+                                <p className="text-zinc-500 italic max-w-sm pl-2 border-l-2 border-zinc-800">
+                                    {t('land.stat.92.desc')}
+                                </p>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-4 mb-2">
+                                    <span className="text-6xl font-bold text-orange-500">0</span>
+                                    <span className="text-xl font-bold text-white">{t('land.stat.0')}</span>
+                                </div>
+                                <p className="text-zinc-500 text-sm max-w-sm">
+                                    {t('land.stat.0.desc')}
+                                </p>
+                            </div>
+
+                            <button 
+                                onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
+                                className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-full font-bold text-lg transition-colors shadow-lg shadow-indigo-500/10"
+                            >
+                                {t('land.try_now')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* BLOCK 2: WORKFLOW PLAYER MOCKUP */}
+            <div className="py-24 bg-zinc-950">
+                 <div className="max-w-4xl mx-auto px-4 text-center">
+                    <h2 className="text-2xl md:text-3xl text-zinc-300 font-medium mb-12 max-w-2xl mx-auto leading-relaxed">
+                        {t('land.flow.title')}
+                        <span className="block text-zinc-500 text-lg mt-2">{t('land.flow.sub')}</span>
+                    </h2>
+
+                    {/* Mockup Container */}
+                    <div className="relative bg-zinc-900 border border-zinc-800 rounded-2xl p-2 shadow-2xl overflow-hidden aspect-video group">
+                        {/* Fake Header */}
+                        <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-[10px] font-mono text-zinc-500 z-10">
+                            <div>PROJECT: BRAND_STORY_V4.MP4 <span className="bg-zinc-800 text-indigo-400 px-1 rounded ml-2">4K PROXY</span></div>
+                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                        </div>
+
+                        {/* Play Button */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/10 group-hover:scale-110 transition-transform">
+                                <Play size={24} fill="currentColor" className="text-white ml-1" />
+                            </div>
+                        </div>
+
+                        {/* Fake Timeline */}
+                        <div className="absolute bottom-10 left-10 right-10">
+                            <div className="w-full h-1 bg-zinc-800 rounded-full relative overflow-hidden">
+                                <div className="absolute left-0 top-0 bottom-0 bg-indigo-500 w-[30%] shadow-[0_0_10px_#6366f1]"></div>
+                            </div>
+                            {/* Markers */}
+                            <div className="absolute -top-1 left-[15%] w-0.5 h-3 bg-indigo-400 shadow-[0_0_5px_#6366f1]"></div>
+                            <div className="absolute -top-1 left-[45%] w-0.5 h-3 bg-zinc-600"></div>
+                            <div className="absolute -top-1 left-[70%] w-0.5 h-3 bg-zinc-600"></div>
+                        </div>
+
+                        {/* Background Gradient simulating video */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 to-purple-900/10 opacity-50"></div>
+                    </div>
+                 </div>
+            </div>
+
+            {/* BLOCK 3: ROI BAR CHART */}
+            <div className="py-24 bg-black border-y border-zinc-900">
+                <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                     <div>
+                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-12 leading-tight">
+                            {t('land.roi.title')}
+                         </h2>
+                         
+                         <div className="space-y-6">
+                            <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
+                                <div className="text-3xl font-bold text-indigo-400 mb-2">94%</div>
+                                <p className="text-sm text-zinc-400">{t('land.roi.94')}</p>
+                            </div>
+                            <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
+                                <div className="text-3xl font-bold text-indigo-400 mb-2">0ms</div>
+                                <p className="text-sm text-zinc-400">{t('land.roi.0ms')}</p>
+                            </div>
+                         </div>
+                     </div>
+
+                     {/* Bar Chart Visual */}
+                     <div className="h-[400px] flex items-end justify-center gap-4 md:gap-12 px-4 md:px-0">
+                         {/* Bar 1 */}
+                         <div className="flex flex-col items-center gap-3 w-20 md:w-24 group">
+                             <div className="w-full bg-zinc-800 rounded-t-lg h-[280px] relative group-hover:bg-zinc-700 transition-colors"></div>
+                             <span className="text-[10px] md:text-xs font-bold text-zinc-500 text-center">{t('land.chart.wa')}</span>
+                         </div>
+                         {/* Bar 2 */}
+                         <div className="flex flex-col items-center gap-3 w-20 md:w-24 group">
+                             <div className="w-full bg-zinc-700 rounded-t-lg h-[120px] relative group-hover:bg-zinc-600 transition-colors"></div>
+                             <span className="text-[10px] md:text-xs font-bold text-zinc-500 text-center">{t('land.chart.cloud')}</span>
+                         </div>
+                         {/* Bar 3 (SmoTree) */}
+                         <div className="flex flex-col items-center gap-3 w-20 md:w-24">
+                             <div className="w-full bg-indigo-500 rounded-t-lg h-[20px] relative shadow-[0_0_20px_rgba(99,102,241,0.4)] animate-pulse"></div>
+                             <span className="text-[10px] md:text-xs font-bold text-white text-center">{t('land.chart.pro')}</span>
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+            {/* WHY SMOTREE SECTION (Existing) */}
+            <div className="py-24 bg-zinc-900/30 border-y border-zinc-900 relative">
+                <div className="max-w-5xl mx-auto px-4 relative z-10">
+                    <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-16">{t('why.title')}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
-                            <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-yellow-500 group-hover:scale-110 transition-transform shadow-lg shadow-yellow-500/10">
-                                <Timer size={24} />
+                        <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-3xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-all hover:-translate-y-1 duration-300 group shadow-lg">
+                            <div className="p-4 bg-zinc-900 rounded-2xl mb-6 text-yellow-500 group-hover:scale-110 transition-transform shadow-lg shadow-yellow-500/10">
+                                <Timer size={32} strokeWidth={1.5} />
                             </div>
-                            <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat1.title')}</h3>
-                            <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat1.desc')}</p>
+                            <h3 className="font-bold text-white mb-4 text-xl">{t('why.feat1.title')}</h3>
+                            <p className="text-base text-zinc-400 leading-relaxed">{t('why.feat1.desc')}</p>
                         </div>
-                        <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
-                            <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
-                                <History size={24} />
+                        <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-3xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-all hover:-translate-y-1 duration-300 group shadow-lg">
+                            <div className="p-4 bg-zinc-900 rounded-2xl mb-6 text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
+                                <History size={32} strokeWidth={1.5} />
                             </div>
-                            <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat2.title')}</h3>
-                            <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat2.desc')}</p>
+                            <h3 className="font-bold text-white mb-4 text-xl">{t('why.feat2.title')}</h3>
+                            <p className="text-base text-zinc-400 leading-relaxed">{t('why.feat2.desc')}</p>
                         </div>
-                        <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-colors group">
-                            <div className="p-3 bg-zinc-900 rounded-xl mb-4 text-green-500 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/10">
-                                <Lock size={24} />
+                        <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-3xl flex flex-col items-center text-center hover:border-indigo-500/30 transition-all hover:-translate-y-1 duration-300 group shadow-lg">
+                            <div className="p-4 bg-zinc-900 rounded-2xl mb-6 text-green-500 group-hover:scale-110 transition-transform shadow-lg shadow-green-500/10">
+                                <Lock size={32} strokeWidth={1.5} />
                             </div>
-                            <h3 className="font-bold text-white mb-3 text-lg">{t('why.feat3.title')}</h3>
-                            <p className="text-sm text-zinc-400 leading-relaxed">{t('why.feat3.desc')}</p>
+                            <h3 className="font-bold text-white mb-4 text-xl">{t('why.feat3.title')}</h3>
+                            <p className="text-base text-zinc-400 leading-relaxed">{t('why.feat3.desc')}</p>
                         </div>
                     </div>
                 </div>
