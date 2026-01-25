@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { ChevronLeft, LogOut, ShieldCheck, Mail, Crown, Globe } from 'lucide-react';
+import { ChevronLeft, LogOut, ShieldCheck, Mail, Crown, Globe, AlertCircle } from 'lucide-react';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage, LANGUAGES } from '../services/i18n';
 
@@ -9,11 +9,47 @@ interface ProfileProps {
   currentUser: User;
   onBack: () => void;
   onLogout: () => void;
+  onMigrate?: (googleCredential: string) => void;
 }
 
-export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout }) => {
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
+export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout, onMigrate }) => {
   const isFounder = currentUser.role === UserRole.ADMIN;
+  const isGuest = currentUser.role === UserRole.GUEST;
   const { t } = useLanguage();
+
+  // Get Client ID from Environment Variables (Vite)
+  const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
+
+  useEffect(() => {
+    if (isGuest && GOOGLE_CLIENT_ID && window.google && onMigrate) {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (response: any) => {
+              onMigrate(response.credential);
+          },
+          auto_select: false,
+          theme: "filled_black"
+        });
+        
+        const btnContainer = document.getElementById("googleMigrationDiv");
+        if (btnContainer) {
+            window.google.accounts.id.renderButton(
+              btnContainer,
+              { theme: "outline", size: "large", width: "100%", text: "continue_with" } // 'continue_with' implies merging/proceeding
+            );
+        }
+      } catch (e) {
+        console.error("Google Auth Init Error in Profile", e);
+      }
+    }
+  }, [isGuest, GOOGLE_CLIENT_ID, onMigrate]);
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col">
@@ -34,7 +70,7 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
             <div className="max-w-4xl mx-auto space-y-8">
                 
                 {/* Profile Card */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-6 shadow-xl">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-6 shadow-xl relative overflow-hidden">
                     <img 
                         src={currentUser.avatar} 
                         alt={currentUser.name} 
@@ -61,6 +97,30 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
                         )}
                     </div>
                 </div>
+
+                {/* MIGRATION BLOCK FOR GUESTS */}
+                {isGuest && (
+                    <div className="bg-gradient-to-r from-orange-900/20 to-red-900/20 border border-orange-500/30 rounded-2xl p-6 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-50">
+                            <AlertCircle size={64} className="text-orange-500/20" />
+                        </div>
+                        
+                        <div className="relative z-10">
+                            <h3 className="text-xl font-bold text-white mb-2">{t('profile.migrate_title')}</h3>
+                            <p className="text-zinc-400 mb-6 max-w-xl text-sm leading-relaxed">
+                                {t('profile.migrate_desc')}
+                            </p>
+                            
+                            <div className="max-w-xs">
+                                {!GOOGLE_CLIENT_ID ? (
+                                    <div className="text-red-400 text-xs">Google Client ID missing in config.</div>
+                                ) : (
+                                    <div id="googleMigrationDiv" className="h-[44px] w-full min-h-[44px]"></div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Roadmap Info for User */}
                 <div>

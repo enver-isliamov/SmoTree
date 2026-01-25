@@ -127,6 +127,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'profile.founder_msg': "You are a Founder's Club member. Thank you for supporting SmoTree!",
     'profile.tiers': 'Membership Tiers',
     'profile.language': 'Interface Language',
+    'profile.migrate_title': 'Save Your Progress',
+    'profile.migrate_desc': 'Link your Google account to keep your comments, access rights, and history forever. Don\'t lose your work when you clear browser data.',
+    'profile.migrate_btn': 'Link Google Account',
   },
   ru: {
     'app.name': 'SmoTree',
@@ -233,6 +236,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'profile.founder_msg': "Вы участник Клуба Основателей. Спасибо за поддержку SmoTree!",
     'profile.tiers': 'Уровни Участия',
     'profile.language': 'Язык интерфейса',
+    'profile.migrate_title': 'Сохраните прогресс',
+    'profile.migrate_desc': 'Привяжите Google-аккаунт, чтобы навсегда сохранить свои комментарии, доступы и историю. Не потеряйте работу при очистке браузера.',
+    'profile.migrate_btn': 'Привязать Google',
   },
   es: {
     'app.name': 'SmoTree',
@@ -247,6 +253,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'upsell.free.title': 'Invitado / Gratis',
     'upsell.founder.title': 'Club de Fundadores',
     'upsell.cta': 'Obtener acceso de por vida',
+    'profile.migrate_title': 'Guarda tu progreso',
+    'profile.migrate_desc': 'Vincula tu cuenta de Google para conservar tus comentarios, derechos de acceso e historial para siempre.',
+    'profile.migrate_btn': 'Vincular Google',
     // ... basic translations fallback
     'hero.title.1': 'Únete al',
     'hero.title.2': 'SmoTree',
@@ -274,6 +283,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'auth.btn.login': '入る',
     'profile.language': 'インターフェース言語',
     'logout': 'ログアウト',
+    'profile.migrate_title': '進捗状況を保存',
+    'profile.migrate_desc': 'Googleアカウントをリンクして、コメント、アクセス権、履歴を永久に保存します。',
+    'profile.migrate_btn': 'Googleをリンク',
   },
   ko: {
     'app.name': 'SmoTree',
@@ -292,6 +304,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'auth.btn.login': '입장',
     'profile.language': '인터페이스 언어',
     'logout': '로그아웃',
+    'profile.migrate_title': '진행 상황 저장',
+    'profile.migrate_desc': 'Google 계정을 연결하여 댓글, 액세스 권한 및 기록을 영구적으로 보관하세요.',
+    'profile.migrate_btn': 'Google 연결',
   },
   pt: {
     'app.name': 'SmoTree',
@@ -310,6 +325,9 @@ const DICTIONARIES: Record<Language, Record<string, string>> = {
     'auth.btn.login': 'Entrar',
     'profile.language': 'Idioma da Interface',
     'logout': 'Sair',
+    'profile.migrate_title': 'Salvar progresso',
+    'profile.migrate_desc': 'Vincule sua conta do Google para manter seus comentários, direitos de acesso e histórico para sempre.',
+    'profile.migrate_btn': 'Vincular Google',
   }
 };
 

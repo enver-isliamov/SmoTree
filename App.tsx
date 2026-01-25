@@ -366,6 +366,42 @@ const AppContent: React.FC = () => {
       }
   };
 
+  const handleGuestMigration = async (googleCredential: string) => {
+      if (!currentUser || currentUser.role !== UserRole.GUEST) return;
+      
+      notify("Migrating account...", "info");
+      try {
+          const res = await fetch('/api/migrate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  guestId: currentUser.id,
+                  googleToken: googleCredential
+              })
+          });
+
+          if (res.ok) {
+              const data = await res.json();
+              if (data.user) {
+                  // 1. Update Auth Token
+                  localStorage.setItem('smotree_auth_token', googleCredential);
+                  // 2. Update Local User
+                  const newUser = { ...data.user, role: UserRole.ADMIN };
+                  setCurrentUser(newUser);
+                  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
+                  // 3. Refresh Data
+                  notify("Account migrated successfully!", "success");
+                  await fetchCloudData(newUser);
+              }
+          } else {
+              notify("Migration failed. Please try again.", "error");
+          }
+      } catch (e) {
+          console.error("Migration Error", e);
+          notify("Network error during migration.", "error");
+      }
+  };
+
   const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
@@ -398,6 +434,7 @@ const AppContent: React.FC = () => {
                 currentUser={currentUser}
                 onBack={handleBackToDashboard}
                 onLogout={handleLogout}
+                onMigrate={handleGuestMigration}
             />
         )}
         {view.type === 'PROJECT_VIEW' && currentProject && (
