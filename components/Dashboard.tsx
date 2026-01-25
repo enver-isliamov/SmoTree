@@ -4,6 +4,7 @@ import { Project, User, UserRole } from '../types';
 import { Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 import { ToastType } from './Toast';
+import { useLanguage } from '../services/i18n';
 
 interface DashboardProps {
   projects: Project[];
@@ -19,6 +20,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onSelectProject, onAddProject, onDeleteProject, onEditProject, onLogout, notify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const { t } = useLanguage();
   
   // Edit State
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -172,7 +174,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
               {projectList.length === 0 && showEmptyMessage ? (
                   <div className="flex flex-col items-center justify-center h-[20vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
                         <Lock size={32} className="mb-2 opacity-50" />
-                        <h3 className="text-base font-medium text-zinc-400">No Projects</h3>
+                        <h3 className="text-base font-medium text-zinc-400">{t('dash.no_projects')}</h3>
                  </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -310,7 +312,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           </div>
           
           <div className="flex flex-col">
-             <h1 className="font-semibold text-sm md:text-base leading-tight text-zinc-100">SmoTree</h1>
+             <h1 className="font-semibold text-sm md:text-base leading-tight text-zinc-100">{t('app.name')}</h1>
              <div className="flex items-center gap-1 text-[10px] text-zinc-400 leading-none">
                 <span>Dashboard</span>
                 <ChevronRight size={10} />
@@ -334,7 +336,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
 
            <div className="h-6 w-px bg-zinc-800 hidden md:block"></div>
 
-           <button onClick={onLogout} className="text-zinc-500 hover:text-white p-1" title="Logout">
+           <button onClick={onLogout} className="text-zinc-500 hover:text-white p-1" title={t('logout')}>
               <LogOut size={18} />
            </button>
         </div>
@@ -349,7 +351,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-medium shadow-lg shadow-indigo-900/20"
               >
                 <Plus size={16} />
-                New Project
+                {t('dash.new_project')}
               </button>
             )}
           </div>
@@ -357,15 +359,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
           {myProjects.length === 0 && sharedProjects.length === 0 && isGuest && (
              <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
                 <Lock size={48} className="mb-4 opacity-50" />
-                <h3 className="text-lg font-bold text-zinc-300">No Projects Found</h3>
+                <h3 className="text-lg font-bold text-zinc-300">{t('dash.no_projects')}</h3>
                 <p className="max-w-xs text-center mt-2 text-sm text-zinc-500">
-                   You don't have access to any projects here. Please open the specific link provided to you by the editor.
+                   {t('dash.no_access')}
                 </p>
              </div>
           )}
 
-          {renderProjectGrid(myProjects, "My Projects")}
-          {renderProjectGrid(sharedProjects, "Shared with Me")}
+          {renderProjectGrid(myProjects, t('dash.my_projects'))}
+          {renderProjectGrid(sharedProjects, t('dash.shared_projects'))}
           
         </div>
       </div>
@@ -382,7 +384,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             </button>
             
             <form onSubmit={handleCreateProject} className="p-6">
-              <h2 className="text-xl font-bold text-white mb-6">New Project</h2>
+              <h2 className="text-xl font-bold text-white mb-6">{t('dash.new_project')}</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1.5">Project Name</label>
@@ -398,8 +400,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                 </div>
               </div>
               <div className="mt-8 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">Cancel</button>
-                <button type="submit" disabled={isCreating || !name || !client} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors">{isCreating && <Loader2 size={14} className="animate-spin" />}{isCreating ? 'Creating...' : 'Create Project'}</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">{t('cancel')}</button>
+                <button type="submit" disabled={isCreating || !name || !client} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors">{isCreating && <Loader2 size={14} className="animate-spin" />}{isCreating ? t('loading') : t('dash.new_project')}</button>
               </div>
             </form>
           </div>
@@ -412,7 +414,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200">
                 <button onClick={() => setEditingProject(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white"><X size={20} /></button>
                 <form onSubmit={handleSubmitEdit} className="p-6">
-                    <h2 className="text-xl font-bold text-white mb-6">Edit Project</h2>
+                    <h2 className="text-xl font-bold text-white mb-6">{t('edit')}</h2>
                     <div className="space-y-4">
                         <div>
                             <label className="block text-xs font-medium text-zinc-400 mb-1.5">Project Name</label>
@@ -428,8 +430,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                         </div>
                     </div>
                     <div className="mt-8 flex justify-end gap-3">
-                        <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800">Cancel</button>
-                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2"><Save size={14} /> Save Changes</button>
+                        <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800">{t('cancel')}</button>
+                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2"><Save size={14} /> {t('save')}</button>
                     </div>
                 </form>
             </div>

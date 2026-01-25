@@ -1,8 +1,9 @@
 
 import React from 'react';
 import { User, UserRole } from '../types';
-import { ChevronLeft, LogOut, ShieldCheck, Mail, Crown } from 'lucide-react';
+import { ChevronLeft, LogOut, ShieldCheck, Mail, Crown, Globe } from 'lucide-react';
 import { RoadmapBlock } from './RoadmapBlock';
+import { useLanguage, LANGUAGES } from '../services/i18n';
 
 interface ProfileProps {
   currentUser: User;
@@ -11,7 +12,8 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout }) => {
-  const isFounder = currentUser.role === UserRole.ADMIN; // Assuming Admins are Founders for this demo
+  const isFounder = currentUser.role === UserRole.ADMIN;
+  const { language, setLanguage, t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col">
@@ -20,11 +22,11 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
                 <button onClick={onBack} className="text-zinc-400 hover:text-white p-1">
                     <ChevronLeft size={24} />
                 </button>
-                <h1 className="font-semibold text-zinc-100">User Profile</h1>
+                <h1 className="font-semibold text-zinc-100">{t('profile.title')}</h1>
             </div>
             <button onClick={onLogout} className="text-zinc-500 hover:text-red-400 flex items-center gap-2 text-sm px-3 py-1.5 rounded hover:bg-zinc-800 transition-colors">
                 <LogOut size={16} />
-                <span>Sign Out</span>
+                <span>{t('logout')}</span>
             </button>
         </header>
 
@@ -38,12 +40,12 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
                         alt={currentUser.name} 
                         className="w-24 h-24 rounded-full border-4 border-zinc-800 shadow-lg"
                     />
-                    <div className="flex-1 text-center md:text-left">
+                    <div className="flex-1 text-center md:text-left w-full">
                         <h2 className="text-2xl font-bold text-white mb-1 flex items-center justify-center md:justify-start gap-2">
                             {currentUser.name}
                             {isFounder && <Crown size={20} className="text-yellow-500" fill="currentColor" />}
                         </h2>
-                        <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-zinc-400 mb-4">
+                        <div className="flex flex-col md:flex-row items-center md:justify-start gap-4 text-sm text-zinc-400 mb-4">
                             <span className="flex items-center gap-1.5 bg-zinc-950 px-3 py-1 rounded-full border border-zinc-800">
                                 <Mail size={14} /> {currentUser.id.includes('@') ? currentUser.id : 'No email'}
                             </span>
@@ -51,9 +53,29 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
                                 <ShieldCheck size={14} /> {currentUser.role}
                             </span>
                         </div>
+                        
+                        {/* Language Selector */}
+                        <div className="mb-4 flex flex-col items-center md:items-start">
+                             <label className="text-xs text-zinc-500 mb-1.5 flex items-center gap-1">
+                                <Globe size={12} /> {t('profile.language')}
+                             </label>
+                             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                                {LANGUAGES.map(lang => (
+                                    <button
+                                        key={lang.code}
+                                        onClick={() => setLanguage(lang.code)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 border transition-all ${language === lang.code ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'}`}
+                                    >
+                                        <span>{lang.flag}</span>
+                                        <span>{lang.label}</span>
+                                    </button>
+                                ))}
+                             </div>
+                        </div>
+
                         {isFounder && (
                             <p className="text-sm text-green-400">
-                                You are a <strong>Founder's Club</strong> member. Thank you for supporting SmoTree!
+                                {t('profile.founder_msg')}
                             </p>
                         )}
                     </div>
@@ -61,7 +83,7 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onBack, onLogout 
 
                 {/* Roadmap Info for User */}
                 <div>
-                    <h3 className="text-lg font-bold text-white mb-4 px-2">Membership Tiers</h3>
+                    <h3 className="text-lg font-bold text-white mb-4 px-2">{t('profile.tiers')}</h3>
                     <RoadmapBlock />
                 </div>
 

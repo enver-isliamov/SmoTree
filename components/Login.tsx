@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle } from 'lucide-react';
+import { Clapperboard, ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Globe } from 'lucide-react';
 import { generateId } from '../services/utils';
 import { RoadmapBlock } from './RoadmapBlock';
+import { useLanguage, LANGUAGES } from '../services/i18n';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -19,6 +20,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [name, setName] = useState('');
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const { t, language, setLanguage } = useLanguage();
 
   // Get Client ID from Environment Variables (Vite)
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
@@ -58,7 +60,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         console.error("Google Auth Init Error", e);
       }
     }
-  }, [inviteProjectId, GOOGLE_CLIENT_ID]);
+  }, [inviteProjectId, GOOGLE_CLIENT_ID, language]); // Re-render Google button on lang change if needed
 
   const handleGoogleCallback = (response: any) => {
     try {
@@ -101,16 +103,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="flex items-start gap-3">
                     <div className="bg-orange-500/10 p-2 rounded-lg text-orange-400 shrink-0"><UserPlus size={20} /></div>
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Join Project</h2>
-                        <p className="text-xs text-zinc-400 mt-1">You've been invited to collaborate.</p>
+                        <h2 className="text-lg font-semibold text-white">{t('auth.card.join')}</h2>
+                        <p className="text-xs text-zinc-400 mt-1">{t('auth.card.desc_join')}</p>
                     </div>
                 </div>
             ) : (
                 <div className="flex items-start gap-3">
                     <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 shrink-0"><ShieldCheck size={20} /></div>
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Вход в аккаунт</h2>
-                        <p className="text-xs text-zinc-400 mt-1">Управляйте своими видео проектами.</p>
+                        <h2 className="text-lg font-semibold text-white">{t('auth.card.login')}</h2>
+                        <p className="text-xs text-zinc-400 mt-1">{t('auth.card.desc_login')}</p>
                     </div>
                 </div>
             )}
@@ -129,15 +131,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <>
                     <div className="relative py-2">
                         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-800"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-zinc-900 px-2 text-zinc-500">{isGoogleConfigured ? 'Или как гость' : 'Dev Mode'}</span></div>
+                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-zinc-900 px-2 text-zinc-500">{t('auth.manual')}</span></div>
                     </div>
                     <form onSubmit={handleManualSubmit} className="space-y-3">
                         <div className="relative">
                             <Mail size={16} className="absolute top-3.5 left-3 text-zinc-600" />
-                            <input type="text" placeholder={isInvite ? "Ваше Имя (Гость)" : "Имя Админа"} value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-all placeholder:text-zinc-600" />
+                            <input type="text" placeholder={isInvite ? t('auth.placeholder.guest') : t('auth.placeholder.admin')} value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-all placeholder:text-zinc-600" />
                         </div>
                         <button type="submit" disabled={!name.trim()} className={`w-full p-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-zinc-700 hover:bg-zinc-800 text-zinc-300`}>
-                            {isInvite ? 'Присоединиться' : 'Войти'} <ArrowRight size={14} />
+                            {isInvite ? t('auth.btn.join') : t('auth.btn.login')} <ArrowRight size={14} />
                         </button>
                     </form>
                 </>
@@ -148,22 +150,39 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden selection:bg-green-500/30">
+    // FIX SCROLL: Using h-screen overflow-y-auto enables internal scrolling even if body is hidden
+    <div className="h-screen w-full overflow-y-auto bg-black text-white selection:bg-green-500/30">
       
       {/* Navbar Placeholder */}
       <nav className="border-b border-zinc-900 p-4 flex justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-50">
           <div className="flex items-center gap-2">
              <div className="bg-indigo-600 p-1.5 rounded-lg"><Clapperboard size={20} /></div>
-             <span className="font-bold text-lg tracking-tight">SmoTree</span>
+             <span className="font-bold text-lg tracking-tight">{t('app.name')}</span>
           </div>
-          {!inviteProjectId && (
-              <button 
-                onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
-                className="text-sm text-zinc-400 hover:text-white transition-colors"
-              >
-                  Войти
-              </button>
-          )}
+          <div className="flex items-center gap-4">
+             {/* Language Dropdown (Desktop) */}
+            <div className="hidden md:flex items-center gap-2">
+                {LANGUAGES.map(lang => (
+                    <button 
+                        key={lang.code}
+                        onClick={() => setLanguage(lang.code)}
+                        className={`text-xs p-1.5 rounded ${language === lang.code ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`}
+                        title={lang.label}
+                    >
+                        {lang.flag}
+                    </button>
+                ))}
+            </div>
+
+            {!inviteProjectId && (
+                <button 
+                    onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                    {t('nav.login')}
+                </button>
+            )}
+          </div>
       </nav>
 
       {/* HERO SECTION */}
@@ -177,18 +196,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               {/* Text Content */}
               <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-700">
                   <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tighter">
-                      Присоединяйтесь <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">к мозговому</span> <br />
-                      ткацкому станку.
+                      {t('hero.title.1')} <br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">{t('hero.title.2')}</span>
                   </h1>
                   
                   <div className="space-y-6 text-lg text-zinc-400 max-w-xl leading-relaxed">
-                      <p>
-                          Получите пожизненный доступ к самой продвинутой платформе для ревью видео. 
-                          Ваши инструменты будут с вами всегда, без необходимости оформлять подписку.
-                      </p>
+                      <p>{t('hero.desc')}</p>
                       <p className="text-sm border-l-2 border-green-500 pl-4 italic">
-                          "Я разрабатываю SmoTree в одиночку. Вы финансируете разработку, а я дарю вам инструмент навсегда."
+                          {t('hero.quote')}
                       </p>
                   </div>
 
@@ -197,7 +212,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
                         className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-full font-bold text-lg transition-colors flex items-center justify-center gap-2"
                       >
-                          Стать Основателем <ArrowRight size={20} />
+                          {t('hero.cta')} <ArrowRight size={20} />
                       </button>
                   </div>
               </div>
@@ -206,9 +221,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div id="auth-section" className="relative z-10 animate-in fade-in zoom-in-95 duration-1000 delay-200">
                   <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-30"></div>
                   <LoginCard />
-                  <p className="text-center text-zinc-500 text-xs mt-4">
-                      Безопасная аутентификация через Google
-                  </p>
+                  <div className="text-center mt-4 md:hidden flex justify-center gap-2">
+                       {/* Mobile Lang Selector */}
+                       {LANGUAGES.map(lang => (
+                        <button 
+                            key={lang.code}
+                            onClick={() => setLanguage(lang.code)}
+                            className={`text-xl ${language === lang.code ? 'opacity-100 scale-110' : 'opacity-50 grayscale'}`}
+                        >
+                            {lang.flag}
+                        </button>
+                       ))}
+                  </div>
               </div>
           </div>
       </div>
@@ -216,14 +240,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {/* ROADMAP SECTION */}
       <div className="py-20 px-4 border-t border-zinc-900 bg-zinc-950/50">
           <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold mb-4">Выбирайте своё будущее</h2>
-              <p className="text-zinc-400">Прозрачная модель ценообразования для ранних пользователей.</p>
+              <h2 className="text-3xl font-bold mb-4">{t('roadmap.title')}</h2>
+              <p className="text-zinc-400">{t('roadmap.subtitle')}</p>
           </div>
           <RoadmapBlock />
       </div>
 
       <footer className="py-12 border-t border-zinc-900 text-center text-zinc-600 text-sm">
-          <p>© {new Date().getFullYear()} SmoTree Video Collaboration. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {t('app.name')} Video Collaboration. {t('footer.rights')}</p>
       </footer>
 
     </div>

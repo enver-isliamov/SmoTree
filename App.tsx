@@ -8,6 +8,7 @@ import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
 import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
 import { generateId } from './services/utils';
+import { LanguageProvider } from './services/i18n';
 
 type ViewState = 
   | { type: 'DASHBOARD' }
@@ -17,10 +18,9 @@ type ViewState =
 
 const STORAGE_KEY = 'smotree_projects_data';
 const USER_STORAGE_KEY = 'smotree_auth_user';
-const SYNC_DEBOUNCE_MS = 2000;
 const POLLING_INTERVAL_MS = 5000;
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem(USER_STORAGE_KEY);
     return savedUser ? JSON.parse(savedUser) : null;
@@ -35,7 +35,6 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteUpdate = useRef(false);
   const isJoiningFlow = useRef(false);
   const offlineModeNotified = useRef(false);
@@ -302,7 +301,10 @@ const App: React.FC = () => {
              console.error("Delete sync failed", e);
           }
       }
-      if (view.type !== 'DASHBOARD' && view.projectId === projectId) {
+      
+      // Fix: Ensure we are in a view mode that actually has a projectId before accessing it.
+      // Profile view does not have projectId.
+      if ((view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') && view.projectId === projectId) {
           handleBackToDashboard();
       }
   };
@@ -403,6 +405,14 @@ const App: React.FC = () => {
       </main>
     </div>
   );
+};
+
+const App: React.FC = () => {
+    return (
+        <LanguageProvider>
+            <AppContent />
+        </LanguageProvider>
+    );
 };
 
 export default App;

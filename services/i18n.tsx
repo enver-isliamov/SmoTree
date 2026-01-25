@@ -1,0 +1,298 @@
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+export type Language = 'en' | 'ru' | 'es' | 'ja' | 'ko' | 'pt';
+
+export const LANGUAGES: { code: Language; label: string; flag: string }[] = [
+  { code: 'en', label: 'English', flag: '🇺🇸' },
+  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+  { code: 'ko', label: '한국어', flag: '🇰🇷' },
+  { code: 'pt', label: 'Português', flag: '🇧🇷' },
+];
+
+const DICTIONARIES: Record<Language, Record<string, string>> = {
+  en: {
+    // General
+    'app.name': 'SmoTree',
+    'loading': 'Loading...',
+    'cancel': 'Cancel',
+    'save': 'Save',
+    'delete': 'Delete',
+    'edit': 'Edit',
+    'logout': 'Sign Out',
+    'back': 'Back',
+    
+    // Auth / Landing
+    'nav.login': 'Log In',
+    'hero.title.1': 'Join the',
+    'hero.title.2': 'Brain Loom',
+    'hero.desc': 'Get lifetime access to the most advanced video review platform. Your tools will always be with you, no subscription required.',
+    'hero.quote': '"I develop SmoTree solo. You fund the development, and I gift you the tool forever."',
+    'hero.cta': 'Become a Founder',
+    'auth.card.join': 'Join Project',
+    'auth.card.login': 'Account Login',
+    'auth.card.desc_join': 'You\'ve been invited to collaborate.',
+    'auth.card.desc_login': 'Manage your video projects.',
+    'auth.manual': 'Or as Guest',
+    'auth.placeholder.guest': 'Your Name (Guest)',
+    'auth.placeholder.admin': 'Admin Name',
+    'auth.btn.join': 'Join',
+    'auth.btn.login': 'Enter',
+    'roadmap.title': 'Choose Your Future',
+    'roadmap.subtitle': 'Transparent pricing model for early adopters.',
+    'footer.rights': 'All rights reserved.',
+    
+    // Dashboard
+    'dash.my_projects': 'My Projects',
+    'dash.shared_projects': 'Shared with Me',
+    'dash.new_project': 'New Project',
+    'dash.no_projects': 'No Projects Found',
+    'dash.no_access': 'You don\'t have access to any projects here. Please open the specific link provided to you by the editor.',
+    'dash.search': 'Search...',
+    
+    // Roadmap Cards
+    'rm.founders_club': "Founder's Club",
+    'rm.early_adopter': "Early Adopter",
+    'rm.saas_launch': "Public SaaS Launch",
+    'rm.phase_1': "Phase 1 (Now)",
+    'rm.phase_2': "Phase 2",
+    'rm.phase_3': "Phase 3",
+    'rm.one_time': "one-time",
+    'rm.per_year': "/year",
+    'rm.founder_sale': "Founder Sale",
+    'rm.lifetime_license': "Lifetime SmoTree V1.X License",
+    'rm.lifetime_desc': "Pay once. Use forever. No subscriptions.",
+    'rm.flash_loom': "Flash-Loom Protocol",
+    'rm.sync_desc': "Instant comment and video synchronization.",
+    'rm.unlimited': "Unlimited Access",
+    'rm.unlimited_desc': "No project limits for founders.",
+    'rm.access_v1': "Access to SmoTree V1.X",
+    'rm.std_support': "Standard Support",
+    'rm.monthly_pay': "Monthly Payment",
+    'rm.availability': "Availability:",
+    'rm.status': "Status:",
+    'rm.users_150': "First 150 users",
+    'rm.users_500': "Users 151–500",
+    'rm.users_all': "For everyone (501+)",
+    'rm.open': "Open",
+    'rm.locked': "Locked",
+    'rm.end_2026': "Late 2026",
+    'rm.last_chance': "Last chance to get software without subscription.",
+    'rm.saas_desc': "New users pay monthly. Founders pay nothing.",
+
+    // Profile
+    'profile.title': 'User Profile',
+    'profile.founder_msg': "You are a Founder's Club member. Thank you for supporting SmoTree!",
+    'profile.tiers': 'Membership Tiers',
+    'profile.language': 'Interface Language',
+  },
+  ru: {
+    'app.name': 'SmoTree',
+    'loading': 'Загрузка...',
+    'cancel': 'Отмена',
+    'save': 'Сохранить',
+    'delete': 'Удалить',
+    'edit': 'Редактировать',
+    'logout': 'Выйти',
+    'back': 'Назад',
+    'nav.login': 'Войти',
+    'hero.title.1': 'Присоединяйтесь к',
+    'hero.title.2': 'Мозговому Ткацкому Станку',
+    'hero.desc': 'Получите пожизненный доступ к самой продвинутой платформе для ревью видео. Ваши инструменты будут с вами всегда, без необходимости оформлять подписку.',
+    'hero.quote': '"Я разрабатываю SmoTree в одиночку. Вы финансируете разработку, а я дарю вам инструмент навсегда."',
+    'hero.cta': 'Стать Основателем',
+    'auth.card.join': 'Присоединиться',
+    'auth.card.login': 'Вход в аккаунт',
+    'auth.card.desc_join': 'Вас пригласили к сотрудничеству.',
+    'auth.card.desc_login': 'Управляйте своими видео проектами.',
+    'auth.manual': 'Или как гость',
+    'auth.placeholder.guest': 'Ваше Имя (Гость)',
+    'auth.placeholder.admin': 'Имя Админа',
+    'auth.btn.join': 'Присоединиться',
+    'auth.btn.login': 'Войти',
+    'roadmap.title': 'Выбирайте своё будущее',
+    'roadmap.subtitle': 'Прозрачная модель ценообразования для ранних пользователей.',
+    'footer.rights': 'Все права защищены.',
+    'dash.my_projects': 'Мои Проекты',
+    'dash.shared_projects': 'Доступные мне',
+    'dash.new_project': 'Новый Проект',
+    'dash.no_projects': 'Проекты не найдены',
+    'dash.no_access': 'У вас нет доступа к проектам. Пожалуйста, откройте ссылку-приглашение.',
+    'dash.search': 'Поиск...',
+    'rm.founders_club': "Клуб основателей",
+    'rm.early_adopter': "Ранний Последователь",
+    'rm.saas_launch': "Публичный Запуск SaaS",
+    'rm.phase_1': "Этап 1 (Сейчас)",
+    'rm.phase_2': "Фаза 2",
+    'rm.phase_3': "Фаза 3",
+    'rm.one_time': "разово",
+    'rm.per_year': "/год",
+    'rm.founder_sale': "Продажа основателя",
+    'rm.lifetime_license': "Пожизненная лицензия SmoTree V1.X",
+    'rm.lifetime_desc': "Платите один раз. Пользуйтесь вечно. Никаких подписок.",
+    'rm.flash_loom': "Протокол Flash-Loom",
+    'rm.sync_desc': "Мгновенная синхронизация комментариев и видео.",
+    'rm.unlimited': "Безлимитный доступ",
+    'rm.unlimited_desc': "Нет ограничений на количество проектов для основателей.",
+    'rm.access_v1': "Доступ к SmoTree V1.X",
+    'rm.std_support': "Стандартная поддержка",
+    'rm.monthly_pay': "Ежемесячная оплата",
+    'rm.availability': "Доступность:",
+    'rm.status': "Статус:",
+    'rm.users_150': "Первые 150 пользователей",
+    'rm.users_500': "Пользователи 151–500",
+    'rm.users_all': "Для всех (501+)",
+    'rm.open': "Открыто",
+    'rm.locked': "Заблокировано",
+    'rm.end_2026': "Конец 2026 года",
+    'rm.last_chance': "Последний шанс получить ПО без подписки.",
+    'rm.saas_desc': "Новые пользователи платят ежемесячно. Учредители не платят ничего.",
+    'profile.title': 'Профиль Пользователя',
+    'profile.founder_msg': "Вы участник Клуба Основателей. Спасибо за поддержку SmoTree!",
+    'profile.tiers': 'Уровни Участия',
+    'profile.language': 'Язык интерфейса',
+  },
+  es: {
+    'app.name': 'SmoTree',
+    'loading': 'Cargando...',
+    'nav.login': 'Iniciar Sesión',
+    'hero.title.1': 'Únete al',
+    'hero.title.2': 'Telar Cerebral',
+    'hero.desc': 'Obtén acceso de por vida a la plataforma de revisión de video más avanzada. Sin suscripciones.',
+    'hero.quote': '"Desarrollo SmoTree solo. Tú financias el desarrollo, yo te regalo la herramienta para siempre."',
+    'hero.cta': 'Conviértete en Fundador',
+    'auth.card.login': 'Iniciar Sesión',
+    'auth.btn.login': 'Entrar',
+    'roadmap.title': 'Elige tu Futuro',
+    'rm.founders_club': "Club de Fundadores",
+    'rm.phase_1': "Fase 1 (Ahora)",
+    'rm.one_time': "pago único",
+    'rm.lifetime_license': "Licencia de por vida SmoTree V1.X",
+    'rm.status': "Estado:",
+    'rm.open': "Abierto",
+    'profile.language': 'Idioma de la interfaz',
+    'dash.my_projects': 'Mis Proyectos',
+    'dash.new_project': 'Nuevo Proyecto',
+    'logout': 'Cerrar Sesión',
+    'back': 'Atrás',
+    // ... (Fill gaps with English defaults if strictly needed, but core added)
+  },
+  ja: {
+    'app.name': 'SmoTree',
+    'loading': '読み込み中...',
+    'nav.login': 'ログイン',
+    'hero.title.1': '参加する',
+    'hero.title.2': 'ブレインルーム',
+    'hero.desc': '最先端のビデオレビュープラットフォームへの生涯アクセスを取得します。サブスクリプションは不要です。',
+    'hero.cta': '創設者になる',
+    'auth.card.login': 'アカウントログイン',
+    'auth.btn.login': '入る',
+    'roadmap.title': '未来を選択',
+    'rm.founders_club': "ファウンダーズクラブ",
+    'rm.phase_1': "フェーズ 1 (現在)",
+    'rm.one_time': "一回払い",
+    'rm.lifetime_license': "SmoTree V1.X 生涯ライセンス",
+    'rm.status': "ステータス:",
+    'rm.open': "受付中",
+    'profile.language': 'インターフェース言語',
+    'dash.my_projects': 'マイプロジェクト',
+    'dash.new_project': '新規プロジェクト',
+    'logout': 'ログアウト',
+    'back': '戻る',
+  },
+  ko: {
+    'app.name': 'SmoTree',
+    'loading': '로딩 중...',
+    'nav.login': '로그인',
+    'hero.title.1': '참여하세요',
+    'hero.title.2': '브레인 룸',
+    'hero.desc': '가장 진보된 비디오 리뷰 플랫폼에 대한 평생 액세스 권한을 얻으세요. 구독이 필요 없습니다.',
+    'hero.cta': '창립자 되기',
+    'auth.card.login': '로그인',
+    'auth.btn.login': '입장',
+    'roadmap.title': '미래를 선택하세요',
+    'rm.founders_club': "파운더스 클럽",
+    'rm.phase_1': "1단계 (현재)",
+    'rm.one_time': "일회성",
+    'rm.lifetime_license': "SmoTree V1.X 평생 라이선스",
+    'rm.status': "상태:",
+    'rm.open': "오픈",
+    'profile.language': '인터페이스 언어',
+    'dash.my_projects': '내 프로젝트',
+    'dash.new_project': '새 프로젝트',
+    'logout': '로그아웃',
+    'back': '뒤로',
+  },
+  pt: {
+    'app.name': 'SmoTree',
+    'loading': 'Carregando...',
+    'nav.login': 'Entrar',
+    'hero.title.1': 'Junte-se ao',
+    'hero.title.2': 'Tear Cerebral',
+    'hero.desc': 'Tenha acesso vitalício à plataforma de revisão de vídeo mais avançada. Sem assinaturas.',
+    'hero.cta': 'Torne-se um Fundador',
+    'auth.card.login': 'Login da Conta',
+    'auth.btn.login': 'Entrar',
+    'roadmap.title': 'Escolha seu Futuro',
+    'rm.founders_club': "Clube dos Fundadores",
+    'rm.phase_1': "Fase 1 (Agora)",
+    'rm.one_time': "pagamento único",
+    'rm.lifetime_license': "Licença Vitalícia SmoTree V1.X",
+    'rm.status': "Status:",
+    'rm.open': "Aberto",
+    'profile.language': 'Idioma da Interface',
+    'dash.my_projects': 'Meus Projetos',
+    'dash.new_project': 'Novo Projeto',
+    'logout': 'Sair',
+    'back': 'Voltar',
+  }
+};
+
+// Fallback for missing keys in other languages
+const t_fallback = (lang: Language, key: string) => {
+    return DICTIONARIES[lang]?.[key] || DICTIONARIES['en'][key] || key;
+};
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [language, setLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem('smotree_lang');
+    if (saved && ['en', 'ru', 'es', 'ja', 'ko', 'pt'].includes(saved)) {
+        return saved as Language;
+    }
+    const browserLang = navigator.language.split('-')[0];
+    if (['ru', 'es', 'ja', 'ko', 'pt'].includes(browserLang)) {
+        return browserLang as Language;
+    }
+    return 'en';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('smotree_lang', language);
+  }, [language]);
+
+  const t = (key: string) => t_fallback(language, key);
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+};
+
+export const useLanguage = () => {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+};
