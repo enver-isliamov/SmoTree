@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Project, User, UserRole } from '../types';
-import { Clock, Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, MoreHorizontal, Edit2, Share2, Unlock, Copy, Check, Save, User as UserIcon } from 'lucide-react';
+import { Plus, X, Loader2, FileVideo, Clapperboard, LogOut, ChevronRight, Lock, Trash2, AlertTriangle, CalendarClock, Edit2, Share2, Unlock, Copy, Check, Save } from 'lucide-react';
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 import { ToastType } from './Toast';
 
@@ -320,12 +320,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
         </div>
 
         <div className="flex items-center gap-4">
-           <div className="hidden md:flex items-center gap-2 text-right">
+           {/* Clickable Profile Section */}
+           <div 
+             onClick={() => window.dispatchEvent(new CustomEvent('NAVIGATE_PROFILE'))}
+             className="hidden md:flex items-center gap-2 text-right cursor-pointer hover:bg-zinc-800 py-1 px-2 rounded-lg transition-colors group"
+           >
               <div>
-                 <div className="text-xs font-medium text-white">{currentUser.name}</div>
+                 <div className="text-xs font-medium text-white group-hover:text-indigo-400 transition-colors">{currentUser.name}</div>
                  <div className="text-[10px] text-zinc-500 uppercase">{currentUser.role}</div>
               </div>
-              <img src={currentUser.avatar} className="w-8 h-8 rounded-full border border-zinc-700" alt="User" />
+              <img src={currentUser.avatar} className="w-8 h-8 rounded-full border border-zinc-700 group-hover:border-indigo-500 transition-colors" alt="User" />
            </div>
 
            <div className="h-6 w-px bg-zinc-800 hidden md:block"></div>
@@ -349,108 +353,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
               </button>
             )}
           </div>
-
-          {/* ROADMAP / PRICING BLOCK */}
-          {isAccountHolder && (
-            <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="text-center mb-8 max-w-3xl mx-auto px-4">
-                    <h2 className="text-xl md:text-2xl font-bold text-white mb-3">
-                        Почему я скоро прекращаю предоставлять пожизненный доступ.
-                    </h2>
-                    <p className="text-sm text-zinc-400 leading-relaxed">
-                        Я разрабатываю SmoTree (облачную синхронизацию) в одиночку. Чтобы покрыть будущие расходы на серверы, мне придётся позже перейти на подписку. Но я хочу вознаградить тех, кто поддерживает меня сегодня, постоянным освобождением от платы. Вы финансируете разработку, а я дарю вам инструмент навсегда.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    
-                    {/* Active Card */}
-                    <div className="bg-zinc-900 border border-green-900/50 rounded-xl p-6 relative overflow-hidden group hover:border-green-500/30 transition-colors shadow-lg shadow-green-900/5">
-                        <div className="flex justify-between items-start mb-4">
-                            <span className="bg-green-900/20 text-green-400 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider border border-green-500/20">
-                                Этап 1 (Сейчас)
-                            </span>
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
-                        </div>
-                        <h3 className="text-lg font-bold text-white mb-1">Клуб основателей</h3>
-                        <div className="flex items-baseline gap-1 mb-4">
-                            <span className="text-3xl font-bold text-white">29 $</span>
-                            <span className="text-xs text-zinc-500">разово</span>
-                        </div>
-                        <div className="space-y-2 text-xs border-t border-zinc-800 pt-4">
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Доступность:</span>
-                                <span className="text-green-400 font-medium">Первые 150 пользователей</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Статус:</span>
-                                <span className="text-green-400 font-bold">Открыто</span>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-zinc-500 mt-4 leading-relaxed">
-                            Вы финансируете первоначальную сборку. Вы получаете её по самой низкой цене.
-                        </p>
-                    </div>
-
-                    {/* Locked Card 1 */}
-                    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 relative opacity-70 hover:opacity-100 transition-opacity">
-                        <div className="flex justify-between items-start mb-4">
-                            <span className="bg-orange-900/20 text-orange-400 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider border border-orange-500/20">
-                                Фаза 2
-                            </span>
-                            <Lock size={14} className="text-zinc-600" />
-                        </div>
-                        <h3 className="text-lg font-bold text-zinc-300 mb-1">Ранний Последователь</h3>
-                        <div className="flex items-baseline gap-1 mb-4">
-                            <span className="text-3xl font-bold text-zinc-400">49 $</span>
-                            <span className="text-xs text-zinc-600">разово</span>
-                        </div>
-                        <div className="space-y-2 text-xs border-t border-zinc-800 pt-4">
-                            <div className="flex justify-between">
-                                <span className="text-zinc-600">Доступность:</span>
-                                <span className="text-zinc-500">Пользователи 151–500</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-600">Статус:</span>
-                                <span className="text-zinc-500 flex items-center gap-1"><Lock size={10} /> Заблокировано</span>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-zinc-600 mt-4 leading-relaxed">
-                            Последний шанс получить программное обеспечение без подписки.
-                        </p>
-                    </div>
-
-                    {/* Locked Card 2 */}
-                    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 relative opacity-70 hover:opacity-100 transition-opacity">
-                        <div className="flex justify-between items-start mb-4">
-                            <span className="bg-red-900/20 text-red-400 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider border border-red-500/20">
-                                Фаза 3
-                            </span>
-                            <Lock size={14} className="text-zinc-600" />
-                        </div>
-                        <h3 className="text-lg font-bold text-zinc-300 mb-1">Публичный Запуск SaaS</h3>
-                        <div className="flex items-baseline gap-1 mb-4">
-                            <span className="text-3xl font-bold text-zinc-400">48 $</span>
-                            <span className="text-xs text-zinc-600">/год</span>
-                        </div>
-                        <div className="space-y-2 text-xs border-t border-zinc-800 pt-4">
-                            <div className="flex justify-between">
-                                <span className="text-zinc-600">Доступность:</span>
-                                <span className="text-zinc-500">Для всех (501+)</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-600">Статус:</span>
-                                <span className="text-zinc-500">Конец 2026 года</span>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-zinc-600 mt-4 leading-relaxed">
-                            Новые пользователи платят ежемесячно. Учредители не платят ничего.
-                        </p>
-                    </div>
-
-                </div>
-            </div>
-          )}
 
           {myProjects.length === 0 && sharedProjects.length === 0 && isGuest && (
              <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">

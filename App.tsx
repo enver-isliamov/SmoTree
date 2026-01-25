@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { ProjectView } from './components/ProjectView';
 import { Player } from './components/Player';
 import { Login } from './components/Login';
+import { Profile } from './components/Profile';
 import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
 import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
@@ -12,7 +12,8 @@ import { generateId } from './services/utils';
 type ViewState = 
   | { type: 'DASHBOARD' }
   | { type: 'PROJECT_VIEW', projectId: string }
-  | { type: 'PLAYER', assetId: string, projectId: string };
+  | { type: 'PLAYER', assetId: string, projectId: string }
+  | { type: 'PROFILE' };
 
 const STORAGE_KEY = 'smotree_projects_data';
 const USER_STORAGE_KEY = 'smotree_auth_user';
@@ -199,10 +200,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-    // We only trigger auto-sync if it's NOT a remote update AND NOT a Guest.
-    // NOTE: This debounced sync is risky if Player also syncs granularly.
-    // Player should NOT modify `projects` state in a way that triggers this 
-    // if it handles its own API calls.
   }, [projects]);
 
   useEffect(() => {
@@ -233,6 +230,13 @@ const App: React.FC = () => {
     }
   }, [projects, currentUser]); 
 
+  // Listen for navigation events from Dashboard header
+  useEffect(() => {
+      const handleProfileNav = () => setView({ type: 'PROFILE' });
+      window.addEventListener('NAVIGATE_PROFILE', handleProfileNav);
+      return () => window.removeEventListener('NAVIGATE_PROFILE', handleProfileNav);
+  }, []);
+
   const handleSelectProject = (project: Project) => {
     setView({ type: 'PROJECT_VIEW', projectId: project.id });
     const newUrl = `${window.location.pathname}?projectId=${project.id}`;
@@ -260,8 +264,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Generic Update Handler
-  // Pass `skipSync: true` if the component handles API calls itself (like Player comments)
   const handleUpdateProject = (updatedProject: Project, skipSync = false) => {
     const newProjects = projects.map(p => p.id === updatedProject.id ? updatedProject : p);
     setProjects(newProjects);
@@ -271,7 +273,6 @@ const App: React.FC = () => {
     }
   };
   
-  // Specific handler for Dashboard editing
   const handleEditProject = (projectId: string, data: Partial<Project>) => {
       const updated = projects.map(p => p.id === projectId ? { ...p, ...data, updatedAt: 'Just now' } : p);
       setProjects(updated);
@@ -349,7 +350,7 @@ const App: React.FC = () => {
     isJoiningFlow.current = false;
   };
 
-  const currentProject = view.type !== 'DASHBOARD' ? projects.find(p => p.id === view.projectId) : null;
+  const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
   if (!currentUser) return <Login onLogin={handleLogin} />;
@@ -368,6 +369,13 @@ const App: React.FC = () => {
             onLogout={handleLogout}
             notify={notify}
           />
+        )}
+        {view.type === 'PROFILE' && (
+            <Profile 
+                currentUser={currentUser}
+                onBack={handleBackToDashboard}
+                onLogout={handleLogout}
+            />
         )}
         {view.type === 'PROJECT_VIEW' && currentProject && (
           <ProjectView 
