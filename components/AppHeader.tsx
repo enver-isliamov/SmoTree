@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Clapperboard, Menu, X } from 'lucide-react';
+import { Clapperboard, Menu, X, PlayCircle } from 'lucide-react';
 import { useLanguage } from '../services/i18n';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
@@ -36,7 +36,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       }
   };
 
-  const navItems = ['workflow', 'pricing', 'about'];
+  const navItems = ['workflow', 'ai', 'pricing', 'about'];
 
   return (
     <>
@@ -60,7 +60,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 {!hideNav && (
                     <div className="hidden md:flex items-center gap-2">
                         {navItems.map(page => {
-                        const pageKey = page.toUpperCase();
+                        const pageKey = page === 'ai' ? 'AI_FEATURES' : page.toUpperCase();
                         const isActive = currentView === pageKey;
                         return (
                             <button 
@@ -77,6 +77,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                             </button>
                         );
                     })}
+                    {!currentUser && (
+                        <button 
+                            onClick={() => onNavigate('LIVE_DEMO')}
+                            className="px-3 py-1.5 text-sm font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 rounded-lg transition-all hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                        >
+                            <PlayCircle size={14} /> {t('nav.demo')}
+                        </button>
+                    )}
                     </div>
                 )}
             </div>
@@ -126,7 +134,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {isMobileMenuOpen && !hideNav && (
             <div className="md:hidden fixed top-16 left-0 right-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 z-40 p-4 flex flex-col gap-2 shadow-2xl animate-in slide-in-from-top-2">
                 {navItems.map(page => {
-                    const pageKey = page.toUpperCase();
+                    const pageKey = page === 'ai' ? 'AI_FEATURES' : page.toUpperCase();
                     const isActive = currentView === pageKey;
                     return (
                         <button 
@@ -144,6 +152,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     );
                 })}
                 
+                {!currentUser && (
+                    <button 
+                        onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            onNavigate('LIVE_DEMO');
+                        }}
+                        className="w-full text-left px-4 py-3 rounded-lg text-sm font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
+                    >
+                        <PlayCircle size={16} /> {t('nav.demo')}
+                    </button>
+                )}
+
                 <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-1"></div>
                 
                 {currentUser ? (

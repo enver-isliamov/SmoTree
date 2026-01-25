@@ -5,7 +5,8 @@ import { ProjectView } from './components/ProjectView';
 import { Player } from './components/Player';
 import { Login } from './components/Login';
 import { Profile } from './components/Profile';
-import { WorkflowPage, AboutPage, PricingPage } from './components/StaticPages';
+import { WorkflowPage, AboutPage, PricingPage, AiFeaturesPage } from './components/StaticPages';
+import { LiveDemo } from './components/LiveDemo';
 import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
 import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
@@ -21,7 +22,9 @@ type ViewState =
   | { type: 'PROFILE' }
   | { type: 'WORKFLOW' }
   | { type: 'ABOUT' }
-  | { type: 'PRICING' };
+  | { type: 'PRICING' }
+  | { type: 'AI_FEATURES' }
+  | { type: 'LIVE_DEMO' };
 
 const STORAGE_KEY = 'smotree_projects_data';
 const USER_STORAGE_KEY = 'smotree_auth_user';
@@ -386,6 +389,8 @@ const AppContent: React.FC = () => {
           case 'ABOUT': setView({ type: 'ABOUT' }); break;
           case 'PRICING': setView({ type: 'PRICING' }); break;
           case 'PROFILE': setView({ type: 'PROFILE' }); break;
+          case 'AI_FEATURES': setView({ type: 'AI_FEATURES' }); break;
+          case 'LIVE_DEMO': setView({ type: 'LIVE_DEMO' }); break;
           default: setView({ type: 'DASHBOARD' });
       }
   };
@@ -423,11 +428,16 @@ const AppContent: React.FC = () => {
       }
   };
 
+  // Special Check for Live Demo View when not logged in
+  if (view.type === 'LIVE_DEMO') {
+      return <LiveDemo onBack={() => handleNavigate('DASHBOARD')} />;
+  }
+
   const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
   if (!currentUser) {
-      const isPublicView = ['WORKFLOW', 'ABOUT', 'PRICING'].includes(view.type);
+      const isPublicView = ['WORKFLOW', 'ABOUT', 'PRICING', 'AI_FEATURES'].includes(view.type);
       
       if (isPublicView) {
           return (
@@ -441,6 +451,7 @@ const AppContent: React.FC = () => {
                     {view.type === 'WORKFLOW' && <WorkflowPage />}
                     {view.type === 'ABOUT' && <AboutPage />}
                     {view.type === 'PRICING' && <PricingPage />}
+                    {view.type === 'AI_FEATURES' && <AiFeaturesPage />}
                 </MainLayout>
                 <ToastContainer toasts={toasts} removeToast={removeToast} />
             </div>
@@ -450,7 +461,7 @@ const AppContent: React.FC = () => {
       return <Login onLogin={handleLogin} onNavigate={handleNavigate} />;
   }
 
-  const isPlatformView = ['DASHBOARD', 'PROFILE', 'WORKFLOW', 'ABOUT', 'PRICING'].includes(view.type);
+  const isPlatformView = ['DASHBOARD', 'PROFILE', 'WORKFLOW', 'ABOUT', 'PRICING', 'AI_FEATURES'].includes(view.type);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans selection:bg-indigo-500/30 transition-colors">
@@ -484,6 +495,7 @@ const AppContent: React.FC = () => {
                 {view.type === 'WORKFLOW' && <WorkflowPage />}
                 {view.type === 'ABOUT' && <AboutPage />}
                 {view.type === 'PRICING' && <PricingPage />}
+                {view.type === 'AI_FEATURES' && <AiFeaturesPage />}
             </MainLayout>
         )}
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Timer, History, Lock, Sparkles, Play } from 'lucide-react';
+import { ArrowRight, UserPlus, ShieldCheck, Mail, AlertCircle, Timer, History, Lock, Sparkles, Play, PlayCircle } from 'lucide-react';
 import { generateId } from '../services/utils';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage } from '../services/i18n';
@@ -242,9 +242,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                             >
                                 {t('hero.cta')} <ArrowRight size={20} />
                             </button>
-                            <div className="text-sm text-zinc-500 max-w-xs mt-2 italic border-l-2 border-zinc-300 dark:border-zinc-800 pl-4">
-                                {t('hero.quote')}
-                            </div>
+                            <button 
+                                onClick={() => onNavigate('LIVE_DEMO')}
+                                className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 px-8 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl group"
+                            >
+                                <PlayCircle size={20} className="text-red-500 group-hover:scale-110 transition-transform" />
+                                {t('hero.demo')}
+                            </button>
+                        </div>
+                        <div className="text-sm text-zinc-500 max-w-xs mt-2 italic border-l-2 border-zinc-300 dark:border-zinc-800 pl-4">
+                            {t('hero.quote')}
                         </div>
                     </div>
 

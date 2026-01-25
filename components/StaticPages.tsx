@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Upload, Share2, MessageSquare, Download, Film, Terminal, ArrowRight, Code2, Heart, Zap, Layout, User as UserIcon, Rocket, Shield, Server, Columns, ShieldCheck, Timer, History, Lock } from 'lucide-react';
+import { Upload, Share2, MessageSquare, Download, Film, Terminal, ArrowRight, Code2, Heart, Zap, Layout, User as UserIcon, Rocket, Shield, Server, Columns, ShieldCheck, Timer, History, Lock, PenTool, Layers, Sparkles, Search } from 'lucide-react';
 import { useLanguage } from '../services/i18n';
 import { RoadmapBlock } from './RoadmapBlock';
 
@@ -130,7 +130,7 @@ export const AboutPage: React.FC = () => {
                     <p className="text-sm text-zinc-600 dark:text-zinc-500 leading-relaxed">{t('why.feat1.desc')}</p>
                 </div>
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-2xl flex flex-col items-center text-center hover:border-indigo-500/20 transition-all group shadow-sm hover:shadow-md">
-                    <div className="p-3 bg-blue-50 dark:bg-zinc-950 rounded-xl mb-4 text-blue-600 dark:text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
+                    <div className="p-4 bg-blue-50 dark:bg-zinc-950 rounded-xl mb-4 text-blue-600 dark:text-blue-500 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/10">
                         <History size={24} />
                     </div>
                     <h3 className="font-bold text-zinc-900 dark:text-white mb-2">{t('why.feat2.title')}</h3>
@@ -224,6 +224,89 @@ export const PricingPage: React.FC = () => {
              </div>
 
              <RoadmapBlock />
+        </div>
+    );
+};
+
+export const AiFeaturesPage: React.FC = () => {
+    const { t } = useLanguage();
+
+    const renderCard = (titleKey: string, descKey: string, benefitKey: string, badge: {text: string, color: string}, labelColor: string) => (
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors h-full flex flex-col group shadow-sm hover:shadow-md">
+            <div className="flex justify-between items-start mb-3">
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{t(titleKey)}</h3>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${badge.color}`}>
+                    {badge.text}
+                </span>
+            </div>
+            <p className="text-zinc-600 dark:text-zinc-400 text-sm mb-4 flex-1 leading-relaxed">
+                {t(descKey)}
+            </p>
+            
+            {/* Benefit Block - Higher contrast and less whitespace */}
+            <div className="bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800/50 p-3 rounded-lg flex flex-col">
+                <span className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${labelColor}`}>
+                    {t(benefitKey).split(':')[0]}:
+                </span>
+                <span className="text-sm text-zinc-700 dark:text-zinc-300 font-medium leading-snug">
+                    {t(benefitKey).split(':')[1]}
+                </span>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="max-w-[1400px] mx-auto py-12 px-4">
+            <div className="text-center mb-16">
+                <h1 className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-4 tracking-tight">{t('page.ai.title')}</h1>
+                <p className="text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto text-lg">{t('page.ai.subtitle')}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                {/* COLUMN 1: WORKFLOW */}
+                <div>
+                    <h2 className="text-xs font-bold text-indigo-600 dark:text-indigo-500 uppercase tracking-widest mb-4 flex items-center gap-2 px-1">
+                        {t('page.ai.col1')}
+                    </h2>
+                    <div className="space-y-4">
+                        {renderCard('page.ai.card1.title', 'page.ai.card1.desc', 'page.ai.card1.benefit', 
+                            { text: 'FEATURE', color: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20' }, 'text-indigo-600 dark:text-indigo-400')}
+                        
+                        {renderCard('page.ai.card2.title', 'page.ai.card2.desc', 'page.ai.card2.benefit', 
+                            { text: 'FEATURE', color: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20' }, 'text-indigo-600 dark:text-indigo-400')}
+                    </div>
+                </div>
+
+                {/* COLUMN 2: INTELLIGENCE (AI) */}
+                <div>
+                    <h2 className="text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2 px-1">
+                        {t('page.ai.col2')}
+                    </h2>
+                    <div className="space-y-4">
+                        {renderCard('page.ai.card3.title', 'page.ai.card3.desc', 'page.ai.card3.benefit', 
+                            { text: 'GEMINI API', color: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-500/20' }, 'text-amber-600 dark:text-amber-500')}
+                        
+                        {renderCard('page.ai.card4.title', 'page.ai.card4.desc', 'page.ai.card4.benefit', 
+                            { text: 'SOON', color: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' }, 'text-amber-600 dark:text-amber-500')}
+                    </div>
+                </div>
+
+                {/* COLUMN 3: TECHNOLOGY (CORE) */}
+                <div>
+                    <h2 className="text-xs font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2 px-1">
+                        {t('page.ai.col3')}
+                    </h2>
+                    <div className="space-y-4">
+                        {renderCard('page.ai.card5.title', 'page.ai.card5.desc', 'page.ai.card5.benefit', 
+                            { text: 'PERFORMANCE', color: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' }, 'text-emerald-600 dark:text-emerald-500')}
+                        
+                        {renderCard('page.ai.card6.title', 'page.ai.card6.desc', 'page.ai.card6.benefit', 
+                            { text: 'SECURITY', color: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' }, 'text-emerald-600 dark:text-emerald-500')}
+                    </div>
+                </div>
+
+            </div>
         </div>
     );
 };
