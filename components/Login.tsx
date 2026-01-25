@@ -9,6 +9,7 @@ import { LanguageSelector } from './LanguageSelector';
 
 interface LoginProps {
   onLogin: (user: User) => void;
+  onNavigate: (page: string) => void;
 }
 
 declare global {
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   const [name, setName] = useState('');
   const [inviteProjectId, setInviteProjectId] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
@@ -159,6 +160,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="flex items-center gap-2">
              <div className="bg-indigo-600 p-1.5 rounded-lg"><Clapperboard size={20} /></div>
              <span className="font-bold text-lg tracking-tight">{t('app.name')}</span>
+             
+              {/* Navigation Links for Login Page */}
+             <div className="hidden md:flex items-center gap-1 ml-4">
+                 {['workflow', 'pricing', 'docs', 'about'].map(page => (
+                   <button 
+                     key={page}
+                     onClick={() => onNavigate(page.toUpperCase())}
+                     className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                   >
+                       {t(`nav.${page}`)}
+                   </button>
+                 ))}
+             </div>
           </div>
           <div className="flex items-center gap-4">
             

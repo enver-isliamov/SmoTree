@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { ProjectView } from './components/ProjectView';
 import { Player } from './components/Player';
 import { Login } from './components/Login';
 import { Profile } from './components/Profile';
+import { WorkflowPage, AboutPage, PricingPage, DocsPage } from './components/StaticPages';
 import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
 import { Project, ProjectAsset, User, UserRole } from './types';
 import { MOCK_PROJECTS } from './constants';
@@ -14,7 +16,11 @@ type ViewState =
   | { type: 'DASHBOARD' }
   | { type: 'PROJECT_VIEW', projectId: string }
   | { type: 'PLAYER', assetId: string, projectId: string }
-  | { type: 'PROFILE' };
+  | { type: 'PROFILE' }
+  | { type: 'WORKFLOW' }
+  | { type: 'ABOUT' }
+  | { type: 'PRICING' }
+  | { type: 'DOCS' };
 
 const STORAGE_KEY = 'smotree_projects_data';
 const USER_STORAGE_KEY = 'smotree_auth_user';
@@ -302,8 +308,6 @@ const AppContent: React.FC = () => {
           }
       }
       
-      // Fix: Ensure we are in a view mode that actually has a projectId before accessing it.
-      // Profile view does not have projectId.
       if ((view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') && view.projectId === projectId) {
           handleBackToDashboard();
       }
@@ -351,11 +355,27 @@ const AppContent: React.FC = () => {
     }
     isJoiningFlow.current = false;
   };
+  
+  const handleNavigate = (page: string) => {
+      switch(page) {
+          case 'WORKFLOW': setView({ type: 'WORKFLOW' }); break;
+          case 'ABOUT': setView({ type: 'ABOUT' }); break;
+          case 'PRICING': setView({ type: 'PRICING' }); break;
+          case 'DOCS': setView({ type: 'DOCS' }); break;
+          default: setView({ type: 'DASHBOARD' });
+      }
+  };
 
   const currentProject = (view.type === 'PROJECT_VIEW' || view.type === 'PLAYER') ? projects.find(p => p.id === view.projectId) : null;
   const currentAsset = (view.type === 'PLAYER' && currentProject) ? currentProject.assets.find(a => a.id === view.assetId) : null;
 
-  if (!currentUser) return <Login onLogin={handleLogin} />;
+  if (!currentUser) return <Login onLogin={handleLogin} onNavigate={handleNavigate} />;
+  
+  // Render Static Pages
+  if (view.type === 'WORKFLOW') return <WorkflowPage onBack={handleBackToDashboard} />;
+  if (view.type === 'ABOUT') return <AboutPage onBack={handleBackToDashboard} />;
+  if (view.type === 'PRICING') return <PricingPage onBack={handleBackToDashboard} />;
+  if (view.type === 'DOCS') return <DocsPage onBack={handleBackToDashboard} />;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30">
@@ -369,6 +389,7 @@ const AppContent: React.FC = () => {
             onDeleteProject={handleDeleteProject}
             onEditProject={handleEditProject}
             onLogout={handleLogout}
+            onNavigate={handleNavigate}
             notify={notify}
           />
         )}
