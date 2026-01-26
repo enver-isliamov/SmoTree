@@ -17,7 +17,7 @@ interface ToastProps {
 
 export const ToastContainer: React.FC<ToastProps> = ({ toasts, removeToast }) => {
   return (
-    <div className="fixed top-20 right-4 z-[9999] flex flex-col gap-2 w-full max-w-sm pointer-events-none pr-4 md:pr-0">
+    <div className="fixed top-16 right-4 z-[9999] flex flex-col gap-2 w-full max-w-xs pointer-events-none pr-4 md:pr-0">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
       ))}
@@ -29,14 +29,14 @@ const ToastItem: React.FC<{ toast: ToastMessage; onRemove: () => void }> = ({ to
   useEffect(() => {
     const timer = setTimeout(() => {
       onRemove();
-    }, 4000);
+    }, 2000); // Faster timeout
     return () => clearTimeout(timer);
   }, [onRemove]);
 
   const icons = {
-    success: <CheckCircle size={18} className="text-green-400" />,
-    error: <AlertCircle size={18} className="text-red-400" />,
-    info: <Info size={18} className="text-blue-400" />
+    success: <CheckCircle size={16} className="text-green-400" />,
+    error: <AlertCircle size={16} className="text-red-400" />,
+    info: <Info size={16} className="text-blue-400" />
   };
 
   const bgColors = {
@@ -46,11 +46,11 @@ const ToastItem: React.FC<{ toast: ToastMessage; onRemove: () => void }> = ({ to
   };
 
   return (
-    <div className={`pointer-events-auto flex items-center gap-3 p-4 rounded-lg border shadow-xl animate-in slide-in-from-right-full duration-300 ${bgColors[toast.type]}`}>
+    <div className={`pointer-events-auto flex items-center gap-3 p-3 rounded-lg border shadow-xl animate-in slide-in-from-right-full duration-300 ${bgColors[toast.type]}`}>
       <div className="shrink-0">{icons[toast.type]}</div>
-      <p className="text-sm text-zinc-200 font-medium flex-1">{toast.message}</p>
+      <p className="text-xs text-zinc-200 font-medium flex-1">{toast.message}</p>
       <button onClick={onRemove} className="text-zinc-500 hover:text-white shrink-0">
-        <X size={16} />
+        <X size={14} />
       </button>
     </div>
   );

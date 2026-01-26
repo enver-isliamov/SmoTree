@@ -123,9 +123,9 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ onBack }) => {
                 isDemo={true}
             />
             
-            {/* Demo Overlay Badge */}
-            <div className="fixed top-20 right-4 z-[9999] pointer-events-none">
-                <div className="bg-indigo-600/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-400/30 shadow-lg animate-pulse">
+            {/* Demo Overlay Badge - Smaller, less blinking, bottom left */}
+            <div className="fixed bottom-20 left-4 z-[9998] pointer-events-none">
+                <div className="bg-indigo-600/50 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded border border-indigo-400/20 opacity-80">
                     LIVE DEMO MODE
                 </div>
             </div>

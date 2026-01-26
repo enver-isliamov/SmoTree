@@ -782,9 +782,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   return (
     <div className="flex flex-col h-[100dvh] bg-white dark:bg-zinc-950 overflow-hidden select-none fixed inset-0 transition-colors">
       {!isFullscreen && (
-        <header className="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20 backdrop-blur-md">
+        <header className="h-auto md:h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900 flex flex-row items-center justify-between px-2 md:px-4 shrink-0 z-20 backdrop-blur-md py-2 md:py-0 gap-2">
           {/* LEFT SIDE: BREADCRUMBS & META */}
-          <div className="flex items-center gap-3 overflow-hidden flex-1">
+          <div className="flex items-center gap-2 md:gap-3 overflow-hidden flex-1">
             <button 
                 onClick={onBack} 
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors border border-zinc-200 dark:border-zinc-700 shrink-0"
@@ -794,104 +794,89 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             </button>
             
             {(!isSearchOpen || window.innerWidth > 768) && (
-              <div className="flex flex-col truncate">
-                {/* Breadcrumbs */}
-                <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-zinc-500 font-medium tracking-wide truncate mb-0.5">
-                    <span 
-                        onClick={onBack} 
-                        className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors truncate"
-                    >
-                        {project.name}
-                    </span>
-                    <ChevronRight size={10} className="text-zinc-300 dark:text-zinc-700" />
-                    <span>{isGuest ? t('dash.shared_projects') : t('pv.assets')}</span>
-                </div>
-
+              <div className="flex flex-col truncate flex-1">
                 {/* Main Context Row */}
-                <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 leading-none truncate">
-                   <span className="font-bold text-sm truncate" title={localFileName || asset.title}>{localFileName || asset.title}</span>
+                <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-zinc-900 dark:text-zinc-100 leading-tight truncate">
+                   <span className="font-bold text-xs md:text-sm truncate" title={localFileName || asset.title}>{localFileName || asset.title}</span>
                    
-                   {/* Version Badge & Comparator */}
-                   <div className="relative flex items-center gap-1">
-                        <span className="shrink-0 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-500/20">
-                            v{version.versionNumber}
-                        </span>
-                        
-                        {/* Comparison Dropdown Trigger */}
-                        {asset.versions.length > 1 && (
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setShowVersionMenu(!showVersionMenu)}
-                                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${compareVersionIdx !== null ? 'bg-indigo-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
-                                >
-                                    {compareVersionIdx !== null ? `vs v${compareVersion?.versionNumber}` : 'Compare'}
-                                    <ChevronDown size={10} />
-                                </button>
-                                
-                                {showVersionMenu && (
-                                    <div className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 py-1">
-                                        <button 
-                                            onClick={() => handleSelectCompareVersion(null)}
-                                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
-                                        >
-                                            None (Single View)
-                                        </button>
-                                        <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-1"></div>
-                                        {asset.versions.map((v, idx) => (
-                                            idx !== currentVersionIdx && (
-                                                <button 
-                                                    key={v.id}
-                                                    onClick={() => handleSelectCompareVersion(idx)}
-                                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 flex justify-between ${compareVersionIdx === idx ? 'text-indigo-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}
-                                                >
-                                                    <span>Version {v.versionNumber}</span>
-                                                    {compareVersionIdx === idx && <CheckCircle size={10} />}
-                                                </button>
-                                            )
-                                        ))}
-                                    </div>
-                                )}
-                                {showVersionMenu && <div className="fixed inset-0 z-40" onClick={() => setShowVersionMenu(false)}></div>}
-                            </div>
-                        )}
+                   <div className="flex items-center gap-2">
+                       {/* Version Badge & Comparator */}
+                       <div className="relative flex items-center gap-1">
+                            <span className="shrink-0 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-500/20">
+                                v{version.versionNumber}
+                            </span>
+                            
+                            {/* Comparison Dropdown Trigger */}
+                            {asset.versions.length > 1 && (
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setShowVersionMenu(!showVersionMenu)}
+                                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${compareVersionIdx !== null ? 'bg-indigo-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
+                                    >
+                                        {compareVersionIdx !== null ? `vs v${compareVersion?.versionNumber}` : 'Compare'}
+                                        <ChevronDown size={10} />
+                                    </button>
+                                    
+                                    {showVersionMenu && (
+                                        <div className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 py-1">
+                                            <button 
+                                                onClick={() => handleSelectCompareVersion(null)}
+                                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+                                            >
+                                                None (Single View)
+                                            </button>
+                                            <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-1"></div>
+                                            {asset.versions.map((v, idx) => (
+                                                idx !== currentVersionIdx && (
+                                                    <button 
+                                                        key={v.id}
+                                                        onClick={() => handleSelectCompareVersion(idx)}
+                                                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 flex justify-between ${compareVersionIdx === idx ? 'text-indigo-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}
+                                                    >
+                                                        <span>Version {v.versionNumber}</span>
+                                                        {compareVersionIdx === idx && <CheckCircle size={10} />}
+                                                    </button>
+                                                )
+                                            ))}
+                                        </div>
+                                    )}
+                                    {showVersionMenu && <div className="fixed inset-0 z-40" onClick={() => setShowVersionMenu(false)}></div>}
+                                </div>
+                            )}
+                       </div>
+                       
+                       {/* Sync Status */}
+                       {isSyncing ? (
+                          <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 animate-pulse text-[10px]" title={t('player.syncing')}>
+                              <Cloud size={12} />
+                          </div>
+                       ) : (
+                          <div className="flex items-center gap-1 text-green-500 dark:text-green-500/80 text-[10px]" title={t('player.saved')}>
+                              <CheckCircle size={12} />
+                          </div>
+                       )}
+
+                       {/* Source Button (Local/Cloud) - Fixed for Mobile */}
+                       <button 
+                            onClick={() => localFileRef.current?.click()}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors text-[10px] font-medium
+                                ${localFileName 
+                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' 
+                                    : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                                }`}
+                            title={t('player.link_local')}
+                        >
+                            <HardDrive size={10} />
+                            <span className="hidden md:inline">{localFileName ? 'Local Source' : 'Cloud'}</span>
+                        </button>
                    </div>
-                   
-                   {/* Status Divider */}
-                   <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-800 mx-0.5"></div>
-
-                   {/* Sync Status */}
-                   {isSyncing ? (
-                      <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 animate-pulse text-[10px]" title={t('player.syncing')}>
-                          <Cloud size={12} />
-                      </div>
-                   ) : (
-                      <div className="flex items-center gap-1 text-green-500 dark:text-green-500/80 text-[10px]" title={t('player.saved')}>
-                          <CheckCircle size={12} />
-                      </div>
-                   )}
-
-                   {/* Source Button (Local/Cloud) */}
-                   <button 
-                        onClick={() => localFileRef.current?.click()}
-                        className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors text-[10px] font-medium ml-1
-                            ${localFileName 
-                                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' 
-                                : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                            }`}
-                        title={t('player.link_local')}
-                    >
-                        <HardDrive size={10} />
-                        <span>{localFileName ? 'Local Source' : 'Cloud'}</span>
-                    </button>
-
-                   {videoError && !localFileName && <span className="text-red-500 dark:text-red-400 flex items-center gap-1 text-[10px] font-bold bg-red-50 dark:bg-red-900/10 px-1.5 py-0.5 rounded border border-red-100 dark:border-red-900/30"><AlertTriangle size={10}/> {t('player.source_missing')}</span>}
                 </div>
               </div>
             )}
           </div>
 
           <div className="flex items-center gap-1 md:gap-3 shrink-0">
-             <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'w-40 md:w-56 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2' : 'w-8 justify-end'}`}>
+             <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'w-32 md:w-56 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2' : 'w-8 justify-end'}`}>
                 {isSearchOpen && (
                    <input 
                      autoFocus
@@ -913,7 +898,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 </button>
              </div>
              
-             <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-1"></div>
+             <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-1 hidden md:block"></div>
 
              <div className="relative">
                 <button 
@@ -1001,57 +986,57 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                  })}
              </div>
 
-             {/* Voice Modal */}
+             {/* Voice Modal - Compacted Design with Mic Icon */}
              {showVoiceModal && isFullscreen && (
                  <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-md md:max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-2xl flex flex-col md:flex-row md:items-stretch gap-4 md:gap-6 max-h-[90vh] overflow-y-auto">
-                        {/* ... (Existing Voice Modal Content) ... */}
-                        <div className="flex flex-col items-center justify-center md:w-1/3 shrink-0">
-                            <h3 className="text-base md:text-lg font-bold text-white mb-2 text-center">
-                                {markerOutPoint ? t('player.voice.range') : t('player.voice.point')}
-                            </h3>
-                            <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs md:text-sm mb-4 md:mb-0 bg-indigo-950/30 px-3 py-1 rounded-full border border-indigo-500/20">
-                                <span>{formatTimecode(markerInPoint || currentTime)}</span>
-                                {markerOutPoint && (
-                                    <>
-                                        <span>→</span>
-                                        <span>{formatTimecode(markerOutPoint)}</span>
-                                    </>
-                                )}
-                            </div>
+                    <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-2xl flex flex-col gap-4">
+                        <div className="flex items-center gap-4">
+                            {/* Replaced Marker Point icon with Mic Icon */}
                             <div 
-                                className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer ${isListening ? 'bg-red-500/20 ring-4 ring-red-500/20 scale-110' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0 ${isListening ? 'bg-red-500/20 ring-4 ring-red-500/20 scale-110' : 'bg-zinc-800 hover:bg-zinc-700'}`}
                                 onClick={toggleListening}
                             >
-                                <Mic size={24} className={`md:w-8 md:h-8 ${isListening ? 'text-red-500 animate-pulse' : 'text-zinc-400'}`} />
+                                <Mic size={20} className={`${isListening ? 'text-red-500 animate-pulse' : 'text-zinc-400'}`} />
+                            </div>
+                            
+                            <div className="flex-1 overflow-hidden">
+                                <h3 className="text-sm font-bold text-white mb-1 truncate">
+                                    {isListening ? t('player.voice.listening') : t('player.voice.transcript')}
+                                </h3>
+                                <div className="flex items-center gap-2 text-indigo-400 font-mono text-[10px] bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-500/20 w-fit">
+                                    <span>{formatTimecode(markerInPoint || currentTime)}</span>
+                                    {markerOutPoint && (
+                                        <>
+                                            <span>→</span>
+                                            <span>{formatTimecode(markerOutPoint)}</span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                        <div className="flex flex-col justify-center flex-1 w-full">
-                            <p className="text-[10px] md:text-xs text-zinc-500 mb-2 uppercase tracking-wider text-center md:text-left">
-                                {isListening ? t('player.voice.listening') : t('player.voice.transcript')}
-                            </p>
-                            <textarea 
-                                value={newCommentText}
-                                onChange={(e) => setNewCommentText(e.target.value)}
-                                placeholder={isListening ? t('player.voice.listening') : t('player.voice.placeholder')}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white text-base md:text-sm focus:border-indigo-500 outline-none h-24 md:h-32 mb-4 resize-none"
-                                autoFocus
-                            />
-                            <div className="flex w-full gap-3">
-                                <button 
-                                    onClick={() => closeVoiceModal(false)}
-                                    className="flex-1 py-2.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 font-medium transition-colors text-sm"
-                                >
-                                    {t('cancel')}
-                                </button>
-                                <button 
-                                    onClick={() => closeVoiceModal(true)}
-                                    disabled={!newCommentText.trim() || isLocked}
-                                    className="flex-1 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                >
-                                    {t('save')}
-                                </button>
-                            </div>
+
+                        <textarea 
+                            value={newCommentText}
+                            onChange={(e) => setNewCommentText(e.target.value)}
+                            placeholder={isListening ? "Listening..." : "Type comment..."}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white text-sm focus:border-indigo-500 outline-none h-20 resize-none"
+                            autoFocus
+                        />
+                        
+                        <div className="flex w-full gap-2">
+                            <button 
+                                onClick={() => closeVoiceModal(false)}
+                                className="flex-1 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 font-medium transition-colors text-xs"
+                            >
+                                {t('cancel')}
+                            </button>
+                            <button 
+                                onClick={() => closeVoiceModal(true)}
+                                disabled={!newCommentText.trim() || isLocked}
+                                className="flex-1 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                            >
+                                {t('save')}
+                            </button>
                         </div>
                     </div>
                  </div>
@@ -1170,7 +1155,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     />
                   );
                 })}
-                {/* Marker indicators omitted for brevity, but exist in original */}
              </div>
           </div>
         </div>
