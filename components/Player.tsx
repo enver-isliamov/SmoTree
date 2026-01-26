@@ -1253,7 +1253,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     {filteredComments.map(comment => {
                         const isSelected = selectedCommentId === comment.id;
                         const author = getAuthorDisplay(comment);
+                        const isCommentOwner = comment.userId === currentUser.id;
                         const canResolve = isManager;
+                        // const canDelete = isManager || isCommentOwner; // defined for swiping
+                        // const canEdit = isCommentOwner || (isManager && currentUser.role === UserRole.ADMIN); // defined for swiping
                         const isEditing = editingCommentId === comment.id;
                         const isGuestComment = author.role === UserRole.GUEST;
                         const isSwiping = swipeCommentId === comment.id;
@@ -1261,9 +1264,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         const isActive = currentTime >= comment.timestamp && currentTime < (comment.timestamp + (comment.duration || 3));
                         const userColor = stringToColor(comment.userId);
 
+                        // Permission Check for Desktop Buttons
+                        const canDelete = isManager || isCommentOwner;
+                        const canEdit = isCommentOwner || (isManager && currentUser.role === UserRole.ADMIN);
+
                         return (
                         <div key={comment.id} className="relative group/wrapper" id={`comment-${comment.id}`}>
-                            {/* Actions Background */}
+                            {/* Actions Background (Swipe) */}
                             <div className="absolute inset-0 rounded-lg flex items-center justify-between px-4">
                                 <div className="flex items-center text-blue-500 gap-2 font-bold text-xs uppercase opacity-0 transition-opacity duration-200" style={{ opacity: offset > 20 ? 1 : 0 }}>
                                     <Pencil size={16} /> {t('common.edit')}
@@ -1310,14 +1317,36 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                                         {comment.duration && <span className="opacity-50">→ {formatTimecode(comment.timestamp + comment.duration)}</span>}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                        {/* Desktop Edit Button */}
+                                        {canEdit && !isEditing && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); startEditing(comment); }} 
+                                                className="text-zinc-400 hover:text-blue-500 opacity-0 group-hover/wrapper:opacity-100 transition-opacity p-1"
+                                                title={t('common.edit')}
+                                            >
+                                                <Pencil size={12} />
+                                            </button>
+                                        )}
+                                        
+                                        {/* Desktop Delete Button */}
+                                        {canDelete && !isEditing && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteComment(comment.id); }} 
+                                                className="text-zinc-400 hover:text-red-500 opacity-0 group-hover/wrapper:opacity-100 transition-opacity p-1"
+                                                title={t('common.delete')}
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        )}
+
                                         {canResolve && !isEditing && (
-                                            <button onClick={(e) => handleResolveComment(e, comment.id)} className={comment.status==='resolved'?'text-green-500':'text-zinc-300 hover:text-green-500'}>
+                                            <button onClick={(e) => handleResolveComment(e, comment.id)} className={`p-1 ${comment.status==='resolved'?'text-green-500':'text-zinc-300 hover:text-green-500'}`}>
                                             <CheckCircle size={12} />
                                             </button>
                                         )}
                                         {!canResolve && !isEditing && (
-                                            <div className={`w-1.5 h-1.5 rounded-full ${comment.status==='resolved'?'bg-green-500':'bg-yellow-500'}`} />
+                                            <div className={`w-1.5 h-1.5 rounded-full mx-1 ${comment.status==='resolved'?'bg-green-500':'bg-yellow-500'}`} />
                                         )}
                                     </div>
                                 </div>
