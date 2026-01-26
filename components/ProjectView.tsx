@@ -1,12 +1,13 @@
 
-import React, { useState, useRef } from 'react';
-import { Project, ProjectAsset, User, UserRole } from '../types';
-import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, History, Lock } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Project, ProjectAsset, User, UserRole, StorageType } from '../types';
+import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, History, Lock, Cloud, HardDrive } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 import { generateId } from '../services/utils';
 import { ToastType } from './Toast';
 import { LanguageSelector } from './LanguageSelector';
 import { useLanguage } from '../services/i18n';
+import { GoogleDriveService } from '../services/googleDrive';
 
 interface ProjectViewProps {
   project: Project;
@@ -69,8 +70,11 @@ const generateVideoThumbnail = (file: File): Promise<string> => {
 export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject, notify }) => {
   const { t } = useLanguage();
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isDeletingAsset, setIsDeletingAsset] = useState<string | null>(null);
   const [uploadingVersionFor, setUploadingVersionFor] = useState<string | null>(null);
+  const [useDriveStorage, setUseDriveStorage] = useState(false);
+  const [isDriveReady, setIsDriveReady] = useState(GoogleDriveService.isAuthenticated());
   
   // Share / Team View State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -93,6 +97,27 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   
   const isLocked = project.isLocked;
 
+  useEffect(() => {
+    // Check Drive status on mount
+    const handleDriveUpdate = () => setIsDriveReady(GoogleDriveService.isAuthenticated());
+    window.addEventListener('drive-token-updated', handleDriveUpdate);
+    
+    // Auto-select Drive if connected
+    if (GoogleDriveService.isAuthenticated()) {
+        setUseDriveStorage(true);
+    }
+    
+    return () => window.removeEventListener('drive-token-updated', handleDriveUpdate);
+  }, []);
+
+  const toggleStorage = () => {
+      if (!isDriveReady && !useDriveStorage) {
+          notify("Please connect Google Drive in your Profile first.", "info");
+          return;
+      }
+      setUseDriveStorage(!useDriveStorage);
+  };
+
   // New Asset Upload
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -110,29 +135,61 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
 
   const handleRealUpload = async (file: File) => {
     setIsUploading(true);
+    setUploadProgress(0);
 
     try {
       // 1. Generate Thumbnail immediately
       const thumbnailDataUrl = await generateVideoThumbnail(file);
 
       let assetUrl = '';
+      let googleDriveId = undefined;
+      let storageType: StorageType = 'vercel';
       let isLocalFallback = false;
       const token = localStorage.getItem('smotree_auth_token');
 
-      try {
-        const newBlob = await upload(file.name, file, {
-          access: 'public',
-          handleUploadUrl: '/api/upload',
-          clientPayload: JSON.stringify({
-              token: token,
-              user: currentUser.id
-          })
-        });
-        assetUrl = newBlob.url;
-      } catch (uploadError) {
-        console.warn("Cloud upload failed. Switching to Local Mode.", uploadError);
-        assetUrl = URL.createObjectURL(file);
-        isLocalFallback = true;
+      // 2. Upload Logic
+      if (useDriveStorage && isDriveReady) {
+           try {
+               notify("Uploading to Google Drive...", "info");
+               const folderId = await GoogleDriveService.ensureAppFolder();
+               const result = await GoogleDriveService.uploadFile(file, folderId, (p) => setUploadProgress(p));
+               
+               googleDriveId = result.id;
+               storageType = 'drive';
+               // For Drive, we don't have a direct permanent public URL. 
+               // We put a placeholder or blank. The Player will resolve it dynamically.
+               assetUrl = ''; 
+           } catch (driveErr) {
+               console.error("Drive upload failed", driveErr);
+               notify("Drive upload failed. Falling back to local.", "error");
+               isLocalFallback = true;
+           }
+      } else {
+          // Vercel Blob
+          try {
+            const newBlob = await upload(file.name, file, {
+              access: 'public',
+              handleUploadUrl: '/api/upload',
+              clientPayload: JSON.stringify({
+                  token: token,
+                  user: currentUser.id
+              }),
+              onUploadProgress: (progressEvent) => {
+                 setUploadProgress(Math.round((progressEvent.loaded / progressEvent.total) * 100));
+              }
+            });
+            assetUrl = newBlob.url;
+          } catch (uploadError) {
+            console.warn("Cloud upload failed. Switching to Local Mode.", uploadError);
+            assetUrl = URL.createObjectURL(file);
+            storageType = 'local';
+            isLocalFallback = true;
+          }
+      }
+
+      if (isLocalFallback && !googleDriveId) {
+          assetUrl = URL.createObjectURL(file);
+          storageType = 'local';
       }
 
       const newAsset: ProjectAsset = {
@@ -146,9 +203,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
             versionNumber: 1,
             filename: file.name,
             url: assetUrl,
+            storageType: storageType,
+            googleDriveId: googleDriveId,
             uploadedAt: 'Just now',
             comments: [],
-            localFileUrl: isLocalFallback ? assetUrl : undefined,
+            localFileUrl: isLocalFallback ? URL.createObjectURL(file) : undefined,
             localFileName: isLocalFallback ? file.name : undefined
           }
         ]
@@ -169,12 +228,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       notify(t('common.error'), "error");
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleRealVersionUpload = async (file: File, assetId: string) => {
       setIsUploading(true);
+      setUploadProgress(0);
       const targetAssetIndex = project.assets.findIndex(a => a.id === assetId);
       
       if (targetAssetIndex === -1) {
@@ -183,28 +244,47 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       }
       
       const targetAsset = project.assets[targetAssetIndex];
-      // New version number is length + 1 (simple logic)
       const nextVersionNum = targetAsset.versions.length + 1;
 
       try {
         let assetUrl = '';
+        let googleDriveId = undefined;
+        let storageType: StorageType = 'vercel';
         let isLocalFallback = false;
         const token = localStorage.getItem('smotree_auth_token');
 
-        try {
-            const newBlob = await upload(file.name, file, {
-            access: 'public',
-            handleUploadUrl: '/api/upload',
-            clientPayload: JSON.stringify({
-                token: token,
-                user: currentUser.id
-            })
-            });
-            assetUrl = newBlob.url;
-        } catch (uploadError) {
-            console.warn("Cloud upload failed. Switching to Local Mode.", uploadError);
+        // Upload Logic
+        if (useDriveStorage && isDriveReady) {
+             try {
+                 notify("Uploading version to Drive...", "info");
+                 const folderId = await GoogleDriveService.ensureAppFolder();
+                 const result = await GoogleDriveService.uploadFile(file, folderId, (p) => setUploadProgress(p));
+                 googleDriveId = result.id;
+                 storageType = 'drive';
+                 assetUrl = '';
+             } catch (e) {
+                 isLocalFallback = true;
+             }
+        } else {
+            try {
+                const newBlob = await upload(file.name, file, {
+                access: 'public',
+                handleUploadUrl: '/api/upload',
+                clientPayload: JSON.stringify({
+                    token: token,
+                    user: currentUser.id
+                }),
+                onUploadProgress: (p) => setUploadProgress(Math.round((p.loaded/p.total)*100))
+                });
+                assetUrl = newBlob.url;
+            } catch (uploadError) {
+                isLocalFallback = true;
+            }
+        }
+
+        if (isLocalFallback && !googleDriveId) {
             assetUrl = URL.createObjectURL(file);
-            isLocalFallback = true;
+            storageType = 'local';
         }
 
         const newVersion = {
@@ -212,22 +292,22 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
             versionNumber: nextVersionNum,
             filename: file.name,
             url: assetUrl,
+            storageType: storageType,
+            googleDriveId: googleDriveId,
             uploadedAt: 'Just now',
             comments: [],
-            localFileUrl: isLocalFallback ? assetUrl : undefined,
+            localFileUrl: isLocalFallback ? URL.createObjectURL(file) : undefined,
             localFileName: isLocalFallback ? file.name : undefined
         };
 
         const updatedVersions = [...targetAsset.versions, newVersion];
-        
-        // Update the asset's thumbnail to the new version's preview
         const newThumbnail = await generateVideoThumbnail(file);
 
         const updatedAsset = {
             ...targetAsset,
             thumbnail: newThumbnail,
             versions: updatedVersions,
-            currentVersionIndex: updatedVersions.length - 1 // Auto-switch to new version
+            currentVersionIndex: updatedVersions.length - 1 
         };
 
         const updatedAssets = [...project.assets];
@@ -247,6 +327,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           notify(t('common.error'), "error");
       } finally {
           setIsUploading(false);
+          setUploadProgress(0);
           if (versionInputRef.current) versionInputRef.current.value = '';
       }
   };
@@ -257,10 +338,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
 
     setIsDeletingAsset(asset.id);
 
-    // 1. Collect Blob URLs
+    // 1. Collect Blob URLs (Only Vercel Blobs can be deleted via our API)
+    // Drive files are not deleted automatically for safety, or we could add logic to delete them via API too.
     const urlsToDelete: string[] = [];
     asset.versions.forEach(v => {
-        if (v.url.startsWith('http')) urlsToDelete.push(v.url);
+        if (v.storageType === 'vercel' && v.url.startsWith('http')) {
+            urlsToDelete.push(v.url);
+        }
     });
 
     // 2. Delete Blobs
@@ -414,85 +498,105 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                 <h2 className="text-sm md:text-base font-semibold text-zinc-200">{t('pv.assets')} <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
                 
                 {canEditProject && !isLocked && (
-                    <div>
+                    <div className="flex items-center gap-2">
                     <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect}/>
                     <input type="file" ref={versionInputRef} className="hidden" accept="video/*" onChange={handleVersionFileSelect}/>
                     
+                    {/* Storage Toggle */}
+                    <button
+                        onClick={toggleStorage}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${useDriveStorage && isDriveReady ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}
+                        title={isDriveReady ? "Toggle Storage" : "Drive not connected"}
+                    >
+                        {useDriveStorage && isDriveReady ? <HardDrive size={14} /> : <Cloud size={14} />}
+                        <span className="hidden md:inline">{useDriveStorage && isDriveReady ? "Drive Storage" : "SmoTree Cloud"}</span>
+                    </button>
+
                     <button 
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
-                        className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors text-xs md:text-sm font-medium border border-zinc-700"
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors text-xs md:text-sm font-medium border border-indigo-700/50"
                     >
                         {isUploading ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14} />}
-                        {isUploading ? t('common.uploading') : t('pv.upload_asset')}
+                        {isUploading ? `${uploadProgress}%` : t('pv.upload_asset')}
                     </button>
                     </div>
                 )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                {project.assets.map((asset) => (
-                <div 
-                    key={asset.id}
-                    onClick={() => onSelectAsset(asset)}
-                    className="group cursor-pointer bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800 hover:border-indigo-500/50 transition-all shadow-sm relative"
-                >
-                    <div className="aspect-video bg-zinc-950 relative overflow-hidden">
-                    <img 
-                        src={asset.thumbnail} 
-                        alt={asset.title} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100"
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&q=80'; }}
-                    />
+                {project.assets.map((asset) => {
+                    const lastVer = asset.versions[asset.versions.length-1];
+                    const isDrive = lastVer?.storageType === 'drive';
                     
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
-                        {!isLocked && (
-                            <button 
-                                onClick={(e) => handleShareAsset(e, asset)}
-                                className="p-1.5 bg-black/60 hover:bg-indigo-600 text-white rounded-md backdrop-blur-sm transition-colors"
-                                title={t('pv.copy_link')}
-                            >
-                                <LinkIcon size={12} />
-                            </button>
-                        )}
+                    return (
+                    <div 
+                        key={asset.id}
+                        onClick={() => onSelectAsset(asset)}
+                        className="group cursor-pointer bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800 hover:border-indigo-500/50 transition-all shadow-sm relative"
+                    >
+                        <div className="aspect-video bg-zinc-950 relative overflow-hidden">
+                        <img 
+                            src={asset.thumbnail} 
+                            alt={asset.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100"
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&q=80'; }}
+                        />
                         
-                        {canEditProject && !isLocked && (
-                            <>
-                                <button 
-                                    onClick={(e) => handleAddVersionClick(e, asset.id)}
-                                    className="p-1.5 bg-black/60 hover:bg-blue-500 text-white rounded-md backdrop-blur-sm transition-colors"
-                                    title={t('pv.upload_new_ver')}
-                                >
-                                    <History size={12} />
-                                </button>
-                                <button 
-                                    onClick={(e) => handleDeleteAsset(e, asset)}
-                                    className="p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md backdrop-blur-sm transition-colors"
-                                    title={t('pv.delete_asset')}
-                                >
-                                    {isDeletingAsset === asset.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                                </button>
-                            </>
+                        {isDrive && (
+                            <div className="absolute top-2 left-2 z-10 bg-black/60 text-green-400 p-1 rounded backdrop-blur-sm" title="Stored on Google Drive">
+                                <HardDrive size={10} />
+                            </div>
                         )}
-                    </div>
 
-                    <div className="absolute bottom-2 left-2 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-white font-mono backdrop-blur-sm">
-                        v{asset.versions.length}
-                    </div>
-                    </div>
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
+                            {!isLocked && (
+                                <button 
+                                    onClick={(e) => handleShareAsset(e, asset)}
+                                    className="p-1.5 bg-black/60 hover:bg-indigo-600 text-white rounded-md backdrop-blur-sm transition-colors"
+                                    title={t('pv.copy_link')}
+                                >
+                                    <LinkIcon size={12} />
+                                </button>
+                            )}
+                            
+                            {canEditProject && !isLocked && (
+                                <>
+                                    <button 
+                                        onClick={(e) => handleAddVersionClick(e, asset.id)}
+                                        className="p-1.5 bg-black/60 hover:bg-blue-500 text-white rounded-md backdrop-blur-sm transition-colors"
+                                        title={t('pv.upload_new_ver')}
+                                    >
+                                        <History size={12} />
+                                    </button>
+                                    <button 
+                                        onClick={(e) => handleDeleteAsset(e, asset)}
+                                        className="p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md backdrop-blur-sm transition-colors"
+                                        title={t('pv.delete_asset')}
+                                    >
+                                        {isDeletingAsset === asset.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                    </button>
+                                </>
+                            )}
+                        </div>
 
-                    <div className="p-3">
-                    <h3 className="font-medium text-zinc-200 text-xs md:text-sm truncate mb-1">{asset.title}</h3>
-                    <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                        <span className="flex items-center gap-1">
-                        <Clock size={10} />
-                        {asset.versions[asset.versions.length-1]?.comments.length}
-                        </span>
-                        <span>{asset.versions[asset.versions.length-1]?.uploadedAt}</span>
+                        <div className="absolute bottom-2 left-2 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-white font-mono backdrop-blur-sm">
+                            v{asset.versions.length}
+                        </div>
+                        </div>
+
+                        <div className="p-3">
+                        <h3 className="font-medium text-zinc-200 text-xs md:text-sm truncate mb-1">{asset.title}</h3>
+                        <div className="flex justify-between items-center text-[10px] text-zinc-500">
+                            <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {asset.versions[asset.versions.length-1]?.comments.length}
+                            </span>
+                            <span>{asset.versions[asset.versions.length-1]?.uploadedAt}</span>
+                        </div>
+                        </div>
                     </div>
-                    </div>
-                </div>
-                ))}
+                )})}
             </div>
           </div>
       </div>

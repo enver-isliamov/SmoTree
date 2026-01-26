@@ -29,6 +29,8 @@ export interface Comment {
   replies?: Comment[];
 }
 
+export type StorageType = 'vercel' | 'drive' | 'local';
+
 export interface VideoVersion {
   id: string;
   versionNumber: number;
@@ -37,6 +39,11 @@ export interface VideoVersion {
   filename: string;
   comments: Comment[];
   isLocked?: boolean; // Prevents new comments
+  
+  // Storage Info
+  storageType?: StorageType; 
+  googleDriveId?: string; // If storageType is 'drive'
+
   // Temporary fields for local session playback
   localFileUrl?: string; 
   localFileName?: string;

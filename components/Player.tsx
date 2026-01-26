@@ -7,6 +7,7 @@ import { generateId, stringToColor } from '../services/utils';
 import { ToastType } from './Toast';
 import { useLanguage } from '../services/i18n';
 import { extractAudioFromUrl } from '../services/audioUtils';
+import { GoogleDriveService } from '../services/googleDrive';
 
 interface PlayerProps {
   asset: ProjectAsset;
@@ -64,6 +65,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const [videoFps, setVideoFps] = useState(30); 
   const [isFpsDetected, setIsFpsDetected] = useState(false);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
+  const [driveUrl, setDriveUrl] = useState<string | null>(null);
   
   // Scrubbing State
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -169,7 +171,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setTranscribeProgress({ status: 'init', progress: 0 });
 
       try {
-          const videoUrl = localFileSrc || version.url;
+          const videoUrl = localFileSrc || driveUrl || version.url;
           if (!videoUrl) throw new Error("No video source found");
 
           // 1. Extract Audio
@@ -298,8 +300,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isLocked, isPlaying, currentTime, markerInPoint, markerOutPoint, isFullscreen, videoFps, duration]);
 
-  // ... (Keep existing syncCommentAction, useEffects, and other helpers unchanged)
-  // Re-inserting required helpers to ensure file is complete
   const syncCommentAction = async (action: 'create' | 'update' | 'delete', payload: any) => {
     if (isDemo) return; 
     try {
@@ -323,9 +323,26 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setEditingCommentId(null); setMarkerInPoint(null); setMarkerOutPoint(null);
     setVideoError(false); setShowVoiceModal(false); setIsFpsDetected(false); setIsVerticalVideo(false);
     setTranscript(null); // Reset transcript on version change
+    setDriveUrl(null);
     
-    if (version.localFileUrl) { setLocalFileSrc(version.localFileUrl); setLocalFileName(version.localFileName || 'Local File'); } 
-    else { setLocalFileSrc(null); setLocalFileName(null); setVideoError(false); }
+    // Resolve Video Source
+    if (version.storageType === 'drive' && version.googleDriveId) {
+        // Fetch stream URL from service
+        const streamUrl = GoogleDriveService.getVideoStreamUrl(version.googleDriveId);
+        if (streamUrl) setDriveUrl(streamUrl);
+        else {
+            notify("Connect Google Drive in Profile to view this file.", "error");
+            setVideoError(true);
+        }
+    } else if (version.localFileUrl) { 
+        setLocalFileSrc(version.localFileUrl); 
+        setLocalFileName(version.localFileName || 'Local File'); 
+    } else { 
+        setLocalFileSrc(null); 
+        setLocalFileName(null); 
+        setVideoError(false); 
+    }
+
     if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.load(); }
   }, [version.id]);
 
@@ -502,8 +519,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           <div className="flex items-center gap-2 md:gap-3 overflow-hidden flex-1">
             <button onClick={onBack} className="flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors border border-zinc-200 dark:border-zinc-700 shrink-0" title={t('back')}><CornerUpLeft size={16} /></button>
             {(!isSearchOpen || window.innerWidth > 768) && (
-              <div className="flex flex-col truncate flex-1">
-                <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-zinc-900 dark:text-zinc-100 leading-tight truncate">
+              <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-zinc-900 dark:text-zinc-100 leading-tight truncate flex-1">
                    <span className="font-bold text-xs md:text-sm truncate" title={localFileName || asset.title}>{localFileName || asset.title}</span>
                    <div className="flex items-center gap-2">
                        <div className="relative flex items-center gap-1">
@@ -523,9 +539,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                             )}
                        </div>
                        {isSyncing ? <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 animate-pulse text-[10px]" title={t('player.syncing')}><Cloud size={12} /></div> : <div className="flex items-center gap-1 text-green-500 dark:text-green-500/80 text-[10px]" title={t('player.saved')}><CheckCircle size={12} /></div>}
-                       <button onClick={(e) => { e.stopPropagation(); localFileRef.current?.click(); }} className={`flex items-center gap-1 px-2 py-1.5 rounded-full border transition-colors text-[10px] font-medium cursor-pointer relative z-50 ${localFileName ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title={t('player.link_local')}><HardDrive size={12} /><span className="hidden md:inline">{localFileName ? 'Local Source' : 'Cloud'}</span></button>
+                       <button onClick={(e) => { e.stopPropagation(); localFileRef.current?.click(); }} className={`flex items-center gap-1 px-2 py-1.5 rounded-full border transition-colors text-[10px] font-medium cursor-pointer relative z-50 ${localFileName ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'}`} title={t('player.link_local')}><HardDrive size={12} /><span className="hidden md:inline">{localFileName ? 'Local Source' : 'Link Source'}</span></button>
                    </div>
-                </div>
               </div>
             )}
           </div>
@@ -585,7 +600,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              <div className={`relative w-full h-full flex items-center justify-center bg-black ${viewMode === 'side-by-side' ? 'grid grid-cols-2 gap-1' : ''}`}>
                 <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
                     {viewMode === 'side-by-side' && <div className="absolute top-4 left-4 z-10 bg-black/60 text-white px-2 py-1 rounded text-xs font-bold pointer-events-none">v{version.versionNumber}</div>}
-                    <video ref={videoRef} src={localFileSrc || version.url} className="w-full h-full object-contain pointer-events-none" onTimeUpdate={handleTimeUpdate} onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setVideoError(false); setIsFpsDetected(false); setIsVerticalVideo(e.currentTarget.videoHeight > e.currentTarget.videoWidth); }} onError={handleVideoError} onEnded={() => setIsPlaying(false)} playsInline controls={false} />
+                    
+                    {/* VIDEO ELEMENT */}
+                    <video ref={videoRef} src={localFileSrc || driveUrl || version.url} className="w-full h-full object-contain pointer-events-none" onTimeUpdate={handleTimeUpdate} onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setVideoError(false); setIsFpsDetected(false); setIsVerticalVideo(e.currentTarget.videoHeight > e.currentTarget.videoWidth); }} onError={handleVideoError} onEnded={() => setIsPlaying(false)} playsInline controls={false} />
+                
                 </div>
                 {viewMode === 'side-by-side' && compareVersion && (<div className="relative w-full h-full flex items-center justify-center overflow-hidden border-l border-zinc-800"><div className="absolute top-4 right-4 z-10 bg-black/60 text-indigo-400 px-2 py-1 rounded text-xs font-bold pointer-events-none">v{compareVersion.versionNumber}</div><video ref={compareVideoRef} src={compareVersion.url} className="w-full h-full object-contain pointer-events-none" muted playsInline controls={false} /></div>)}
                 <div className="absolute inset-0 z-30 touch-none" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}></div>

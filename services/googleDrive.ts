@@ -1,0 +1,148 @@
+
+// Service to handle Google Drive API interactions
+
+// Scope for creating and managing files created by this app
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const APP_FOLDER_NAME = 'SmoTree.App';
+
+let tokenClient: any;
+let accessToken: string | null = null;
+let tokenExpiration: number = 0;
+
+export const GoogleDriveService = {
+  
+  /**
+   * Initializes the Token Client. Must be called after Google Script loads.
+   */
+  init: (clientId: string) => {
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+      tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: SCOPES,
+        callback: (tokenResponse: any) => {
+          if (tokenResponse && tokenResponse.access_token) {
+             accessToken = tokenResponse.access_token;
+             // Token usually lasts 3599 seconds
+             tokenExpiration = Date.now() + (Number(tokenResponse.expires_in) * 1000);
+             // Dispatch event so UI can update
+             window.dispatchEvent(new Event('drive-token-updated'));
+          }
+        },
+      });
+    } else {
+      console.warn("Google Identity Services script not loaded.");
+    }
+  },
+
+  /**
+   * Triggers the OAuth popup to request access.
+   */
+  authorize: () => {
+    if (!tokenClient) {
+      console.error("Token Client not initialized. Check Client ID.");
+      return;
+    }
+    // Request access token. 
+    // We use requestAccessToken() which triggers the popup if no valid token exists in session.
+    tokenClient.requestAccessToken();
+  },
+
+  isAuthenticated: (): boolean => {
+    return !!accessToken && Date.now() < tokenExpiration;
+  },
+
+  getAccessToken: (): string | null => {
+    if (GoogleDriveService.isAuthenticated()) {
+        return accessToken;
+    }
+    return null;
+  },
+
+  /**
+   * Finds the SmoTree.App folder or creates it if it doesn't exist.
+   */
+  ensureAppFolder: async (): Promise<string> => {
+    if (!accessToken) throw new Error("No access token");
+
+    // 1. Search for folder
+    const searchUrl = `https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and name='${APP_FOLDER_NAME}' and trashed=false&fields=files(id)`;
+    
+    const res = await fetch(searchUrl, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const data = await res.json();
+
+    if (data.files && data.files.length > 0) {
+        return data.files[0].id;
+    }
+
+    // 2. Create folder if not found
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: APP_FOLDER_NAME,
+            mimeType: 'application/vnd.google-apps.folder'
+        })
+    });
+    const createData = await createRes.json();
+    return createData.id;
+  },
+
+  /**
+   * Uploads a file to the App Folder.
+   * Uses multipart upload for metadata + content.
+   */
+  uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void): Promise<{ id: string, name: string }> => {
+     if (!accessToken) throw new Error("No access token");
+
+     const metadata = {
+         name: file.name,
+         parents: [folderId]
+     };
+
+     const form = new FormData();
+     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+     form.append('file', file);
+
+     return new Promise((resolve, reject) => {
+         const xhr = new XMLHttpRequest();
+         xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name');
+         xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+         
+         if (onProgress) {
+             xhr.upload.onprogress = (e) => {
+                 if (e.lengthComputable) {
+                     const percent = Math.round((e.loaded / e.total) * 100);
+                     onProgress(percent);
+                 }
+             };
+         }
+
+         xhr.onload = () => {
+             if (xhr.status === 200) {
+                 const response = JSON.parse(xhr.responseText);
+                 resolve(response);
+             } else {
+                 reject(new Error(`Upload failed: ${xhr.responseText}`));
+             }
+         };
+
+         xhr.onerror = () => reject(new Error("Network error during upload"));
+         xhr.send(form);
+     });
+  },
+
+  /**
+   * Returns a streaming URL for the file.
+   * NOTE: We append access_token to the URL because HTML Video tags cannot send headers.
+   * This is secure enough for this session-based context.
+   */
+  getVideoStreamUrl: (fileId: string): string => {
+      if (!accessToken) return '';
+      return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
+  }
+};
