@@ -1,3 +1,4 @@
+
 {
   "name": "smotree",
   "version": "1.0.0",
@@ -9,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.0.0",
     "@vercel/blob": "^0.22.1",
     "@vercel/postgres": "^0.8.0",
     "react": "^19.0.0",
