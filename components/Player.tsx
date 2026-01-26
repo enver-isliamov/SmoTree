@@ -781,8 +781,23 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   return (
     <div className="flex flex-col h-[100dvh] bg-white dark:bg-zinc-950 overflow-hidden select-none fixed inset-0 transition-colors">
+      
+      {/* 
+          IMPORTANT: Input must be rendered at the top level and NOT with `className="hidden"` 
+          which can sometimes prevent click events from working on mobile browsers.
+          We use style display:none instead.
+      */}
+      <input 
+          type="file" 
+          accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime"
+          style={{ display: 'none' }}
+          ref={localFileRef}
+          onChange={handleLocalFileSelect}
+          onClick={(e) => (e.currentTarget.value = '')} // Reset value so same file can be selected again
+      />
+
       {!isFullscreen && (
-        <header className="h-auto md:h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900 flex flex-row items-center justify-between px-2 md:px-4 shrink-0 z-20 backdrop-blur-md py-2 md:py-0 gap-2">
+        <header className="h-auto md:h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900 flex flex-row items-center justify-between px-2 md:px-4 shrink-0 z-50 relative backdrop-blur-md py-2 md:py-0 gap-2">
           {/* LEFT SIDE: BREADCRUMBS & META */}
           <div className="flex items-center gap-2 md:gap-3 overflow-hidden flex-1">
             <button 
@@ -858,15 +873,18 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
                        {/* Source Button (Local/Cloud) - Fixed for Mobile */}
                        <button 
-                            onClick={() => localFileRef.current?.click()}
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors text-[10px] font-medium
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                localFileRef.current?.click();
+                            }}
+                            className={`flex items-center gap-1 px-2 py-1.5 rounded-full border transition-colors text-[10px] font-medium cursor-pointer relative z-50
                                 ${localFileName 
                                     ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' 
                                     : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
                                 }`}
                             title={t('player.link_local')}
                         >
-                            <HardDrive size={10} />
+                            <HardDrive size={12} />
                             <span className="hidden md:inline">{localFileName ? 'Local Source' : 'Cloud'}</span>
                         </button>
                    </div>
@@ -1051,9 +1069,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                </div>
              )}
 
-             {/* Video Error UI */}
+             {/* Video Error UI - INCREASED Z-INDEX TO 50 TO FIX BUTTON CLICK */}
              {videoError && (
-                 <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 p-6 text-center animate-in fade-in duration-300">
+                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-6 text-center animate-in fade-in duration-300">
                      <div className="bg-zinc-800 p-4 rounded-full mb-4 ring-1 ring-zinc-700">
                         <FileVideo size={32} className="text-zinc-400" />
                     </div>
@@ -1062,8 +1080,11 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                         {t('player.offline_desc')}
                     </p>
                     <button 
-                        onClick={() => localFileRef.current?.click()}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm shadow-lg shadow-indigo-900/20"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            localFileRef.current?.click();
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm shadow-lg shadow-indigo-900/20 cursor-pointer"
                     >
                         <Upload size={16} /> {t('player.link_local')}
                     </button>
@@ -1378,14 +1399,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
       </div>
       
-      <input 
-          type="file" 
-          accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime"
-          className="hidden" 
-          ref={localFileRef}
-          onChange={handleLocalFileSelect}
-      />
-
       <div 
         className="fixed z-[9999] floating-controls touch-none"
         style={{ 

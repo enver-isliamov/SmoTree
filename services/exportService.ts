@@ -1,29 +1,61 @@
+
 import { Comment } from '../types';
 
 /**
- * Generates a basic EDL (Edit Decision List) format string for markers.
- * Note: Real EDLs are complex fixed-width formats. This is a simplified CMX 3600 style
- * focusing on marker data for import compatibility.
+ * Generates an EDL optimized for DaVinci Resolve Markers.
+ * Format:
+ * TITLE: ...
+ * FCM: NON-DROP FRAME
+ * 
+ * 001  001      V     C        00:00:00:00 00:00:00:01 00:00:00:00 00:00:00:01
+ * Comment Text |C:Color |M:Name |D:Duration
  */
 export const generateEDL = (projectName: string, version: number, comments: Comment[]): string => {
-  let edl = `TITLE: ${projectName}_v${version}\nFCM: NON-DROP FRAME\n\n`;
+  let edl = `TITLE: ${projectName}_v${version} Markers\nFCM: NON-DROP FRAME\n\n`;
 
   comments.forEach((comment, index) => {
-    // Convert seconds to HH:MM:SS:FF (assuming 24fps for this demo)
+    // Standardize FPS to 24 for export calculation
     const fps = 24;
-    const totalFrames = Math.floor(comment.timestamp * fps);
     
-    const hh = Math.floor(totalFrames / (3600 * fps)).toString().padStart(2, '0');
-    const mm = Math.floor((totalFrames % (3600 * fps)) / (60 * fps)).toString().padStart(2, '0');
-    const ss = Math.floor((totalFrames % (60 * fps)) / fps).toString().padStart(2, '0');
-    const ff = (totalFrames % fps).toString().padStart(2, '0');
+    // Calculate IN point
+    const inFramesTotal = Math.floor(comment.timestamp * fps);
     
-    const timecode = `${hh}:${mm}:${ss}:${ff}`;
+    // Calculate OUT point
+    // If range comment (duration > 0), use that. Else default to 1 frame for point marker.
+    const durationFrames = comment.duration ? Math.floor(comment.duration * fps) : 1;
+    const outFramesTotal = inFramesTotal + durationFrames;
     
-    // EDL Comment/Marker format simulation
+    // Format Timecodes (HH:MM:SS:FF)
+    const formatTC = (frames: number) => {
+        const hh = Math.floor(frames / (3600 * fps)).toString().padStart(2, '0');
+        const remaining1 = frames % (3600 * fps);
+        const mm = Math.floor(remaining1 / (60 * fps)).toString().padStart(2, '0');
+        const remaining2 = remaining1 % (60 * fps);
+        const ss = Math.floor(remaining2 / fps).toString().padStart(2, '0');
+        const ff = (remaining2 % fps).toString().padStart(2, '0');
+        return `${hh}:${mm}:${ss}:${ff}`;
+    };
+
+    const tcIn = formatTC(inFramesTotal);
+    const tcOut = formatTC(outFramesTotal);
+    
+    // Resolve Color Mapping
+    // 'resolved' -> Blue (Completed), 'open' -> Red (Needs Attention)
+    const color = comment.status === 'resolved' ? 'ResolveColorBlue' : 'ResolveColorRed';
+    
+    // Marker Name (Author or User ID)
+    const markerName = comment.authorName || comment.userId;
+    
+    // Clean text to remove newlines for EDL safety
+    const cleanText = comment.text.replace(/\n/g, ' ');
+
+    // Construct EDL Block
+    // Index line: NNN  001      V     C        In Out In Out
     const indexStr = (index + 1).toString().padStart(3, '0');
-    edl += `${indexStr}  AX       V     C        ${timecode} ${timecode} ${timecode} ${timecode}\n`;
-    edl += `* LOC: ${timecode} ${comment.status === 'resolved' ? 'Green' : 'Red'} ${comment.text} | User: ${comment.userId}\n\n`;
+    edl += `${indexStr}  001      V     C        ${tcIn} ${tcOut} ${tcIn} ${tcOut}\n`;
+    
+    // Data line: Text |C:Color |M:Name |D:Duration
+    edl += `${cleanText} |C:${color} |M:${markerName} |D:${durationFrames}\n\n`;
   });
 
   return edl;
