@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { User, UserRole } from '../types';
-import { LogOut, ShieldCheck, Mail, Crown, AlertCircle, HardDrive, CheckCircle, XCircle } from 'lucide-react';
+import { LogOut, ShieldCheck, Mail, Crown, AlertCircle, HardDrive, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage } from '../services/i18n';
 import { GoogleDriveService } from '../services/googleDrive';
@@ -25,13 +25,18 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
   const { t } = useLanguage();
   const { user } = useUser();
   
-  // Drive Scope Check
-  // Fix: provider should be 'google', not 'oauth_google' (which is the strategy name)
-  const googleAccount = user?.externalAccounts.find(a => a.provider === 'google');
-  // Check for the specific scope required for file uploads
-  const hasDriveScope = googleAccount?.approvedScopes?.includes('https://www.googleapis.com/auth/drive.file');
+  // 1. Find the Google Account among external accounts
+  // Clerk usually uses 'google' as provider, but we check strategy too to be safe.
+  const googleAccount = user?.externalAccounts.find(
+      a => a.provider === 'google' || a.verification?.strategy === 'oauth_google'
+  );
+
+  // 2. Check for the specific scope required for file uploads
+  // approvedScopes is a space-separated string
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  const hasDriveScope = googleAccount?.approvedScopes?.split(' ').includes(DRIVE_SCOPE);
   
-  const [isDriveConnected, setIsDriveConnected] = useState(!!hasDriveScope);
+  const [isDriveConnected, setIsDriveConnected] = useState(false);
 
   useEffect(() => {
       setIsDriveConnected(!!hasDriveScope);
@@ -74,8 +79,6 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
 
   const handleConnectDrive = async () => {
       if (!user) return;
-
-      const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
       
       try {
           if (googleAccount) {
@@ -94,14 +97,14 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
           }
       } catch (e) {
           console.error("Failed to authorize Drive scope", e);
+          alert("Failed to connect Google Drive. Please try again.");
       }
   };
 
   const handleDisconnectDrive = () => {
-      // Since we can't easily revoke scopes via client-side Clerk without removing the account,
-      // we just show a message or logic. For now, removing the account is too destructive if it's the primary login.
-      // We will just disable the UI state locally or warn the user.
-      alert("To disconnect fully, please manage your account connections in the security settings or revoke access in your Google Account permissions.");
+      // Clerk doesn't support selective scope revocation client-side easily.
+      // We instruct the user.
+      alert("To fully disconnect, please revoke access in your Google Account security settings, or sign out and sign in again without checking the Drive box.");
   };
 
   return (
@@ -169,11 +172,11 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
                                     <CheckCircle size={12} /> Connected
                                 </div>
                                 <button 
-                                    onClick={handleDisconnectDrive}
-                                    className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded transition-colors"
-                                    title="Disconnect Drive"
+                                    onClick={handleConnectDrive}
+                                    className="p-1.5 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded transition-colors"
+                                    title="Refresh Permissions / Re-connect"
                                 >
-                                    <XCircle size={18} />
+                                    <RefreshCw size={16} />
                                 </button>
                             </div>
                         ) : (
