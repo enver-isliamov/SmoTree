@@ -66,6 +66,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const [isFpsDetected, setIsFpsDetected] = useState(false);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [driveUrl, setDriveUrl] = useState<string | null>(null);
+  const [driveUrlRetried, setDriveUrlRetried] = useState(false); // New: To prevent infinite retry loops
   
   // Scrubbing State
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -316,6 +317,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setVideoError(false); setShowVoiceModal(false); setIsFpsDetected(false); setIsVerticalVideo(false);
     setTranscript(null); // Reset transcript on version change
     setDriveUrl(null);
+    setDriveUrlRetried(false); // Reset retry flag on version change
     
     // Resolve Video Source
     if (version.storageType === 'drive' && version.googleDriveId) {
@@ -385,17 +387,23 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleVideoError = () => {
       if (!localFileSrc) {
           // Attempt Drive Fallback if using API link and it failed (CORS/403)
-          if (driveUrl && driveUrl.includes('googleapis.com') && version.googleDriveId) {
+          if (driveUrl && driveUrl.includes('googleapis.com') && version.googleDriveId && !driveUrlRetried) {
               // Switch to UC link as a Hail Mary for simple playback
-              console.warn("API link failed, trying fallback UC link...");
+              console.warn("API link failed (likely 403/CORS). Switching to UC fallback link...");
+              setDriveUrlRetried(true);
               setDriveUrl(`https://drive.google.com/uc?export=download&id=${version.googleDriveId}`);
+              
+              // Try to reload video with new URL
+              if (videoRef.current) {
+                  videoRef.current.load();
+              }
           } else {
               setVideoError(true);
           }
       }
   };
   
-  // -- RE-IMPLEMENTED PRECISE SCRUBBING LOGIC --
+  // -- RE-IMPLEMENTED PRECISE SCRUBBING LOGIC (Frame Accurate) --
   const handlePointerDown = (e: React.PointerEvent) => {
     isDragRef.current = false;
     scrubStartDataRef.current = {
@@ -419,9 +427,16 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
       if (isDragRef.current && scrubStartDataRef.current && videoRef.current) {
           const deltaX = e.clientX - scrubStartDataRef.current.x;
-          // Precision: 10 pixels = 1 second (approx). Adjust multiplier for sensitivity.
-          // 0.1 means 100px drag moves video by 10 seconds.
-          const deltaT = deltaX * 0.1; 
+          
+          // FRAME ACCURATE SCRUBBING
+          // 5 pixels of movement = 1 frame
+          // This gives a nice "weighted" feel for precision
+          const pixelsPerFrame = 5; 
+          const framesMoved = deltaX / pixelsPerFrame;
+          
+          const frameDuration = 1 / videoFps; // e.g. 0.0416 for 24fps
+          const deltaT = framesMoved * frameDuration;
+          
           const newTime = Math.max(0, Math.min(duration, scrubStartDataRef.current.time + deltaT));
           
           videoRef.current.currentTime = newTime;
@@ -490,6 +505,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setTimeout(() => { document.getElementById(`comment-${cId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
     
     // FIX: Blur input to allow spacebar to control playback again
+    // And shift focus back to the main player container
     sidebarInputRef.current?.blur();
     playerContainerRef.current?.focus();
   };
