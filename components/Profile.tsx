@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, UserRole } from '../types';
 import { LogOut, ShieldCheck, Mail, Crown, AlertCircle, HardDrive, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
@@ -39,6 +38,7 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
   const [isDriveConnected, setIsDriveConnected] = useState(false);
 
   useEffect(() => {
+      // Sync local state with Clerk data
       setIsDriveConnected(!!hasDriveScope);
   }, [hasDriveScope]);
 
@@ -82,7 +82,7 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
       
       try {
           if (googleAccount) {
-              // Re-authorize to add the missing scope
+              // Re-authorize to add the missing scope OR refresh the token
               await googleAccount.reauthorize({
                   additionalScopes: [DRIVE_SCOPE],
                   redirectUrl: window.location.href
@@ -102,8 +102,6 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
   };
 
   const handleDisconnectDrive = () => {
-      // Clerk doesn't support selective scope revocation client-side easily.
-      // We instruct the user.
       alert("To fully disconnect, please revoke access in your Google Account security settings, or sign out and sign in again without checking the Drive box.");
   };
 
@@ -152,8 +150,8 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                     <HardDrive size={18} className="text-indigo-400" /> Connected Storage
                 </h3>
-                <div className="bg-black/40 rounded-xl p-4 flex items-center justify-between border border-zinc-800">
-                    <div className="flex items-center gap-4">
+                <div className="bg-black/40 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between border border-zinc-800 gap-4">
+                    <div className="flex items-center gap-4 w-full md:w-auto">
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0">
                             {/* Google Drive Logo SVG */}
                             <svg className="w-6 h-6" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75 23.8 13.751 23.8 9.55-16.55 3.85-6.65c.8-1.4 1.2-2.95 1.2-4.5h-55.852z" fill="#ffba00"/></svg>
@@ -161,30 +159,32 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
                         <div>
                             <div className="text-sm font-bold text-zinc-200">Google Drive</div>
                             <div className="text-xs text-zinc-500">
-                                {isDriveConnected ? 'Connected to "SmoTree.App" folder' : 'Connect to use your own cloud storage'}
+                                {isDriveConnected 
+                                    ? 'Connected to "SmoTree.App" folder' 
+                                    : 'Connect to use your own cloud storage'}
                             </div>
                         </div>
                     </div>
-                    <div>
+                    
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                         {isDriveConnected ? (
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1.5 text-green-500 text-xs font-bold bg-green-900/20 px-3 py-1.5 rounded-full border border-green-500/20">
-                                    <CheckCircle size={12} /> Connected
+                            <>
+                                <div className="flex items-center gap-1.5 text-green-500 text-xs font-bold bg-green-900/20 px-3 py-1.5 rounded-full border border-green-500/20 whitespace-nowrap">
+                                    <CheckCircle size={12} /> Linked
                                 </div>
                                 <button 
                                     onClick={handleConnectDrive}
-                                    className="p-1.5 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded transition-colors"
-                                    title="Refresh Permissions / Re-connect"
+                                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold transition-colors border border-zinc-700 flex items-center gap-2 whitespace-nowrap"
                                 >
-                                    <RefreshCw size={16} />
+                                    <RefreshCw size={14} /> Reconnect
                                 </button>
-                            </div>
+                            </>
                         ) : (
                             <button 
                                 onClick={handleConnectDrive}
-                                className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-zinc-200 transition-colors"
+                                className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-zinc-200 transition-colors w-full md:w-auto justify-center"
                             >
-                                <HardDrive size={14} /> Connect
+                                <HardDrive size={14} /> Connect Drive
                             </button>
                         )}
                     </div>
