@@ -312,6 +312,9 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   useEffect(() => { setComments(version.comments || []); }, [version.comments]);
 
   useEffect(() => {
+    // NOTIFY USER ON VERSION LOAD
+    notify(`Loaded Version ${version.versionNumber}`, "success");
+
     setIsPlaying(false); setCurrentTime(0); setSelectedCommentId(null);
     setEditingCommentId(null); setMarkerInPoint(null); setMarkerOutPoint(null);
     setVideoError(false); setShowVoiceModal(false); setIsFpsDetected(false); setIsVerticalVideo(false);
@@ -428,10 +431,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       if (isDragRef.current && scrubStartDataRef.current && videoRef.current) {
           const deltaX = e.clientX - scrubStartDataRef.current.x;
           
-          // FRAME ACCURATE SCRUBBING
-          // 5 pixels of movement = 1 frame
-          // This gives a nice "weighted" feel for precision
-          const pixelsPerFrame = 5; 
+          // FRAME ACCURATE SCRUBBING - SMOOTH & VISCOUS
+          // 25 pixels of movement = 1 frame
+          // This gives very high precision. To move 1 second (at 25fps) you need 625 pixels.
+          const pixelsPerFrame = 25; 
           const framesMoved = deltaX / pixelsPerFrame;
           
           const frameDuration = 1 / videoFps; // e.g. 0.0416 for 24fps
@@ -744,6 +747,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                 <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
                     {viewMode === 'side-by-side' && <div className="absolute top-4 left-4 z-10 bg-black/60 text-white px-2 py-1 rounded text-xs font-bold pointer-events-none">v{version.versionNumber}</div>}
                     <video 
+                        key={version.id} // Forces re-render when version changes
                         ref={videoRef} 
                         src={localFileSrc || driveUrl || version.url} 
                         className="w-full h-full object-contain pointer-events-none" 
