@@ -93,25 +93,47 @@ export const GoogleDriveService = {
   },
 
   /**
-   * Uploads a file to the App Folder.
-   * Uses multipart upload for metadata + content.
+   * Uploads a file using the Resumable Upload protocol.
+   * This supports large files (>5MB) unlike the multipart method.
    */
   uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void): Promise<{ id: string, name: string }> => {
      if (!accessToken) throw new Error("No access token");
 
+     // Step 1: Initiate Resumable Upload Session
      const metadata = {
          name: file.name,
          parents: [folderId]
      };
 
-     const form = new FormData();
-     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-     form.append('file', file);
+     const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+         method: 'POST',
+         headers: {
+             'Authorization': `Bearer ${accessToken}`,
+             'Content-Type': 'application/json',
+             // Hints about the actual file content
+             'X-Upload-Content-Type': file.type || 'application/octet-stream',
+             'X-Upload-Content-Length': file.size.toString()
+         },
+         body: JSON.stringify(metadata)
+     });
 
+     if (!initResponse.ok) {
+         const errText = await initResponse.text();
+         throw new Error(`Drive Init Failed (${initResponse.status}): ${errText}`);
+     }
+
+     const sessionUri = initResponse.headers.get('Location');
+     if (!sessionUri) {
+         throw new Error("Drive API did not return a session URI. Upload cannot proceed.");
+     }
+
+     // Step 2: Upload Content to the Session URI
+     // We use XMLHttpRequest here to easily track upload progress
      return new Promise((resolve, reject) => {
          const xhr = new XMLHttpRequest();
-         xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name');
-         xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+         xhr.open('PUT', sessionUri);
+         
+         // No Authorization header needed here, the permission is embedded in the sessionUri
          
          if (onProgress) {
              xhr.upload.onprogress = (e) => {
@@ -123,16 +145,22 @@ export const GoogleDriveService = {
          }
 
          xhr.onload = () => {
-             if (xhr.status === 200) {
-                 const response = JSON.parse(xhr.responseText);
-                 resolve(response);
+             // 200 OK or 201 Created indicates success
+             if (xhr.status === 200 || xhr.status === 201) {
+                 try {
+                     const response = JSON.parse(xhr.responseText);
+                     resolve(response);
+                 } catch (e) {
+                     reject(new Error(`Invalid JSON response: ${xhr.responseText}`));
+                 }
              } else {
-                 reject(new Error(`Upload failed: ${xhr.responseText}`));
+                 reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
              }
          };
 
          xhr.onerror = () => reject(new Error("Network error during upload"));
-         xhr.send(form);
+         
+         xhr.send(file);
      });
   },
 
