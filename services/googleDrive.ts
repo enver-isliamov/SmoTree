@@ -186,16 +186,23 @@ export const GoogleDriveService = {
   /**
    * Returns a streaming URL for the file.
    * If authenticated, uses the API link with token.
-   * If guest (no token), uses the public web content link.
+   * If guest (no token), uses API Key fallback.
    */
   getVideoStreamUrl: (fileId: string): string => {
-      // If we have a token (Owner/Editor), use the direct API call which is more stable for streaming
+      // 1. If we have a token (Owner/Editor), use it. This is the most direct way.
       if (accessToken) {
         return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
       }
       
-      // Fallback for Guests: Use the standard public download link.
-      // Requires the file to have 'anyone' permission (which we set in uploadFile).
+      // 2. Fallback for Guests: Use API Key.
+      // This allows accessing the direct media stream for public files without triggering the virus scan HTML page.
+      // REQUIRES: VITE_GOOGLE_API_KEY in .env
+      const apiKey = (import.meta as any).env.VITE_GOOGLE_API_KEY;
+      if (apiKey) {
+         return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
+      }
+
+      // 3. Last resort fallback (Unreliable for large files due to virus scan interstitial)
       return `https://drive.google.com/uc?export=download&id=${fileId}`;
   }
 };
