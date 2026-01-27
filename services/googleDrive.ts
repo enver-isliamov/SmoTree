@@ -1,119 +1,57 @@
-
 // Service to handle Google Drive API interactions
+// Now powered by Clerk for Authentication
 
-// Scope for creating and managing files created by this app
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const APP_FOLDER_NAME = 'SmoTree.App';
-const CONNECTED_KEY = 'smotree_drive_connected_flag';
 
-let tokenClient: any;
-let accessToken: string | null = null;
-let tokenExpiration: number = 0;
+// We no longer store tokens here. We request them on demand from Clerk.
+let tokenGetter: (() => Promise<string | null>) | null = null;
 
 export const GoogleDriveService = {
   
   /**
-   * Initializes the Token Client. Must be called after Google Script loads.
+   * Initialize with a function that returns a valid Google Access Token.
+   * This allows us to use Clerk (or any auth provider) to manage the session.
    */
-  init: (clientId: string) => {
-    if (window.google && window.google.accounts && window.google.accounts.oauth2) {
-      tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: SCOPES,
-        callback: (tokenResponse: any) => {
-          if (tokenResponse && tokenResponse.access_token) {
-             console.log("✅ Google Drive Token Received");
-             accessToken = tokenResponse.access_token;
-             // Token usually lasts 3599 seconds
-             tokenExpiration = Date.now() + (Number(tokenResponse.expires_in) * 1000);
-             
-             // Persist the intent to stay connected
-             localStorage.setItem(CONNECTED_KEY, 'true');
-             
-             // Dispatch event so UI can update
-             window.dispatchEvent(new Event('drive-token-updated'));
-          }
-        },
-      });
-
-      // Auto-connect if user was previously connected
-      if (localStorage.getItem(CONNECTED_KEY) === 'true') {
-          console.log("🔄 Restoring Drive Session...");
-          try {
-              // Attempt to get token silently without user interaction
-              tokenClient.requestAccessToken({ prompt: 'none' });
-          } catch (e) {
-              console.warn("Silent token refresh failed", e);
-          }
-      }
-
-    } else {
-      console.warn("Google Identity Services script not loaded.");
-    }
+  setTokenProvider: (getTokenFn: () => Promise<string | null>) => {
+      tokenGetter = getTokenFn;
   },
 
   /**
-   * Attempts to silently restore the session if user was previously connected.
+   * Gets a fresh token using the provider.
    */
-  restoreSession: () => {
-      // Logic moved to init() to ensure it runs as soon as client is ready.
-      // This method is kept for manual triggers if needed.
-      const shouldBeConnected = localStorage.getItem(CONNECTED_KEY) === 'true';
-      if (shouldBeConnected && tokenClient) {
-          tokenClient.requestAccessToken({ prompt: 'none' });
+  getToken: async (): Promise<string | null> => {
+      if (!tokenGetter) return null;
+      try {
+          return await tokenGetter();
+      } catch (e) {
+          console.error("Failed to get token from provider", e);
+          return null;
       }
   },
 
   /**
-   * Triggers the OAuth popup to request access.
-   */
-  authorize: () => {
-    if (!tokenClient) {
-      console.error("Token Client not initialized. Check Client ID.");
-      return;
-    }
-    // Request access token. 
-    tokenClient.requestAccessToken();
-  },
-
-  /**
-   * Disconnects the session.
-   */
-  disconnect: () => {
-      accessToken = null;
-      tokenExpiration = 0;
-      localStorage.removeItem(CONNECTED_KEY);
-      
-      if (window.google && accessToken) {
-          window.google.accounts.oauth2.revoke(accessToken, () => {
-              console.log('Token revoked');
-          });
-      }
-      
-      window.dispatchEvent(new Event('drive-token-updated'));
-  },
-
-  /**
-   * Checks if we have a valid access token right now.
-   * Used for API calls.
+   * Checks if we have a valid configuration to attempt API calls.
+   * Note: This doesn't guarantee the token is valid, just that we can try to get one.
    */
   isAuthenticated: (): boolean => {
-    return !!accessToken && Date.now() < tokenExpiration;
+    return !!tokenGetter;
   },
-
+  
   /**
-   * Checks if the user intends to be connected (persistent state).
-   * Used for UI toggles.
+   * Stub for legacy calls - handled by Clerk automatically now
    */
-  isConnected: (): boolean => {
-      return localStorage.getItem(CONNECTED_KEY) === 'true';
-  },
+  init: (clientId: string) => { /* No-op */ },
+  restoreSession: () => { /* No-op */ },
+  authorize: () => { console.warn("Use Clerk Login button"); },
+  disconnect: () => { console.warn("Use Clerk Logout"); },
+  isConnected: () => !!tokenGetter,
 
   /**
    * Check if a file exists and is not trashed.
    */
   checkFileStatus: async (fileId: string): Promise<'ok' | 'trashed' | 'missing'> => {
-      if (!accessToken) return 'ok'; // Cannot check without token, assume ok to try playing
+      const accessToken = await GoogleDriveService.getToken();
+      if (!accessToken) return 'ok'; // Cannot check without token
 
       try {
           const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=trashed,explicitlyTrashed`, {
@@ -138,10 +76,8 @@ export const GoogleDriveService = {
    * Renames a project folder (finds it by old name inside App folder).
    */
   renameProjectFolder: async (oldName: string, newName: string): Promise<boolean> => {
-      if (!accessToken) {
-          console.error("Cannot rename: No Access Token");
-          return false;
-      }
+      const accessToken = await GoogleDriveService.getToken();
+      if (!accessToken) return false;
 
       try {
           const appFolderId = await GoogleDriveService.ensureAppFolder();
@@ -181,6 +117,7 @@ export const GoogleDriveService = {
    * Helper to find or create a folder inside a parent folder.
    */
   ensureFolder: async (folderName: string, parentId?: string): Promise<string> => {
+      const accessToken = await GoogleDriveService.getToken();
       if (!accessToken) throw new Error("No access token");
 
       const safeName = folderName.replace(/'/g, "\\'");
@@ -222,9 +159,6 @@ export const GoogleDriveService = {
    * Finds the SmoTree.App folder or creates it.
    */
   ensureAppFolder: async (): Promise<string> => {
-    if (!accessToken) {
-        throw new Error("Drive Token Expired. Please reconnect in Profile.");
-    }
     return GoogleDriveService.ensureFolder(APP_FOLDER_NAME);
   },
 
@@ -232,6 +166,7 @@ export const GoogleDriveService = {
    * Deletes (trashes) a file from Google Drive.
    */
   deleteFile: async (fileId: string): Promise<void> => {
+      const accessToken = await GoogleDriveService.getToken();
       if (!accessToken) return;
       
       try {
@@ -252,6 +187,7 @@ export const GoogleDriveService = {
    * Uploads a file using the Resumable Upload protocol.
    */
   uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void, customName?: string): Promise<{ id: string, name: string }> => {
+     const accessToken = await GoogleDriveService.getToken();
      if (!accessToken) throw new Error("No access token");
 
      const metadata = {
@@ -294,7 +230,7 @@ export const GoogleDriveService = {
                  try {
                      const response = JSON.parse(xhr.responseText);
                      
-                     // Make public for guests (optional, but good for sharing)
+                     // Make public for guests (optional)
                      try {
                         await fetch(`https://www.googleapis.com/drive/v3/files/${response.id}/permissions`, {
                             method: 'POST',
@@ -321,24 +257,35 @@ export const GoogleDriveService = {
 
   /**
    * Returns a streaming URL for the file.
-   * CRITICAL: Uses access_token query param for direct streaming if authenticated.
    */
   getVideoStreamUrl: (fileId: string): string => {
-      // 1. If we have a token (Owner/Editor), use it directly in URL.
-      // This is crucial for HTML5 video tag to work without CORS headers issues
-      if (accessToken && Date.now() < tokenExpiration) {
-        return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
-      }
+      // NOTE: For <video> tags, we usually need the API key or a public link 
+      // because we can't easily inject the Bearer token into the src="" attribute
+      // unless we proxy the video or fetch it as a blob.
       
-      // 2. Fallback for Guests or if token expired: Use API Key (Requires file to be public/shared with API key service account if not public)
-      // Note: Video tag often fails with simple API key due to CORS if not set up perfectly.
-      // The best fallback for guests is the "uc" (User Content) export link, though it might hit limits.
+      // However, we can use the access_token in the query param for Google Drive API
+      // IF we have a valid token currently.
+      
+      // Since this method is synchronous and getToken is async, 
+      // we have to rely on the calling component to handle token refresh logic 
+      // or use a fallback.
+      
       const apiKey = (import.meta as any).env.VITE_GOOGLE_API_KEY;
       if (apiKey) {
          return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
       }
 
-      // 3. Last resort fallback
+      return `https://drive.google.com/uc?export=download&id=${fileId}`;
+  },
+  
+  /**
+   * Async method to get an authenticated stream URL
+   */
+  getAuthenticatedStreamUrl: async (fileId: string): Promise<string> => {
+      const token = await GoogleDriveService.getToken();
+      if (token) {
+           return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
+      }
       return `https://drive.google.com/uc?export=download&id=${fileId}`;
   }
 };

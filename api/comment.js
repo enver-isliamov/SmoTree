@@ -1,28 +1,12 @@
 
 import { sql } from '@vercel/postgres';
-
-async function getAuthenticatedUser(req) {
-    const authHeader = req.headers['authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-            const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-            if (response.ok) {
-                const payload = await response.json();
-                return { id: payload.email, email: payload.email, name: payload.name, role: 'Admin', isVerified: true };
-            }
-        } catch (e) {}
-    }
-    const guestId = req.headers['x-guest-id'];
-    if (guestId) return { id: guestId, name: 'Guest', role: 'Guest', isVerified: false };
-    return null;
-}
+import { verifyUser } from './_auth.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-      const user = await getAuthenticatedUser(req);
+      const user = await verifyUser(req);
       if (!user) return res.status(401).json({ error: "Unauthorized" });
 
       let body = req.body;

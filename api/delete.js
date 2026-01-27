@@ -1,21 +1,6 @@
 
 import { del } from '@vercel/blob';
-
-// Helper to verify Google Token
-async function isAuthorized(req) {
-    const authHeader = req.headers['authorization']; // Node.js style
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return false;
-    }
-    const token = authHeader.split(' ')[1];
-
-    try {
-        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-        return response.ok;
-    } catch (e) {
-        return false;
-    }
-}
+import { verifyUser } from './_auth.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,13 +12,18 @@ export default async function handler(req, res) {
   }
 
   // 1. Security Check
-  const auth = await isAuthorized(req);
-  if (!auth) {
+  const user = await verifyUser(req);
+  if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
   }
 
+  // Extra check: Guests cannot delete blobs
+  if (!user.isVerified) {
+      return res.status(403).json({ error: "Guests cannot delete files" });
+  }
+
   try {
-    const { urls } = req.body; // Node.js style
+    const { urls } = req.body;
     
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
         return res.status(400).json({ error: "No URLs provided for deletion" });

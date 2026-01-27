@@ -1,5 +1,6 @@
 
 import { handleUpload } from '@vercel/blob/client';
+import { verifyUser } from './_auth.js';
 
 export default async function handler(req, res) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -12,33 +13,17 @@ export default async function handler(req, res) {
       body,
       request: req,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
-        // 1. Parse Payload
-        let payload;
-        try {
-            payload = clientPayload ? JSON.parse(clientPayload) : {};
-        } catch (e) {
-            throw new Error("Invalid payload");
+        // 1. Auth Check using Clerk
+        const user = await verifyUser(req);
+        if (!user) {
+             throw new Error("Unauthorized: Invalid Token");
         }
 
-        // 2. Validate Google Token
-        if (!payload.token) {
-            throw new Error("Unauthorized: Missing Auth Token");
-        }
-
-        try {
-            const googleCheck = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${payload.token}`);
-            if (!googleCheck.ok) {
-                throw new Error("Unauthorized: Invalid Google Token");
-            }
-        } catch (e) {
-             throw new Error("Unauthorized: Token validation failed");
-        }
-
-        // 3. Allow Upload
+        // 2. Allow Upload
         return {
           allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska'],
           tokenPayload: JSON.stringify({
-             user: payload.user || 'anonymous'
+             user: user.id
           }),
         };
       },

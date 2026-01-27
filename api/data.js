@@ -1,41 +1,8 @@
 
 import { sql } from '@vercel/postgres';
+import { verifyUser } from './_auth.js';
 
-// --- AUTH HELPER ---
-async function getAuthenticatedUser(req) {
-    const authHeader = req.headers['authorization'];
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-            const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-            if (response.ok) {
-                const payload = await response.json();
-                return {
-                    id: payload.email,
-                    email: payload.email,
-                    name: payload.name,
-                    isVerified: true
-                };
-            }
-        } catch (e) {
-            console.error("Auth validation failed", e);
-        }
-    }
-
-    const guestId = req.headers['x-guest-id'];
-    if (guestId) {
-        return {
-            id: guestId,
-            name: 'Guest',
-            isVerified: false
-        };
-    }
-
-    return null;
-}
-
-// Helper to identify fatal DB connection errors (Wrong URL, Deleted DB)
+// Helper to identify fatal DB connection errors
 const isDbConnectionError = (err) => {
     return err.message && (
         err.message.includes('HTTP status 404') || 
@@ -61,7 +28,7 @@ async function ensureProjectsTable() {
     } catch (e) {
         if (isDbConnectionError(e)) {
             console.warn("⚠️ Database unavailable (404/Offline). Skipping table creation.");
-            throw e; // Stop trying if DB is dead
+            throw e; 
         }
         console.error("Failed to create table:", e);
         throw e;
@@ -70,7 +37,7 @@ async function ensureProjectsTable() {
 
 export default async function handler(req, res) {
   try {
-      const user = await getAuthenticatedUser(req);
+      const user = await verifyUser(req);
       
       if (!user) {
           return res.status(401).json({ error: "Unauthorized" });
@@ -95,18 +62,13 @@ export default async function handler(req, res) {
           return res.status(200).json(projects);
 
         } catch (dbError) {
-           // If DB is deleted/wrong URL (404), return 503 Service Unavailable.
-           // Frontend will see this and stay in "Offline Mode".
            if (isDbConnectionError(dbError)) {
                console.error("DB Connection Dead:", dbError.message);
                return res.status(503).json({ error: "Database Disconnected", code: "DB_OFFLINE" });
            }
-           
-           // If table doesn't exist yet, return empty list (New Project)
            if (dbError.code === '42P01') {
                return res.status(200).json([]);
            }
-           
            console.error("DB GET Error Details:", dbError); 
            return res.status(500).json({ error: "Database error", details: dbError.message });
         }
@@ -114,11 +76,9 @@ export default async function handler(req, res) {
       
       // POST: Sync Projects (Upsert)
       if (req.method === 'POST') {
-        const isManualAdmin = user.id.startsWith('admin-');
-        if (!user.isVerified && !isManualAdmin) {
-            return res.status(403).json({ error: "Read-only access." });
-        }
-
+        // Allow write if verified user OR if guest (basic guest write permission for their own data context usually handled by frontend logic, strictly blocked here if needed)
+        // For SmoTree, Guests need to write (join projects), so we allow if user exists.
+        
         let projectsToSync = req.body;
         if (typeof projectsToSync === 'string') {
             try { projectsToSync = JSON.parse(projectsToSync); } catch(e) {}
@@ -138,7 +98,6 @@ export default async function handler(req, res) {
                 const projectJson = JSON.stringify(project);
                 
                 try {
-                    // Try Optimistic Insert
                     await sql`
                         INSERT INTO projects (id, owner_id, data, updated_at, created_at)
                         VALUES (
@@ -162,7 +121,6 @@ export default async function handler(req, res) {
                         console.warn("Table missing, attempting creation...");
                         try {
                             await ensureProjectsTable();
-                            // Retry ONCE
                             await sql`
                                 INSERT INTO projects (id, owner_id, data, updated_at, created_at)
                                 VALUES (
@@ -188,22 +146,6 @@ export default async function handler(req, res) {
             }
         }
         return res.status(200).json({ success: true });
-      }
-
-      // DELETE
-      if (req.method === 'DELETE') {
-          const isManualAdmin = user.id.startsWith('admin-');
-          if (!user.isVerified && !isManualAdmin) return res.status(403).json({ error: "Guests cannot delete." });
-
-          const projectId = req.query.id;
-          if (!projectId) return res.status(400).json({ error: "Missing ID" });
-
-          try {
-            await sql`DELETE FROM projects WHERE id = ${projectId} AND owner_id = ${user.id};`;
-          } catch (e) {
-             if (isDbConnectionError(e)) return res.status(503).json({ error: "DB Offline" });
-          }
-          return res.status(200).json({ success: true });
       }
 
       return res.status(405).send("Method not allowed");
