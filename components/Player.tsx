@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Project, ProjectAsset, Comment, CommentStatus, User, UserRole } from '../types';
-import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock, Clapperboard, ChevronRight, CornerUpLeft, SplitSquareHorizontal, ChevronDown, FileAudio, Sparkles, MessageSquare, List, Link } from 'lucide-react';
+import { Play, Pause, ChevronLeft, Send, CheckCircle, Search, Mic, MicOff, Trash2, Pencil, Save, X as XIcon, Layers, FileVideo, Upload, CheckSquare, Flag, Columns, Monitor, RotateCcw, RotateCw, Maximize, Minimize, MapPin, Gauge, GripVertical, Download, FileJson, FileSpreadsheet, FileText, MoreHorizontal, Film, AlertTriangle, Cloud, CloudOff, Loader2, HardDrive, Lock, Unlock, Clapperboard, ChevronRight, CornerUpLeft, SplitSquareHorizontal, ChevronDown, FileAudio, Sparkles, MessageSquare, List, Link, History } from 'lucide-react';
 import { generateEDL, generateCSV, generateResolveXML, downloadFile } from '../services/exportService';
 import { generateId, stringToColor } from '../services/utils';
 import { ToastType } from './Toast';
@@ -84,9 +84,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const isDraggingControls = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
 
-  // Export State
+  // Export & Version Menus
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [showVersionMenu, setShowVersionMenu] = useState(false);
+  const [showCompareMenu, setShowCompareMenu] = useState(false);
+  const [showVersionSelector, setShowVersionSelector] = useState(false);
 
   // Local File Fallback State
   const [videoError, setVideoError] = useState(false);
@@ -447,7 +448,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   // Add the missing function here
   const handleToggleLock = () => {
     const updatedVersions = [...asset.versions];
-    const versionToUpdate = updatedVersions[currentVersionIdx];
+    const versionToUpdate = { ...updatedVersions[currentVersionIdx] };
     versionToUpdate.isLocked = !versionToUpdate.isLocked;
     updatedVersions[currentVersionIdx] = versionToUpdate;
     
@@ -493,7 +494,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setCompareVersionIdx(idx);
       if (idx !== null) setViewMode('side-by-side');
       else setViewMode('single');
-      setShowVersionMenu(false);
+      setShowCompareMenu(false);
+  };
+
+  const handleSwitchVersion = (idx: number) => {
+      setCurrentVersionIdx(idx);
+      setShowVersionSelector(false);
+      // Optional: Reset comparison if we switch to the same version we are comparing against
+      if (compareVersionIdx === idx) {
+          setCompareVersionIdx(null);
+          setViewMode('single');
+      }
   };
 
   const filteredComments = comments.filter(c => c.text.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -541,18 +552,46 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                    </div>
                    <div className="flex items-center gap-2">
                        <div className="relative flex items-center gap-1">
-                            <span className="shrink-0 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-500/20">v{version.versionNumber}</span>
+                            {/* VERSION SELECTOR DROPDOWN */}
+                            <div className="relative">
+                                <button 
+                                    onClick={() => setShowVersionSelector(!showVersionSelector)}
+                                    className="shrink-0 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/30 transition-colors"
+                                >
+                                    v{version.versionNumber}
+                                    <ChevronDown size={10} />
+                                </button>
+                                {showVersionSelector && (
+                                    <div className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                                        <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Switch Version</div>
+                                        {asset.versions.map((v, idx) => (
+                                            <button 
+                                                key={v.id} 
+                                                onClick={() => handleSwitchVersion(idx)} 
+                                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 flex justify-between ${idx === currentVersionIdx ? 'text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-900/10' : 'text-zinc-600 dark:text-zinc-300'}`}
+                                            >
+                                                <span>Version {v.versionNumber}</span>
+                                                {idx === currentVersionIdx && <CheckCircle size={10} />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {showVersionSelector && <div className="fixed inset-0 z-40" onClick={() => setShowVersionSelector(false)}></div>}
+                            </div>
+
+                            {/* COMPARE SELECTOR */}
                             {asset.versions.length > 1 && (
                                 <div className="relative">
-                                    <button onClick={() => setShowVersionMenu(!showVersionMenu)} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${compareVersionIdx !== null ? 'bg-indigo-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}>{compareVersionIdx !== null ? `vs v${compareVersion?.versionNumber}` : 'Compare'} <ChevronDown size={10} /></button>
-                                    {showVersionMenu && (
+                                    <button onClick={() => setShowCompareMenu(!showCompareMenu)} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${compareVersionIdx !== null ? 'bg-indigo-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}>{compareVersionIdx !== null ? `vs v${compareVersion?.versionNumber}` : 'Compare'} <ChevronDown size={10} /></button>
+                                    {showCompareMenu && (
                                         <div className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 py-1">
+                                            <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Compare With</div>
                                             <button onClick={() => handleSelectCompareVersion(null)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300">None (Single View)</button>
                                             <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-1"></div>
                                             {asset.versions.map((v, idx) => (idx !== currentVersionIdx && (<button key={v.id} onClick={() => handleSelectCompareVersion(idx)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 flex justify-between ${compareVersionIdx === idx ? 'text-indigo-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}><span>Version {v.versionNumber}</span>{compareVersionIdx === idx && <CheckCircle size={10} />}</button>)))}
                                         </div>
                                     )}
-                                    {showVersionMenu && <div className="fixed inset-0 z-40" onClick={() => setShowVersionMenu(false)}></div>}
+                                    {showCompareMenu && <div className="fixed inset-0 z-40" onClick={() => setShowCompareMenu(false)}></div>}
                                 </div>
                             )}
                        </div>
