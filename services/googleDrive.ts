@@ -35,6 +35,18 @@ export const GoogleDriveService = {
           }
         },
       });
+
+      // Auto-connect if user was previously connected
+      if (localStorage.getItem(CONNECTED_KEY) === 'true') {
+          console.log("🔄 Restoring Drive Session...");
+          try {
+              // Attempt to get token silently without user interaction
+              tokenClient.requestAccessToken({ prompt: 'none' });
+          } catch (e) {
+              console.warn("Silent token refresh failed", e);
+          }
+      }
+
     } else {
       console.warn("Google Identity Services script not loaded.");
     }
@@ -44,11 +56,11 @@ export const GoogleDriveService = {
    * Attempts to silently restore the session if user was previously connected.
    */
   restoreSession: () => {
-      // Just ensure client is initialized. We rely on the flag to know IF we should be connected.
-      // Actual token request happens on demand or via explicit connect if expired.
+      // Logic moved to init() to ensure it runs as soon as client is ready.
+      // This method is kept for manual triggers if needed.
       const shouldBeConnected = localStorage.getItem(CONNECTED_KEY) === 'true';
-      if (shouldBeConnected) {
-          console.log("🔄 Drive session flag found. Ready to request token if needed.");
+      if (shouldBeConnected && tokenClient) {
+          tokenClient.requestAccessToken({ prompt: 'none' });
       }
   },
 
@@ -81,9 +93,20 @@ export const GoogleDriveService = {
       window.dispatchEvent(new Event('drive-token-updated'));
   },
 
+  /**
+   * Checks if we have a valid access token right now.
+   * Used for API calls.
+   */
   isAuthenticated: (): boolean => {
-    // Return true if we have a valid token currently in memory
     return !!accessToken && Date.now() < tokenExpiration;
+  },
+
+  /**
+   * Checks if the user intends to be connected (persistent state).
+   * Used for UI toggles.
+   */
+  isConnected: (): boolean => {
+      return localStorage.getItem(CONNECTED_KEY) === 'true';
   },
 
   /**
