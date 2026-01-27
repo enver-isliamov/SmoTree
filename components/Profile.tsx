@@ -22,7 +22,8 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
   const isFounder = currentUser.role === UserRole.ADMIN;
   const isGuest = currentUser.role === UserRole.GUEST;
   const { t } = useLanguage();
-  const [isDriveConnected, setIsDriveConnected] = useState(GoogleDriveService.isAuthenticated());
+  // Use isConnected() (localStorage based) for initial UI state to show persistence
+  const [isDriveConnected, setIsDriveConnected] = useState(GoogleDriveService.isConnected());
 
   // Get Client ID from Environment Variables (Vite)
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
@@ -59,7 +60,8 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
      }
      
      const handleTokenUpdate = () => {
-         setIsDriveConnected(GoogleDriveService.isAuthenticated());
+         // Update state based on the persistent flag
+         setIsDriveConnected(GoogleDriveService.isConnected());
      };
      window.addEventListener('drive-token-updated', handleTokenUpdate);
      return () => window.removeEventListener('drive-token-updated', handleTokenUpdate);
