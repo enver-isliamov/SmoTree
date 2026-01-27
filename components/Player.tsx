@@ -66,7 +66,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const [isFpsDetected, setIsFpsDetected] = useState(false);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [driveUrl, setDriveUrl] = useState<string | null>(null);
-  const [driveUrlRetried, setDriveUrlRetried] = useState(false); // New: To prevent infinite retry loops
+  const [driveUrlRetried, setDriveUrlRetried] = useState(false); 
+  const [driveFileMissing, setDriveFileMissing] = useState(false); // New state for missing files
   
   // Scrubbing State
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -311,9 +312,32 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
   useEffect(() => { setComments(version.comments || []); }, [version.comments]);
 
+  // Handle Removal of Dead Version
+  const handleRemoveDeadVersion = async () => {
+      if (!confirm("Are you sure you want to remove this version from the project history? This cannot be undone.")) return;
+      
+      const uV = asset.versions.filter(v => v.id !== version.id);
+      if (uV.length === 0) {
+          // If removing last version, we should probably delete asset or handle empty state, but for now let's just go back
+          onBack();
+          return;
+      }
+      
+      // Calculate new index
+      let newIdx = currentVersionIdx - 1;
+      if (newIdx < 0) newIdx = 0;
+
+      const uA = project.assets.map(a => a.id === asset.id ? { ...a, versions: uV, currentVersionIndex: newIdx } : a);
+      onUpdateProject({ ...project, assets: uA });
+      
+      // Also switch local state to the new valid index
+      setCurrentVersionIdx(newIdx);
+      notify("Version removed", "info");
+  };
+
   useEffect(() => {
     // NOTIFY USER ON VERSION LOAD
-    notify(`Loaded Version ${version.versionNumber}`, "success");
+    notify(`Loaded Version ${version.versionNumber}: ${version.filename || 'Video'}`, "success");
 
     setIsPlaying(false); setCurrentTime(0); setSelectedCommentId(null);
     setEditingCommentId(null); setMarkerInPoint(null); setMarkerOutPoint(null);
@@ -321,24 +345,36 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setTranscript(null); // Reset transcript on version change
     setDriveUrl(null);
     setDriveUrlRetried(false); // Reset retry flag on version change
-    
-    // Resolve Video Source
-    if (version.storageType === 'drive' && version.googleDriveId) {
-        // Fetch stream URL from service
-        const streamUrl = GoogleDriveService.getVideoStreamUrl(version.googleDriveId);
-        if (streamUrl) setDriveUrl(streamUrl);
-        else {
-            notify("Connect Google Drive in Profile to view this file.", "error");
-            setVideoError(true);
+    setDriveFileMissing(false); // Reset missing flag
+
+    const checkDriveStatus = async () => {
+        if (version.storageType === 'drive' && version.googleDriveId) {
+            // Check existence first
+            const status = await GoogleDriveService.checkFileStatus(version.googleDriveId);
+            if (status !== 'ok') {
+                console.warn(`File ${version.googleDriveId} is ${status}`);
+                setDriveFileMissing(true);
+                return;
+            }
+
+            // Fetch stream URL
+            const streamUrl = GoogleDriveService.getVideoStreamUrl(version.googleDriveId);
+            if (streamUrl) setDriveUrl(streamUrl);
+            else {
+                notify("Connect Google Drive in Profile to view this file.", "error");
+                setVideoError(true);
+            }
+        } else if (version.localFileUrl) { 
+            setLocalFileSrc(version.localFileUrl); 
+            setLocalFileName(version.localFileName || 'Local File'); 
+        } else { 
+            setLocalFileSrc(null); 
+            setLocalFileName(null); 
+            setVideoError(false); 
         }
-    } else if (version.localFileUrl) { 
-        setLocalFileSrc(version.localFileUrl); 
-        setLocalFileName(version.localFileName || 'Local File'); 
-    } else { 
-        setLocalFileSrc(null); 
-        setLocalFileName(null); 
-        setVideoError(false); 
-    }
+    };
+
+    checkDriveStatus();
 
     if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.load(); }
   }, [version.id]);
@@ -388,7 +424,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleTimeUpdate = () => { if (!isScrubbing) setCurrentTime(videoRef.current?.currentTime || 0); };
   
   const handleVideoError = () => {
-      if (!localFileSrc) {
+      if (!localFileSrc && !driveFileMissing) {
           // Attempt Drive Fallback if using API link and it failed (CORS/403)
           if (driveUrl && driveUrl.includes('googleapis.com') && version.googleDriveId && !driveUrlRetried) {
               // Switch to UC link as a Hail Mary for simple playback
@@ -622,7 +658,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             {(!isSearchOpen || window.innerWidth > 768) && (
               <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-zinc-900 dark:text-zinc-100 leading-tight truncate flex-1">
                    <div className="flex items-center gap-2">
-                       <span className="font-bold text-xs md:text-sm truncate" title={localFileName || asset.title}>{localFileName || asset.title}</span>
+                       <span className="font-bold text-xs md:text-sm truncate" title={localFileName || version.filename || asset.title}>{localFileName || version.filename || asset.title}</span>
                        {getSourceBadge()}
                    </div>
                    <div className="flex items-center gap-2">
@@ -737,10 +773,31 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              )}
 
              {/* Play/Pause Center Icon */}
-             {!isPlaying && !isScrubbing && !videoError && !showVoiceModal && (<div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"><div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-xl animate-in fade-in zoom-in duration-200">{isPlaying ? <Pause size={32} fill="white" className="text-white"/> : <Play size={32} fill="white" className="ml-1 text-white" />}</div></div>)}
+             {!isPlaying && !isScrubbing && !videoError && !showVoiceModal && !driveFileMissing && (<div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"><div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-xl animate-in fade-in zoom-in duration-200">{isPlaying ? <Pause size={32} fill="white" className="text-white"/> : <Play size={32} fill="white" className="ml-1 text-white" />}</div></div>)}
 
              {/* Error State */}
-             {videoError && (<div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-6 text-center animate-in fade-in duration-300"><div className="bg-zinc-800 p-4 rounded-full mb-4 ring-1 ring-zinc-700"><FileVideo size={32} className="text-zinc-400" /></div><p className="text-zinc-300 font-bold text-lg mb-2">{t('player.media_offline')}</p><p className="text-xs text-zinc-500 max-w-[280px] mb-6 leading-relaxed">{t('player.offline_desc')}</p><button onClick={(e) => { e.stopPropagation(); localFileRef.current?.click(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm shadow-lg shadow-indigo-900/20 cursor-pointer"><Upload size={16} /> {t('player.link_local')}</button></div>)}
+             {videoError && !driveFileMissing && (<div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-6 text-center animate-in fade-in duration-300"><div className="bg-zinc-800 p-4 rounded-full mb-4 ring-1 ring-zinc-700"><FileVideo size={32} className="text-zinc-400" /></div><p className="text-zinc-300 font-bold text-lg mb-2">{t('player.media_offline')}</p><p className="text-xs text-zinc-500 max-w-[280px] mb-6 leading-relaxed">{t('player.offline_desc')}</p><button onClick={(e) => { e.stopPropagation(); localFileRef.current?.click(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm shadow-lg shadow-indigo-900/20 cursor-pointer"><Upload size={16} /> {t('player.link_local')}</button></div>)}
+
+             {/* Drive File Missing State */}
+             {driveFileMissing && (
+                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-red-950/80 backdrop-blur-md p-6 text-center animate-in fade-in duration-300">
+                     <div className="bg-red-900/50 p-4 rounded-full mb-4 ring-1 ring-red-700/50 text-red-300"><Trash2 size={32} /></div>
+                     <h3 className="text-xl font-bold text-white mb-2">File Deleted from Drive</h3>
+                     <p className="text-sm text-zinc-300 max-w-sm mb-6 leading-relaxed">
+                         The source file for <strong>Version {version.versionNumber}</strong> was removed from Google Drive.
+                     </p>
+                     <div className="flex gap-3">
+                         {isManager && (
+                             <button onClick={handleRemoveDeadVersion} className="bg-red-600 hover:bg-red-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-lg transition-colors">
+                                 Remove Version from App
+                             </button>
+                         )}
+                         <button onClick={onBack} className="bg-zinc-800 hover:bg-zinc-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm border border-zinc-700 transition-colors">
+                             Go Back
+                         </button>
+                     </div>
+                 </div>
+             )}
 
              {/* Video Element */}
              <div className={`relative w-full h-full flex items-center justify-center bg-black ${viewMode === 'side-by-side' ? 'grid grid-cols-2 gap-1' : ''}`}>
@@ -768,7 +825,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           {/* Timeline & Controls */}
           <div className={`${isVerticalVideo ? 'absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black via-black/80 to-transparent pb-6 pt-10' : 'bg-zinc-900 border-t border-zinc-800 pb-2'} p-2 lg:p-4 shrink-0 transition-transform duration-300`}>
              <div className="relative h-6 md:h-8 group cursor-pointer flex items-center touch-none">
-                <input type="range" min={0} max={duration || 100} step={0.01} value={currentTime} onChange={handleSeek} disabled={videoError} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 disabled:cursor-not-allowed" />
+                <input type="range" min={0} max={duration || 100} step={0.01} value={currentTime} onChange={handleSeek} disabled={videoError || driveFileMissing} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 disabled:cursor-not-allowed" />
                 <div className="w-full h-1.5 bg-zinc-700/50 rounded-full overflow-hidden relative"><div className="h-full bg-indigo-500" style={{ width: `${(currentTime / duration) * 100}%` }} /></div>
                 {filteredComments.map(c => { const l = (c.timestamp / duration) * 100; const w = c.duration ? (c.duration / duration) * 100 : 0.5; const cl = stringToColor(c.userId); return (<div key={c.id} className={`absolute top-1/2 -translate-y-1/2 h-2.5 rounded-sm z-10 opacity-80 pointer-events-none`} style={{ left: `${l}%`, width: `${Math.max(0.5, w)}%`, minWidth: '4px', backgroundColor: c.status === 'resolved' ? '#22c55e' : cl }} />); })}
              </div>

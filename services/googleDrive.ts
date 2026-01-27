@@ -86,6 +86,66 @@ export const GoogleDriveService = {
   },
 
   /**
+   * Check if a file exists and is not trashed.
+   */
+  checkFileStatus: async (fileId: string): Promise<'ok' | 'trashed' | 'missing'> => {
+      if (!accessToken) return 'ok'; // Assume OK if we can't check (guest mode or expired)
+
+      try {
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=trashed,explicitlyTrashed`, {
+              headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          
+          if (res.status === 404) return 'missing';
+          if (!res.ok) return 'ok'; // Unknown error, assume ok to let player try
+
+          const data = await res.json();
+          if (data.trashed || data.explicitlyTrashed) return 'trashed';
+          return 'ok';
+      } catch (e) {
+          console.error("Check status failed", e);
+          return 'ok';
+      }
+  },
+
+  /**
+   * Renames a project folder (finds it by old name inside App folder).
+   */
+  renameProjectFolder: async (oldName: string, newName: string): Promise<boolean> => {
+      if (!accessToken) return false;
+
+      try {
+          const appFolderId = await GoogleDriveService.ensureAppFolder();
+          
+          // Find the specific project folder
+          const query = `mimeType='application/vnd.google-apps.folder' and name='${oldName.replace(/'/g, "\\'")}' and '${appFolderId}' in parents and trashed=false`;
+          const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`, {
+              headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          const data = await searchRes.json();
+
+          if (data.files && data.files.length > 0) {
+              const folderId = data.files[0].id;
+              
+              // Rename it
+              await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}`, {
+                  method: 'PATCH',
+                  headers: {
+                      'Authorization': `Bearer ${accessToken}`,
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ name: newName })
+              });
+              return true;
+          }
+          return false;
+      } catch (e) {
+          console.error("Rename folder failed", e);
+          return false;
+      }
+  },
+
+  /**
    * Helper to find or create a folder inside a parent folder.
    */
   ensureFolder: async (folderName: string, parentId?: string): Promise<string> => {

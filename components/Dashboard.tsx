@@ -5,6 +5,7 @@ import { Plus, X, Loader2, FileVideo, Lock, Trash2, AlertTriangle, CalendarClock
 import { generateId, isExpired, getDaysRemaining } from '../services/utils';
 import { ToastType } from './Toast';
 import { useLanguage } from '../services/i18n';
+import { GoogleDriveService } from '../services/googleDrive';
 
 interface DashboardProps {
   projects: Project[];
@@ -27,6 +28,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
   const [editName, setEditName] = useState('');
   const [editClient, setEditClient] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Share State
   const [sharingProject, setSharingProject] = useState<Project | null>(null);
@@ -91,14 +93,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
       setEditDesc(project.description);
   };
 
-  const handleSubmitEdit = (e: React.FormEvent) => {
+  const handleSubmitEdit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!editingProject) return;
+      
+      setIsSavingEdit(true);
+
+      // Attempt to rename Drive Folder if name changed
+      if (editingProject.name !== editName && GoogleDriveService.isAuthenticated()) {
+          notify("Syncing name change to Google Drive...", "info");
+          await GoogleDriveService.renameProjectFolder(editingProject.name, editName);
+      }
+
       onEditProject(editingProject.id, {
           name: editName,
           client: editClient,
           description: editDesc
       });
+      
+      setIsSavingEdit(false);
       setEditingProject(null);
   };
 
@@ -443,7 +456,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, currentUser, onS
                     </div>
                     <div className="mt-8 flex justify-end gap-3">
                         <button type="button" onClick={() => setEditingProject(null)} className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('cancel')}</button>
-                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"><Save size={14} /> {t('save')}</button>
+                        <button type="submit" disabled={isSavingEdit} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+                            {isSavingEdit ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {t('save')}
+                        </button>
                     </div>
                 </form>
             </div>
