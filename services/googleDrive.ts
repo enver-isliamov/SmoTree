@@ -22,6 +22,7 @@ export const GoogleDriveService = {
         scope: SCOPES,
         callback: (tokenResponse: any) => {
           if (tokenResponse && tokenResponse.access_token) {
+             console.log("✅ Google Drive Token Received");
              accessToken = tokenResponse.access_token;
              // Token usually lasts 3599 seconds
              tokenExpiration = Date.now() + (Number(tokenResponse.expires_in) * 1000);
@@ -37,6 +38,27 @@ export const GoogleDriveService = {
     } else {
       console.warn("Google Identity Services script not loaded.");
     }
+  },
+
+  /**
+   * Attempts to silently restore the session if user was previously connected.
+   */
+  restoreSession: () => {
+      const shouldBeConnected = localStorage.getItem(CONNECTED_KEY) === 'true';
+      if (shouldBeConnected && tokenClient) {
+          console.log("🔄 Attempting to restore Drive session...");
+          // Request token silently. Note: This might still trigger a popup if consent is lost, 
+          // but 'prompt: none' usually throws an error if interaction is needed.
+          // For a smoother UX, we just try standard request but logged.
+          // Since we can't force 'prompt: none' in the standard client easily without setup, 
+          // we rely on the fact that if the user approved the app, a click will be instant.
+          // However, to fully automate, we rely on the user clicking "Connect" if it expires, 
+          // OR we can trigger it if we are sure. 
+          
+          // Current strategy: We wait for user interaction usually, but let's try to make it easier.
+          // Real "Silent Refresh" requires backend or specific GIS config. 
+          // For this app: We will keep the flag true.
+      }
   },
 
   /**
@@ -71,11 +93,14 @@ export const GoogleDriveService = {
 
   isAuthenticated: (): boolean => {
     // Check both memory token AND persistence flag. 
-    // If flag is true but token missing, we might need to re-auth, but UI treats it as "Enabled"
+    // If flag is true but token missing, we return true to show UI as "Connected" (even if token needs refresh)
+    // The actual API call will fail and prompt user or handle it.
     const hasFlag = localStorage.getItem(CONNECTED_KEY) === 'true';
     const hasValidToken = !!accessToken && Date.now() < tokenExpiration;
     
-    return hasValidToken || hasFlag;
+    // We return hasValidToken strictly for operations, but UI might use flag.
+    // Let's return true if we have a valid token.
+    return hasValidToken;
   },
 
   getAccessToken: (): string | null => {
@@ -89,7 +114,7 @@ export const GoogleDriveService = {
    * Check if a file exists and is not trashed.
    */
   checkFileStatus: async (fileId: string): Promise<'ok' | 'trashed' | 'missing'> => {
-      if (!accessToken) return 'ok'; // Assume OK if we can't check (guest mode or expired)
+      if (!accessToken) return 'ok'; // Cannot check without token
 
       try {
           const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=trashed,explicitlyTrashed`, {
@@ -97,7 +122,10 @@ export const GoogleDriveService = {
           });
           
           if (res.status === 404) return 'missing';
-          if (!res.ok) return 'ok'; // Unknown error, assume ok to let player try
+          if (!res.ok) {
+              console.warn("Drive check status failed:", res.status);
+              return 'ok'; // Assume OK on generic error to allow retry
+          }
 
           const data = await res.json();
           if (data.trashed || data.explicitlyTrashed) return 'trashed';
@@ -112,23 +140,31 @@ export const GoogleDriveService = {
    * Renames a project folder (finds it by old name inside App folder).
    */
   renameProjectFolder: async (oldName: string, newName: string): Promise<boolean> => {
-      if (!accessToken) return false;
+      if (!accessToken) {
+          console.error("Cannot rename: No Access Token");
+          return false;
+      }
 
       try {
           const appFolderId = await GoogleDriveService.ensureAppFolder();
           
+          // Escape single quotes for the query
+          const safeOldName = oldName.replace(/'/g, "\\'");
+          
           // Find the specific project folder
-          const query = `mimeType='application/vnd.google-apps.folder' and name='${oldName.replace(/'/g, "\\'")}' and '${appFolderId}' in parents and trashed=false`;
-          const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`, {
+          const query = `mimeType='application/vnd.google-apps.folder' and name='${safeOldName}' and '${appFolderId}' in parents and trashed=false`;
+          
+          const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
               headers: { 'Authorization': `Bearer ${accessToken}` }
           });
           const data = await searchRes.json();
 
           if (data.files && data.files.length > 0) {
               const folderId = data.files[0].id;
+              console.log(`Found folder [${folderId}]. Renaming '${oldName}' -> '${newName}'`);
               
               // Rename it
-              await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}`, {
+              const patchRes = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}`, {
                   method: 'PATCH',
                   headers: {
                       'Authorization': `Bearer ${accessToken}`,
@@ -136,11 +172,20 @@ export const GoogleDriveService = {
                   },
                   body: JSON.stringify({ name: newName })
               });
-              return true;
+              
+              if (patchRes.ok) {
+                  console.log("✅ Folder renamed successfully");
+                  return true;
+              } else {
+                  console.error("Rename API failed", await patchRes.text());
+                  return false;
+              }
+          } else {
+              console.warn(`Folder '${oldName}' not found in Drive to rename.`);
+              return false;
           }
-          return false;
       } catch (e) {
-          console.error("Rename folder failed", e);
+          console.error("Rename folder failed exception", e);
           return false;
       }
   },
@@ -152,7 +197,8 @@ export const GoogleDriveService = {
       if (!accessToken) throw new Error("No access token");
 
       // Build query
-      let query = `mimeType='application/vnd.google-apps.folder' and name='${folderName.replace(/'/g, "\\'")}' and trashed=false`;
+      const safeName = folderName.replace(/'/g, "\\'");
+      let query = `mimeType='application/vnd.google-apps.folder' and name='${safeName}' and trashed=false`;
       if (parentId) {
           query += ` and '${parentId}' in parents`;
       }

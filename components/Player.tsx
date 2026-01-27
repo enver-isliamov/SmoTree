@@ -68,7 +68,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const [driveUrl, setDriveUrl] = useState<string | null>(null);
   const [driveUrlRetried, setDriveUrlRetried] = useState(false); 
   const [driveFileMissing, setDriveFileMissing] = useState(false); // New state for missing files
-  
+  const [loadingDrive, setLoadingDrive] = useState(false); // New state for loader
+
   // Scrubbing State
   const [isScrubbing, setIsScrubbing] = useState(false);
   const scrubStartDataRef = useRef<{ x: number, time: number, wasPlaying: boolean } | null>(null);
@@ -343,27 +344,32 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setEditingCommentId(null); setMarkerInPoint(null); setMarkerOutPoint(null);
     setVideoError(false); setShowVoiceModal(false); setIsFpsDetected(false); setIsVerticalVideo(false);
     setTranscript(null); // Reset transcript on version change
-    setDriveUrl(null);
+    setDriveUrl(null); // Force reload of drive URL
     setDriveUrlRetried(false); // Reset retry flag on version change
     setDriveFileMissing(false); // Reset missing flag
+    setLoadingDrive(false);
 
     const checkDriveStatus = async () => {
         if (version.storageType === 'drive' && version.googleDriveId) {
+            setLoadingDrive(true);
             // Check existence first
             const status = await GoogleDriveService.checkFileStatus(version.googleDriveId);
             if (status !== 'ok') {
                 console.warn(`File ${version.googleDriveId} is ${status}`);
                 setDriveFileMissing(true);
+                setLoadingDrive(false);
                 return;
             }
 
             // Fetch stream URL
             const streamUrl = GoogleDriveService.getVideoStreamUrl(version.googleDriveId);
-            if (streamUrl) setDriveUrl(streamUrl);
-            else {
+            if (streamUrl) {
+                setDriveUrl(streamUrl);
+            } else {
                 notify("Connect Google Drive in Profile to view this file.", "error");
                 setVideoError(true);
             }
+            setLoadingDrive(false);
         } else if (version.localFileUrl) { 
             setLocalFileSrc(version.localFileUrl); 
             setLocalFileName(version.localFileName || 'Local File'); 
@@ -377,7 +383,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     checkDriveStatus();
 
     if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.load(); }
-  }, [version.id]);
+  }, [version.id]); // version.id changes -> everything reloads
 
   useEffect(() => {
     const handleFsChange = () => { const isFs = !!document.fullscreenElement; setIsFullscreen(isFs); if (!isFs) setShowVoiceModal(false); };
@@ -609,6 +615,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleSwitchVersion = (idx: number) => {
+      setDriveUrl(null); // Reset URL to force reload if needed
+      setVideoError(false);
       setCurrentVersionIdx(idx);
       setShowVersionSelector(false);
       // Optional: Reset comparison if we switch to the same version we are comparing against
@@ -773,7 +781,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
              )}
 
              {/* Play/Pause Center Icon */}
-             {!isPlaying && !isScrubbing && !videoError && !showVoiceModal && !driveFileMissing && (<div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"><div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-xl animate-in fade-in zoom-in duration-200">{isPlaying ? <Pause size={32} fill="white" className="text-white"/> : <Play size={32} fill="white" className="ml-1 text-white" />}</div></div>)}
+             {!isPlaying && !isScrubbing && !videoError && !showVoiceModal && !driveFileMissing && !loadingDrive && (<div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"><div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center shadow-xl animate-in fade-in zoom-in duration-200">{isPlaying ? <Pause size={32} fill="white" className="text-white"/> : <Play size={32} fill="white" className="ml-1 text-white" />}</div></div>)}
+
+             {/* Loading State */}
+             {loadingDrive && (<div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"><Loader2 size={48} className="animate-spin text-white/50"/></div>)}
 
              {/* Error State */}
              {videoError && !driveFileMissing && (<div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-6 text-center animate-in fade-in duration-300"><div className="bg-zinc-800 p-4 rounded-full mb-4 ring-1 ring-zinc-700"><FileVideo size={32} className="text-zinc-400" /></div><p className="text-zinc-300 font-bold text-lg mb-2">{t('player.media_offline')}</p><p className="text-xs text-zinc-500 max-w-[280px] mb-6 leading-relaxed">{t('player.offline_desc')}</p><button onClick={(e) => { e.stopPropagation(); localFileRef.current?.click(); }} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors text-sm shadow-lg shadow-indigo-900/20 cursor-pointer"><Upload size={16} /> {t('player.link_local')}</button></div>)}

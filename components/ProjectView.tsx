@@ -150,6 +150,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       let googleDriveId = undefined;
       let storageType: StorageType = 'vercel';
       let isLocalFallback = false;
+      let finalFileName = file.name;
       const token = localStorage.getItem('smotree_auth_token');
 
       // Upload Logic
@@ -172,6 +173,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                googleDriveId = result.id;
                storageType = 'drive';
                assetUrl = ''; // Drive uses ID
+               finalFileName = niceName; // Store the nice name!
            } catch (driveErr) {
                console.error("Drive upload failed", driveErr);
                notify("Drive upload failed. Falling back to local.", "error");
@@ -214,7 +216,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           {
             id: generateId(),
             versionNumber: 1,
-            filename: file.name,
+            filename: finalFileName,
             url: assetUrl,
             storageType: storageType,
             googleDriveId: googleDriveId,
@@ -264,6 +266,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         let googleDriveId = undefined;
         let storageType: StorageType = 'vercel';
         let isLocalFallback = false;
+        let finalFileName = file.name;
         const token = localStorage.getItem('smotree_auth_token');
 
         // Upload Logic
@@ -283,6 +286,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                  googleDriveId = result.id;
                  storageType = 'drive';
                  assetUrl = '';
+                 finalFileName = niceName; // Store nice name
              } catch (e) {
                  console.error("Drive upload failed", e);
                  isLocalFallback = true;
@@ -312,7 +316,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         const newVersion = {
             id: generateId(),
             versionNumber: nextVersionNum,
-            filename: file.name,
+            filename: finalFileName,
             url: assetUrl,
             storageType: storageType,
             googleDriveId: googleDriveId,
