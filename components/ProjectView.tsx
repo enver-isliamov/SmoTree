@@ -16,6 +16,7 @@ interface ProjectViewProps {
   onSelectAsset: (asset: ProjectAsset) => void;
   onUpdateProject: (project: Project) => void;
   notify: (msg: string, type: ToastType) => void;
+  restrictedAssetId?: string;
 }
 
 // Helper to generate a thumbnail from a video file client-side
@@ -67,7 +68,7 @@ const generateVideoThumbnail = (file: File): Promise<string> => {
   });
 };
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject, notify }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, onBack, onSelectAsset, onUpdateProject, notify, restrictedAssetId }) => {
   const { t } = useLanguage();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -93,9 +94,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const isProjectOwner = project.ownerId === currentUser.id;
   
   // Can Upload/Delete? Owner OR Team Member (Non-Guest)
-  const canEditProject = !isGuest && (isProjectOwner || isProjectMember);
+  const canEditProject = !isGuest && (isProjectOwner || isProjectMember) && !restrictedAssetId;
   
   const isLocked = project.isLocked;
+
+  // Filter Assets for Restricted Mode
+  const visibleAssets = restrictedAssetId 
+    ? project.assets.filter(a => a.id === restrictedAssetId)
+    : project.assets;
 
   useEffect(() => {
     // Check Drive status on mount
@@ -455,20 +461,22 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           
           <LanguageSelector />
 
-          <div 
-            onClick={() => setIsParticipantsModalOpen(true)}
-            className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity ml-2"
-            title={t('pv.team')}
-          >
-             {project.team.slice(0, 3).map((member) => (
-                <img key={member.id} src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full border-2 border-zinc-950" />
-             ))}
-             <div className="w-8 h-8 rounded-full border-2 border-zinc-950 bg-zinc-800 flex items-center justify-center text-[10px] text-zinc-400">
-               {project.team.length > 3 ? `+${project.team.length - 3}` : '+'}
-             </div>
-          </div>
+          {!restrictedAssetId && (
+            <div 
+              onClick={() => setIsParticipantsModalOpen(true)}
+              className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity ml-2"
+              title={t('pv.team')}
+            >
+              {project.team.slice(0, 3).map((member) => (
+                  <img key={member.id} src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full border-2 border-zinc-950" />
+              ))}
+              <div className="w-8 h-8 rounded-full border-2 border-zinc-950 bg-zinc-800 flex items-center justify-center text-[10px] text-zinc-400">
+                {project.team.length > 3 ? `+${project.team.length - 3}` : '+'}
+              </div>
+            </div>
+          )}
           
-          {!isGuest && !isLocked && (
+          {!isGuest && !isLocked && !restrictedAssetId && (
             <>
               <div className="h-6 w-px bg-zinc-800 mx-1"></div>
               <button 
@@ -492,10 +500,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           </div>
       )}
 
+      {restrictedAssetId && (
+        <div className="bg-orange-900/20 border-b border-orange-900/30 text-orange-400 text-xs py-1 text-center font-medium flex items-center justify-center gap-2">
+            <Info size={12} />
+            Viewing restricted asset. Full project access limited.
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-[1600px] mx-auto">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-sm md:text-base font-semibold text-zinc-200">{t('pv.assets')} <span className="text-zinc-500 ml-1">{project.assets.length}</span></h2>
+                <h2 className="text-sm md:text-base font-semibold text-zinc-200">{t('pv.assets')} <span className="text-zinc-500 ml-1">{visibleAssets.length}</span></h2>
                 
                 {canEditProject && !isLocked && (
                     <div className="flex items-center gap-2">
@@ -525,7 +540,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                {project.assets.map((asset) => {
+                {visibleAssets.map((asset) => {
                     const lastVer = asset.versions[asset.versions.length-1];
                     const isDrive = lastVer?.storageType === 'drive';
                     

@@ -4,6 +4,7 @@
 // Scope for creating and managing files created by this app
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const APP_FOLDER_NAME = 'SmoTree.App';
+const CONNECTED_KEY = 'smotree_drive_connected_flag';
 
 let tokenClient: any;
 let accessToken: string | null = null;
@@ -24,6 +25,10 @@ export const GoogleDriveService = {
              accessToken = tokenResponse.access_token;
              // Token usually lasts 3599 seconds
              tokenExpiration = Date.now() + (Number(tokenResponse.expires_in) * 1000);
+             
+             // Persist the intent to stay connected
+             localStorage.setItem(CONNECTED_KEY, 'true');
+             
              // Dispatch event so UI can update
              window.dispatchEvent(new Event('drive-token-updated'));
           }
@@ -43,16 +48,38 @@ export const GoogleDriveService = {
       return;
     }
     // Request access token. 
-    // We use requestAccessToken() which triggers the popup if no valid token exists in session.
     tokenClient.requestAccessToken();
   },
 
+  /**
+   * Disconnects the session.
+   */
+  disconnect: () => {
+      accessToken = null;
+      tokenExpiration = 0;
+      localStorage.removeItem(CONNECTED_KEY);
+      
+      // Revoke token if possible (optional, but good practice)
+      if (window.google && accessToken) {
+          window.google.accounts.oauth2.revoke(accessToken, () => {
+              console.log('Token revoked');
+          });
+      }
+      
+      window.dispatchEvent(new Event('drive-token-updated'));
+  },
+
   isAuthenticated: (): boolean => {
-    return !!accessToken && Date.now() < tokenExpiration;
+    // Check both memory token AND persistence flag. 
+    // If flag is true but token missing, we might need to re-auth, but UI treats it as "Enabled"
+    const hasFlag = localStorage.getItem(CONNECTED_KEY) === 'true';
+    const hasValidToken = !!accessToken && Date.now() < tokenExpiration;
+    
+    return hasValidToken || hasFlag;
   },
 
   getAccessToken: (): string | null => {
-    if (GoogleDriveService.isAuthenticated()) {
+    if (!!accessToken && Date.now() < tokenExpiration) {
         return accessToken;
     }
     return null;
@@ -62,7 +89,11 @@ export const GoogleDriveService = {
    * Finds the SmoTree.App folder or creates it if it doesn't exist.
    */
   ensureAppFolder: async (): Promise<string> => {
-    if (!accessToken) throw new Error("No access token");
+    // If we have flag but no token, try to prompt user or fail
+    if (!accessToken) {
+        // In a real app, we might trigger a prompt here, but for now throw to UI
+        throw new Error("Drive Token Expired. Please reconnect in Profile.");
+    }
 
     // 1. Search for folder
     const searchUrl = `https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and name='${APP_FOLDER_NAME}' and trashed=false&fields=files(id)`;
@@ -94,8 +125,6 @@ export const GoogleDriveService = {
 
   /**
    * Uploads a file using the Resumable Upload protocol.
-   * This supports large files (>5MB) unlike the multipart method.
-   * Also sets permission to 'Anyone with the link' (Public Reader).
    */
   uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void): Promise<{ id: string, name: string }> => {
      if (!accessToken) throw new Error("No access token");
@@ -149,7 +178,6 @@ export const GoogleDriveService = {
                      const response = JSON.parse(xhr.responseText);
                      
                      // Step 3: Make file Public (Anyone with link can read)
-                     // This allows Guests to view the video without an access token
                      try {
                         await fetch(`https://www.googleapis.com/drive/v3/files/${response.id}/permissions`, {
                             method: 'POST',
@@ -164,8 +192,6 @@ export const GoogleDriveService = {
                         });
                      } catch (permErr) {
                          console.warn("Failed to set public permission:", permErr);
-                         // We still resolve, as the upload itself was successful. 
-                         // The user might just face issues sharing it with guests later.
                      }
 
                      resolve(response);
@@ -185,27 +211,20 @@ export const GoogleDriveService = {
 
   /**
    * Returns a streaming URL for the file.
-   * If authenticated, uses the API link with token.
-   * If guest (no token), uses API Key fallback.
    */
   getVideoStreamUrl: (fileId: string): string => {
-      // 1. If we have a token (Owner/Editor), use it. This is the most direct way.
+      // 1. If we have a token (Owner/Editor), use it.
       if (accessToken) {
         return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
       }
       
       // 2. Fallback for Guests: Use API Key.
-      // This allows accessing the direct media stream for public files without triggering the virus scan HTML page.
-      // REQUIRES: VITE_GOOGLE_API_KEY in .env
       const apiKey = (import.meta as any).env.VITE_GOOGLE_API_KEY;
       if (apiKey) {
-         // Debug to confirm key is loaded
-         console.log("Using Public Drive API Key for playback");
          return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
       }
 
-      // 3. Last resort fallback (Unreliable for large files due to virus scan interstitial)
-      console.warn("No API Key found for Guest Playback. Falling back to web link (unreliable).");
+      // 3. Last resort fallback
       return `https://drive.google.com/uc?export=download&id=${fileId}`;
   }
 };

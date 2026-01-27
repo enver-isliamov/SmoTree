@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { User, UserRole } from '../types';
-import { LogOut, ShieldCheck, Mail, Crown, AlertCircle, HardDrive, CheckCircle, CloudOff } from 'lucide-react';
+import { LogOut, ShieldCheck, Mail, Crown, AlertCircle, HardDrive, CheckCircle, CloudOff, XCircle } from 'lucide-react';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage } from '../services/i18n';
 import { GoogleDriveService } from '../services/googleDrive';
@@ -69,6 +69,10 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
       GoogleDriveService.authorize();
   };
 
+  const handleDisconnectDrive = () => {
+      GoogleDriveService.disconnect();
+  };
+
   return (
         <div className="max-w-4xl mx-auto space-y-8 py-8">
             
@@ -129,8 +133,17 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
                     </div>
                     <div>
                         {isDriveConnected ? (
-                            <div className="flex items-center gap-2 text-green-500 text-xs font-bold bg-green-900/20 px-3 py-1.5 rounded-full border border-green-500/20">
-                                <CheckCircle size={12} /> Connected
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 text-green-500 text-xs font-bold bg-green-900/20 px-3 py-1.5 rounded-full border border-green-500/20">
+                                    <CheckCircle size={12} /> Connected
+                                </div>
+                                <button 
+                                    onClick={handleDisconnectDrive}
+                                    className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded transition-colors"
+                                    title="Disconnect Drive"
+                                >
+                                    <XCircle size={18} />
+                                </button>
                             </div>
                         ) : (
                             <button 

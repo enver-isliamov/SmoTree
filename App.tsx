@@ -17,8 +17,8 @@ import { MainLayout } from './components/MainLayout';
 
 type ViewState = 
   | { type: 'DASHBOARD' }
-  | { type: 'PROJECT_VIEW', projectId: string }
-  | { type: 'PLAYER', assetId: string, projectId: string }
+  | { type: 'PROJECT_VIEW', projectId: string, restrictedAssetId?: string }
+  | { type: 'PLAYER', assetId: string, projectId: string, restrictedAssetId?: string }
   | { type: 'PROFILE' }
   | { type: 'WORKFLOW' }
   | { type: 'ABOUT' }
@@ -210,7 +210,7 @@ const AppContent: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
 
-  const processInviteLink = async (user: User, projectId: string) => {
+  const processInviteLink = async (user: User, projectId: string, assetId?: string | null) => {
       if (processedInvites.current.has(projectId)) return; 
       
       console.log(`🔗 Processing invite for project: ${projectId}`);
@@ -236,10 +236,15 @@ const AppContent: React.FC = () => {
                   });
                   notify(`You joined "${joinData.project.name}"`, "success");
                   
-                  setView({ type: 'PROJECT_VIEW', projectId: joinData.project.id });
+                  if (assetId) {
+                      setView({ type: 'PLAYER', projectId: projectId, assetId: assetId, restrictedAssetId: assetId });
+                  } else {
+                      setView({ type: 'PROJECT_VIEW', projectId: projectId });
+                  }
                   
                   const url = new URL(window.location.href);
                   url.searchParams.delete('projectId');
+                  if (assetId) url.searchParams.delete('assetId');
                   window.history.replaceState({}, '', url.toString());
               }
           } else {
@@ -264,7 +269,7 @@ const AppContent: React.FC = () => {
     const aId = params.get('assetId');
 
     if (pId && !projects.some(p => p.id === pId)) {
-        processInviteLink(currentUser, pId);
+        processInviteLink(currentUser, pId, aId);
         return; 
     } 
     
@@ -279,14 +284,14 @@ const AppContent: React.FC = () => {
         if (hasAccess) {
             if (aId) {
                 const assetExists = projectExists.assets.find(a => a.id === aId);
-                if (assetExists) setView({ type: 'PLAYER', projectId: pId, assetId: aId });
+                if (assetExists) setView({ type: 'PLAYER', projectId: pId, assetId: aId, restrictedAssetId: aId });
                 else setView({ type: 'PROJECT_VIEW', projectId: pId });
             } else {
                 setView({ type: 'PROJECT_VIEW', projectId: pId });
             }
         }
       } else {
-          processInviteLink(currentUser, pId);
+          processInviteLink(currentUser, pId, aId);
       }
     }
   }, [currentUser]); 
@@ -305,7 +310,7 @@ const AppContent: React.FC = () => {
 
   const handleSelectAsset = (asset: ProjectAsset) => {
     if (view.type === 'PROJECT_VIEW') {
-      setView({ type: 'PLAYER', assetId: asset.id, projectId: view.projectId });
+      setView({ type: 'PLAYER', assetId: asset.id, projectId: view.projectId, restrictedAssetId: view.restrictedAssetId });
       const newUrl = `${window.location.pathname}?projectId=${view.projectId}&assetId=${asset.id}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
     }
@@ -318,7 +323,7 @@ const AppContent: React.FC = () => {
 
   const handleBackToProject = () => {
     if (view.type === 'PLAYER') {
-      setView({ type: 'PROJECT_VIEW', projectId: view.projectId });
+      setView({ type: 'PROJECT_VIEW', projectId: view.projectId, restrictedAssetId: view.restrictedAssetId });
       const newUrl = `${window.location.pathname}?projectId=${view.projectId}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
     }
@@ -375,9 +380,10 @@ const AppContent: React.FC = () => {
 
     const params = new URLSearchParams(window.location.search);
     const pId = params.get('projectId');
+    const aId = params.get('assetId');
 
     if (pId) {
-        await processInviteLink(user, pId);
+        await processInviteLink(user, pId, aId);
     } else {
         await fetchCloudData(user);
     }
@@ -507,6 +513,7 @@ const AppContent: React.FC = () => {
             onSelectAsset={handleSelectAsset}
             onUpdateProject={handleUpdateProject}
             notify={notify}
+            restrictedAssetId={view.restrictedAssetId}
           />
         )}
         {view.type === 'PLAYER' && currentProject && currentAsset && (
