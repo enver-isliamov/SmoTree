@@ -47,11 +47,12 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   // TAB STATE
   const [sidebarTab, setSidebarTab] = useState<'comments' | 'transcript'>('comments');
 
+  // Safely get current version
   const version = asset.versions[currentVersionIdx] || asset.versions[0];
   const compareVersion = compareVersionIdx !== null ? asset.versions[compareVersionIdx] : null;
   
   // Project-level lock takes precedence, then Version-level lock
-  const isLocked = project.isLocked || version.isLocked || false;
+  const isLocked = project.isLocked || version?.isLocked || false;
   const isGuest = currentUser.role === UserRole.GUEST;
   
   // View State
@@ -101,7 +102,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const localFileRef = useRef<HTMLInputElement>(null);
 
   // Comments & Local State
-  const [comments, setComments] = useState<Comment[]>(version.comments || []);
+  const [comments, setComments] = useState<Comment[]>(version?.comments || []);
   const [swipeCommentId, setSwipeCommentId] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const touchStartRef = useRef<{x: number, y: number} | null>(null);
@@ -313,7 +314,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       }
   };
 
-  useEffect(() => { setComments(version.comments || []); }, [version.comments]);
+  useEffect(() => { setComments(version?.comments || []); }, [version?.comments]);
 
   // Handle Removal of Dead Version
   const handleRemoveDeadVersion = async () => {
@@ -339,6 +340,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       setDriveFileMissing(false);
       setVideoError(false);
       setDriveUrlRetried(false);
+      setLoadingDrive(false);
       
       // Set new index to trigger reload
       setCurrentVersionIdx(newIdx);
@@ -365,7 +367,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     setTranscript(null);
 
     const checkDriveStatus = async () => {
-        if (version.storageType === 'drive' && version.googleDriveId) {
+        if (version?.storageType === 'drive' && version.googleDriveId) {
             setLoadingDrive(true);
             // Check existence first
             const status = await GoogleDriveService.checkFileStatus(version.googleDriveId);
@@ -381,23 +383,25 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             // Trust URL initially
             setDriveUrl(streamUrl);
             setLoadingDrive(false);
-        } else if (version.localFileUrl) { 
+        } else if (version?.localFileUrl) { 
             setLocalFileSrc(version.localFileUrl); 
             setLocalFileName(version.localFileName || 'Local File'); 
         } else { 
             setLocalFileSrc(null); 
             setLocalFileName(null); 
-            if (!version.url) setVideoError(false); // Waiting for URL
+            if (version && !version.url) setVideoError(false); // Waiting for URL
         }
     };
 
     checkDriveStatus();
 
+    // Force reset Video Element specifically
     if (videoRef.current) { 
+        videoRef.current.pause();
         videoRef.current.currentTime = 0; 
         videoRef.current.load(); 
     }
-  }, [version?.id]); // version.id changes -> everything reloads
+  }, [version?.id]); // CRITICAL: version.id changes -> everything reloads
 
   useEffect(() => {
     const handleFsChange = () => { const isFs = !!document.fullscreenElement; setIsFullscreen(isFs); if (!isFs) setShowVoiceModal(false); };
@@ -652,7 +656,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
               </div>
           );
       }
-      if (version.storageType === 'drive') {
+      if (version?.storageType === 'drive') {
           return (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
                   <HardDrive size={10} /> Drive
@@ -665,6 +669,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
           </div>
       );
   };
+
+  if (!version) return null; // Safety check
 
   return (
     <div className="flex flex-col h-[100dvh] bg-white dark:bg-zinc-950 overflow-hidden select-none fixed inset-0 transition-colors">
