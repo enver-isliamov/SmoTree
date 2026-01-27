@@ -173,7 +173,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                googleDriveId = result.id;
                storageType = 'drive';
                assetUrl = ''; // Drive uses ID
-               finalFileName = niceName; // Store the nice name!
+               finalFileName = niceName; // Store the nice name we used!
            } catch (driveErr) {
                console.error("Drive upload failed", driveErr);
                notify("Drive upload failed. Falling back to local.", "error");

@@ -319,19 +319,22 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       
       const uV = asset.versions.filter(v => v.id !== version.id);
       if (uV.length === 0) {
-          // If removing last version, we should probably delete asset or handle empty state, but for now let's just go back
+          // If removing last version, just go back
           onBack();
           return;
       }
       
-      // Calculate new index
+      // Calculate new index - pick previous one or 0
       let newIdx = currentVersionIdx - 1;
       if (newIdx < 0) newIdx = 0;
 
       const uA = project.assets.map(a => a.id === asset.id ? { ...a, versions: uV, currentVersionIndex: newIdx } : a);
       onUpdateProject({ ...project, assets: uA });
       
-      // Also switch local state to the new valid index
+      // Explicitly update local state to trigger effect for new version
+      setDriveUrl(null); 
+      setDriveFileMissing(false);
+      setVideoError(false);
       setCurrentVersionIdx(newIdx);
       notify("Version removed", "info");
   };
@@ -363,12 +366,8 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
             // Fetch stream URL
             const streamUrl = GoogleDriveService.getVideoStreamUrl(version.googleDriveId);
-            if (streamUrl) {
-                setDriveUrl(streamUrl);
-            } else {
-                notify("Connect Google Drive in Profile to view this file.", "error");
-                setVideoError(true);
-            }
+            // We blindly trust the URL initially, error handler will catch if it fails (e.g. 403)
+            setDriveUrl(streamUrl);
             setLoadingDrive(false);
         } else if (version.localFileUrl) { 
             setLocalFileSrc(version.localFileUrl); 
@@ -376,14 +375,19 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         } else { 
             setLocalFileSrc(null); 
             setLocalFileName(null); 
-            setVideoError(false); 
+            // If it's a Vercel blob or external URL, just use it directly
+            if (!version.url) setVideoError(false); // Waiting for URL
         }
     };
 
     checkDriveStatus();
 
-    if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.load(); }
-  }, [version.id]); // version.id changes -> everything reloads
+    // Reset Video Element specifically
+    if (videoRef.current) { 
+        videoRef.current.currentTime = 0; 
+        videoRef.current.load(); 
+    }
+  }, [version.id]); // CRITICAL: version.id changes -> everything reloads
 
   useEffect(() => {
     const handleFsChange = () => { const isFs = !!document.fullscreenElement; setIsFullscreen(isFs); if (!isFs) setShowVoiceModal(false); };
@@ -430,10 +434,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleTimeUpdate = () => { if (!isScrubbing) setCurrentTime(videoRef.current?.currentTime || 0); };
   
   const handleVideoError = () => {
+      // Avoid flickering error if we are just loading
+      if (loadingDrive) return;
+
       if (!localFileSrc && !driveFileMissing) {
           // Attempt Drive Fallback if using API link and it failed (CORS/403)
+          // This usually happens if token expired mid-session or 3rd party cookie issues
           if (driveUrl && driveUrl.includes('googleapis.com') && version.googleDriveId && !driveUrlRetried) {
-              // Switch to UC link as a Hail Mary for simple playback
               console.warn("API link failed (likely 403/CORS). Switching to UC fallback link...");
               setDriveUrlRetried(true);
               setDriveUrl(`https://drive.google.com/uc?export=download&id=${version.googleDriveId}`);
@@ -617,6 +624,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const handleSwitchVersion = (idx: number) => {
       setDriveUrl(null); // Reset URL to force reload if needed
       setVideoError(false);
+      // Clean up previous failure states
+      setDriveFileMissing(false);
+      setDriveUrlRetried(false);
+      
       setCurrentVersionIdx(idx);
       setShowVersionSelector(false);
       // Optional: Reset comparison if we switch to the same version we are comparing against

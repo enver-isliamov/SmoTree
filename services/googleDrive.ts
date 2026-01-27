@@ -44,20 +44,11 @@ export const GoogleDriveService = {
    * Attempts to silently restore the session if user was previously connected.
    */
   restoreSession: () => {
+      // Just ensure client is initialized. We rely on the flag to know IF we should be connected.
+      // Actual token request happens on demand or via explicit connect if expired.
       const shouldBeConnected = localStorage.getItem(CONNECTED_KEY) === 'true';
-      if (shouldBeConnected && tokenClient) {
-          console.log("🔄 Attempting to restore Drive session...");
-          // Request token silently. Note: This might still trigger a popup if consent is lost, 
-          // but 'prompt: none' usually throws an error if interaction is needed.
-          // For a smoother UX, we just try standard request but logged.
-          // Since we can't force 'prompt: none' in the standard client easily without setup, 
-          // we rely on the fact that if the user approved the app, a click will be instant.
-          // However, to fully automate, we rely on the user clicking "Connect" if it expires, 
-          // OR we can trigger it if we are sure. 
-          
-          // Current strategy: We wait for user interaction usually, but let's try to make it easier.
-          // Real "Silent Refresh" requires backend or specific GIS config. 
-          // For this app: We will keep the flag true.
+      if (shouldBeConnected) {
+          console.log("🔄 Drive session flag found. Ready to request token if needed.");
       }
   },
 
@@ -81,7 +72,6 @@ export const GoogleDriveService = {
       tokenExpiration = 0;
       localStorage.removeItem(CONNECTED_KEY);
       
-      // Revoke token if possible (optional, but good practice)
       if (window.google && accessToken) {
           window.google.accounts.oauth2.revoke(accessToken, () => {
               console.log('Token revoked');
@@ -92,29 +82,15 @@ export const GoogleDriveService = {
   },
 
   isAuthenticated: (): boolean => {
-    // Check both memory token AND persistence flag. 
-    // If flag is true but token missing, we return true to show UI as "Connected" (even if token needs refresh)
-    // The actual API call will fail and prompt user or handle it.
-    const hasFlag = localStorage.getItem(CONNECTED_KEY) === 'true';
-    const hasValidToken = !!accessToken && Date.now() < tokenExpiration;
-    
-    // We return hasValidToken strictly for operations, but UI might use flag.
-    // Let's return true if we have a valid token.
-    return hasValidToken;
-  },
-
-  getAccessToken: (): string | null => {
-    if (!!accessToken && Date.now() < tokenExpiration) {
-        return accessToken;
-    }
-    return null;
+    // Return true if we have a valid token currently in memory
+    return !!accessToken && Date.now() < tokenExpiration;
   },
 
   /**
    * Check if a file exists and is not trashed.
    */
   checkFileStatus: async (fileId: string): Promise<'ok' | 'trashed' | 'missing'> => {
-      if (!accessToken) return 'ok'; // Cannot check without token
+      if (!accessToken) return 'ok'; // Cannot check without token, assume ok to try playing
 
       try {
           const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=trashed,explicitlyTrashed`, {
@@ -123,8 +99,7 @@ export const GoogleDriveService = {
           
           if (res.status === 404) return 'missing';
           if (!res.ok) {
-              console.warn("Drive check status failed:", res.status);
-              return 'ok'; // Assume OK on generic error to allow retry
+              return 'ok'; // Fallback on error
           }
 
           const data = await res.json();
@@ -151,7 +126,6 @@ export const GoogleDriveService = {
           // Escape single quotes for the query
           const safeOldName = oldName.replace(/'/g, "\\'");
           
-          // Find the specific project folder
           const query = `mimeType='application/vnd.google-apps.folder' and name='${safeOldName}' and '${appFolderId}' in parents and trashed=false`;
           
           const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
@@ -161,9 +135,7 @@ export const GoogleDriveService = {
 
           if (data.files && data.files.length > 0) {
               const folderId = data.files[0].id;
-              console.log(`Found folder [${folderId}]. Renaming '${oldName}' -> '${newName}'`);
               
-              // Rename it
               const patchRes = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}`, {
                   method: 'PATCH',
                   headers: {
@@ -173,17 +145,9 @@ export const GoogleDriveService = {
                   body: JSON.stringify({ name: newName })
               });
               
-              if (patchRes.ok) {
-                  console.log("✅ Folder renamed successfully");
-                  return true;
-              } else {
-                  console.error("Rename API failed", await patchRes.text());
-                  return false;
-              }
-          } else {
-              console.warn(`Folder '${oldName}' not found in Drive to rename.`);
-              return false;
+              return patchRes.ok;
           }
+          return false;
       } catch (e) {
           console.error("Rename folder failed exception", e);
           return false;
@@ -196,14 +160,12 @@ export const GoogleDriveService = {
   ensureFolder: async (folderName: string, parentId?: string): Promise<string> => {
       if (!accessToken) throw new Error("No access token");
 
-      // Build query
       const safeName = folderName.replace(/'/g, "\\'");
       let query = `mimeType='application/vnd.google-apps.folder' and name='${safeName}' and trashed=false`;
       if (parentId) {
           query += ` and '${parentId}' in parents`;
       }
 
-      // 1. Search
       const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`, {
           headers: { 'Authorization': `Bearer ${accessToken}` }
       });
@@ -213,7 +175,6 @@ export const GoogleDriveService = {
           return data.files[0].id;
       }
 
-      // 2. Create
       const metadata: any = {
           name: folderName,
           mimeType: 'application/vnd.google-apps.folder'
@@ -235,10 +196,9 @@ export const GoogleDriveService = {
   },
 
   /**
-   * Finds the SmoTree.App folder or creates it if it doesn't exist.
+   * Finds the SmoTree.App folder or creates it.
    */
   ensureAppFolder: async (): Promise<string> => {
-    // If we have flag but no token, try to prompt user or fail
     if (!accessToken) {
         throw new Error("Drive Token Expired. Please reconnect in Profile.");
     }
@@ -249,10 +209,9 @@ export const GoogleDriveService = {
    * Deletes (trashes) a file from Google Drive.
    */
   deleteFile: async (fileId: string): Promise<void> => {
-      if (!accessToken) return; // Fail silently if no token, user can delete manually later
+      if (!accessToken) return;
       
       try {
-          // We use update to set trashed=true instead of DELETE to avoid permanent data loss accidents
           await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
               method: 'PATCH',
               headers: {
@@ -272,7 +231,6 @@ export const GoogleDriveService = {
   uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void, customName?: string): Promise<{ id: string, name: string }> => {
      if (!accessToken) throw new Error("No access token");
 
-     // Step 1: Initiate Resumable Upload Session
      const metadata = {
          name: customName || file.name,
          parents: [folderId]
@@ -283,7 +241,6 @@ export const GoogleDriveService = {
          headers: {
              'Authorization': `Bearer ${accessToken}`,
              'Content-Type': 'application/json',
-             // Hints about the actual file content
              'X-Upload-Content-Type': file.type || 'application/octet-stream',
              'X-Upload-Content-Length': file.size.toString()
          },
@@ -291,16 +248,12 @@ export const GoogleDriveService = {
      });
 
      if (!initResponse.ok) {
-         const errText = await initResponse.text();
-         throw new Error(`Drive Init Failed (${initResponse.status}): ${errText}`);
+         throw new Error(`Drive Init Failed: ${initResponse.status}`);
      }
 
      const sessionUri = initResponse.headers.get('Location');
-     if (!sessionUri) {
-         throw new Error("Drive API did not return a session URI. Upload cannot proceed.");
-     }
+     if (!sessionUri) throw new Error("No session URI");
 
-     // Step 2: Upload Content to the Session URI
      return new Promise((resolve, reject) => {
          const xhr = new XMLHttpRequest();
          xhr.open('PUT', sessionUri);
@@ -308,20 +261,17 @@ export const GoogleDriveService = {
          if (onProgress) {
              xhr.upload.onprogress = (e) => {
                  if (e.lengthComputable) {
-                     const percent = Math.round((e.loaded / e.total) * 100);
-                     onProgress(percent);
+                     onProgress(Math.round((e.loaded / e.total) * 100));
                  }
              };
          }
 
          xhr.onload = async () => {
-             // 200 OK or 201 Created indicates success
              if (xhr.status === 200 || xhr.status === 201) {
                  try {
                      const response = JSON.parse(xhr.responseText);
                      
-                     // Step 3: Make file Public (Anyone with link can read)
-                     // Note: "Anyone with link" is safer for simple sharing without complex auth flows for viewers
+                     // Make public for guests (optional, but good for sharing)
                      try {
                         await fetch(`https://www.googleapis.com/drive/v3/files/${response.id}/permissions`, {
                             method: 'POST',
@@ -329,40 +279,37 @@ export const GoogleDriveService = {
                                 'Authorization': `Bearer ${accessToken}`,
                                 'Content-Type': 'application/json'
                             },
-                            body: JSON.stringify({
-                                role: 'reader',
-                                type: 'anyone'
-                            })
+                            body: JSON.stringify({ role: 'reader', type: 'anyone' })
                         });
-                     } catch (permErr) {
-                         console.warn("Failed to set public permission:", permErr);
-                     }
+                     } catch (e) {}
 
                      resolve(response);
                  } catch (e) {
-                     reject(new Error(`Invalid JSON response: ${xhr.responseText}`));
+                     reject(new Error("Invalid JSON"));
                  }
              } else {
-                 reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+                 reject(new Error(`Upload failed: ${xhr.status}`));
              }
          };
-
-         xhr.onerror = () => reject(new Error("Network error during upload"));
-         
+         xhr.onerror = () => reject(new Error("Network error"));
          xhr.send(file);
      });
   },
 
   /**
    * Returns a streaming URL for the file.
+   * CRITICAL: Uses access_token query param for direct streaming if authenticated.
    */
   getVideoStreamUrl: (fileId: string): string => {
-      // 1. If we have a token (Owner/Editor), use it.
-      if (accessToken) {
+      // 1. If we have a token (Owner/Editor), use it directly in URL.
+      // This is crucial for HTML5 video tag to work without CORS headers issues
+      if (accessToken && Date.now() < tokenExpiration) {
         return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
       }
       
-      // 2. Fallback for Guests: Use API Key.
+      // 2. Fallback for Guests or if token expired: Use API Key (Requires file to be public/shared with API key service account if not public)
+      // Note: Video tag often fails with simple API key due to CORS if not set up perfectly.
+      // The best fallback for guests is the "uc" (User Content) export link, though it might hit limits.
       const apiKey = (import.meta as any).env.VITE_GOOGLE_API_KEY;
       if (apiKey) {
          return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;

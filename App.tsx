@@ -53,24 +53,14 @@ const AppContent: React.FC = () => {
 
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
 
-  // --- INIT GOOGLE DRIVE SERVICE & RESTORE SESSION ---
+  // --- INIT GOOGLE DRIVE SERVICE ---
   useEffect(() => {
       if (GOOGLE_CLIENT_ID) {
           GoogleDriveService.init(GOOGLE_CLIENT_ID);
-          
-          // Try to restore session if user marked as connected previously
-          setTimeout(() => {
-              const wasConnected = localStorage.getItem('smotree_drive_connected_flag') === 'true';
-              if (wasConnected && currentUser) {
-                  // If token expired, this might prompt or fail silent. 
-                  // In a real app we'd use 'prompt: none', here we rely on the init logic.
-                  // Just initializing the client is often enough if we call authorize later seamlessly.
-                  // But to avoid the "red screen" on refresh, let's try to grab a token if possible or just rely on user clicking re-connect if needed.
-                  // Ideally, GoogleDriveService.init handles the client setup.
-              }
-          }, 1000);
+          // Try to restore session state
+          GoogleDriveService.restoreSession();
       }
-  }, [GOOGLE_CLIENT_ID, currentUser]);
+  }, [GOOGLE_CLIENT_ID]);
 
   // TOAST HANDLER
   const notify = (message: string, type: ToastType = 'info') => {
