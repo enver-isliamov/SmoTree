@@ -9,7 +9,7 @@ if (!rootElement) {
 }
 
 // Get the key from environment variables (Vite specific)
-const PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY;
+const PUBLISHABLE_KEY = (import.meta as any).env?.VITE_CLERK_PUBLISHABLE_KEY;
 
 const root = ReactDOM.createRoot(rootElement);
 
