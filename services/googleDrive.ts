@@ -95,6 +95,7 @@ export const GoogleDriveService = {
   /**
    * Uploads a file using the Resumable Upload protocol.
    * This supports large files (>5MB) unlike the multipart method.
+   * Also sets permission to 'Anyone with the link' (Public Reader).
    */
   uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void): Promise<{ id: string, name: string }> => {
      if (!accessToken) throw new Error("No access token");
@@ -128,12 +129,9 @@ export const GoogleDriveService = {
      }
 
      // Step 2: Upload Content to the Session URI
-     // We use XMLHttpRequest here to easily track upload progress
      return new Promise((resolve, reject) => {
          const xhr = new XMLHttpRequest();
          xhr.open('PUT', sessionUri);
-         
-         // No Authorization header needed here, the permission is embedded in the sessionUri
          
          if (onProgress) {
              xhr.upload.onprogress = (e) => {
@@ -144,11 +142,32 @@ export const GoogleDriveService = {
              };
          }
 
-         xhr.onload = () => {
+         xhr.onload = async () => {
              // 200 OK or 201 Created indicates success
              if (xhr.status === 200 || xhr.status === 201) {
                  try {
                      const response = JSON.parse(xhr.responseText);
+                     
+                     // Step 3: Make file Public (Anyone with link can read)
+                     // This allows Guests to view the video without an access token
+                     try {
+                        await fetch(`https://www.googleapis.com/drive/v3/files/${response.id}/permissions`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${accessToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                role: 'reader',
+                                type: 'anyone'
+                            })
+                        });
+                     } catch (permErr) {
+                         console.warn("Failed to set public permission:", permErr);
+                         // We still resolve, as the upload itself was successful. 
+                         // The user might just face issues sharing it with guests later.
+                     }
+
                      resolve(response);
                  } catch (e) {
                      reject(new Error(`Invalid JSON response: ${xhr.responseText}`));
@@ -166,11 +185,17 @@ export const GoogleDriveService = {
 
   /**
    * Returns a streaming URL for the file.
-   * NOTE: We append access_token to the URL because HTML Video tags cannot send headers.
-   * This is secure enough for this session-based context.
+   * If authenticated, uses the API link with token.
+   * If guest (no token), uses the public web content link.
    */
   getVideoStreamUrl: (fileId: string): string => {
-      if (!accessToken) return '';
-      return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
+      // If we have a token (Owner/Editor), use the direct API call which is more stable for streaming
+      if (accessToken) {
+        return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
+      }
+      
+      // Fallback for Guests: Use the standard public download link.
+      // Requires the file to have 'anyone' permission (which we set in uploadFile).
+      return `https://drive.google.com/uc?export=download&id=${fileId}`;
   }
 };
