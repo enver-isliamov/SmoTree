@@ -65,10 +65,13 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const [videoFps, setVideoFps] = useState(30); 
   const [isFpsDetected, setIsFpsDetected] = useState(false);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
+  
+  // Loading & Error States
   const [driveUrl, setDriveUrl] = useState<string | null>(null);
   const [driveUrlRetried, setDriveUrlRetried] = useState(false); 
-  const [driveFileMissing, setDriveFileMissing] = useState(false); // New state for missing files
-  const [loadingDrive, setLoadingDrive] = useState(false); // New state for loader
+  const [driveFileMissing, setDriveFileMissing] = useState(false); 
+  const [loadingDrive, setLoadingDrive] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   // Scrubbing State
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -93,7 +96,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   const [showVersionSelector, setShowVersionSelector] = useState(false);
 
   // Local File Fallback State
-  const [videoError, setVideoError] = useState(false);
   const [localFileSrc, setLocalFileSrc] = useState<string | null>(null);
   const [localFileName, setLocalFileName] = useState<string | null>(null);
   const localFileRef = useRef<HTMLInputElement>(null);
@@ -319,38 +321,48 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       
       const uV = asset.versions.filter(v => v.id !== version.id);
       if (uV.length === 0) {
-          // If removing last version, just go back
           onBack();
           return;
       }
       
-      // Calculate new index - pick previous one or 0
-      let newIdx = currentVersionIdx - 1;
+      // Calculate new index - ensure it points to the LAST available version (usually most recent)
+      // or keep current if valid. Since we removed one, length decreased.
+      let newIdx = Math.min(currentVersionIdx, uV.length - 1);
       if (newIdx < 0) newIdx = 0;
 
+      // Update Project Data
       const uA = project.assets.map(a => a.id === asset.id ? { ...a, versions: uV, currentVersionIndex: newIdx } : a);
       onUpdateProject({ ...project, assets: uA });
       
-      // Explicitly update local state to trigger effect for new version
+      // CRITICAL: Reset ALL error states for the new version load
       setDriveUrl(null); 
       setDriveFileMissing(false);
       setVideoError(false);
+      setDriveUrlRetried(false);
+      
+      // Set new index to trigger reload
       setCurrentVersionIdx(newIdx);
       notify("Version removed", "info");
   };
 
   useEffect(() => {
     // NOTIFY USER ON VERSION LOAD
-    notify(`Loaded Version ${version.versionNumber}: ${version.filename || 'Video'}`, "success");
+    if (version) {
+        notify(`Loaded Version ${version.versionNumber}: ${version.filename || 'Video'}`, "success");
+    }
 
     setIsPlaying(false); setCurrentTime(0); setSelectedCommentId(null);
     setEditingCommentId(null); setMarkerInPoint(null); setMarkerOutPoint(null);
-    setVideoError(false); setShowVoiceModal(false); setIsFpsDetected(false); setIsVerticalVideo(false);
-    setTranscript(null); // Reset transcript on version change
-    setDriveUrl(null); // Force reload of drive URL
-    setDriveUrlRetried(false); // Reset retry flag on version change
-    setDriveFileMissing(false); // Reset missing flag
+    
+    // STRICT RESET OF ERROR STATES ON VERSION CHANGE
+    setVideoError(false); 
+    setDriveFileMissing(false);
+    setDriveUrlRetried(false);
+    setDriveUrl(null); 
     setLoadingDrive(false);
+    
+    setShowVoiceModal(false); setIsFpsDetected(false); setIsVerticalVideo(false);
+    setTranscript(null);
 
     const checkDriveStatus = async () => {
         if (version.storageType === 'drive' && version.googleDriveId) {
@@ -366,7 +378,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
             // Fetch stream URL
             const streamUrl = GoogleDriveService.getVideoStreamUrl(version.googleDriveId);
-            // We blindly trust the URL initially, error handler will catch if it fails (e.g. 403)
+            // Trust URL initially
             setDriveUrl(streamUrl);
             setLoadingDrive(false);
         } else if (version.localFileUrl) { 
@@ -375,19 +387,17 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
         } else { 
             setLocalFileSrc(null); 
             setLocalFileName(null); 
-            // If it's a Vercel blob or external URL, just use it directly
             if (!version.url) setVideoError(false); // Waiting for URL
         }
     };
 
     checkDriveStatus();
 
-    // Reset Video Element specifically
     if (videoRef.current) { 
         videoRef.current.currentTime = 0; 
         videoRef.current.load(); 
     }
-  }, [version.id]); // CRITICAL: version.id changes -> everything reloads
+  }, [version?.id]); // version.id changes -> everything reloads
 
   useEffect(() => {
     const handleFsChange = () => { const isFs = !!document.fullscreenElement; setIsFullscreen(isFs); if (!isFs) setShowVoiceModal(false); };
@@ -439,7 +449,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
       if (!localFileSrc && !driveFileMissing) {
           // Attempt Drive Fallback if using API link and it failed (CORS/403)
-          // This usually happens if token expired mid-session or 3rd party cookie issues
           if (driveUrl && driveUrl.includes('googleapis.com') && version.googleDriveId && !driveUrlRetried) {
               console.warn("API link failed (likely 403/CORS). Switching to UC fallback link...");
               setDriveUrlRetried(true);
@@ -479,16 +488,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
       if (isDragRef.current && scrubStartDataRef.current && videoRef.current) {
           const deltaX = e.clientX - scrubStartDataRef.current.x;
-          
-          // FRAME ACCURATE SCRUBBING - SMOOTH & VISCOUS
-          // 25 pixels of movement = 1 frame
-          // This gives very high precision. To move 1 second (at 25fps) you need 625 pixels.
           const pixelsPerFrame = 25; 
           const framesMoved = deltaX / pixelsPerFrame;
-          
-          const frameDuration = 1 / videoFps; // e.g. 0.0416 for 24fps
+          const frameDuration = 1 / videoFps; 
           const deltaT = framesMoved * frameDuration;
-          
           const newTime = Math.max(0, Math.min(duration, scrubStartDataRef.current.time + deltaT));
           
           videoRef.current.currentTime = newTime;
@@ -555,9 +558,6 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     syncCommentAction('create', { id: cId, text: newCommentText, timestamp: markerInPoint !== null ? markerInPoint : currentTime, duration: markerOutPoint && markerInPoint ? markerOutPoint - markerInPoint : undefined, status: CommentStatus.OPEN, authorName: currentUser.name });
     setNewCommentText(''); setMarkerInPoint(null); setMarkerOutPoint(null);
     setTimeout(() => { document.getElementById(`comment-${cId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-    
-    // FIX: Blur input to allow spacebar to control playback again
-    // And shift focus back to the main player container
     sidebarInputRef.current?.blur();
     playerContainerRef.current?.focus();
   };
@@ -622,15 +622,16 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleSwitchVersion = (idx: number) => {
-      setDriveUrl(null); // Reset URL to force reload if needed
+      // FORCE RESET STATES
+      setDriveUrl(null); 
       setVideoError(false);
-      // Clean up previous failure states
       setDriveFileMissing(false);
       setDriveUrlRetried(false);
+      setLoadingDrive(true);
       
       setCurrentVersionIdx(idx);
       setShowVersionSelector(false);
-      // Optional: Reset comparison if we switch to the same version we are comparing against
+      
       if (compareVersionIdx === idx) {
           setCompareVersionIdx(null);
           setViewMode('single');
@@ -677,54 +678,76 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
             {(!isSearchOpen || window.innerWidth > 768) && (
               <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-zinc-900 dark:text-zinc-100 leading-tight truncate flex-1">
                    <div className="flex items-center gap-2">
-                       <span className="font-bold text-xs md:text-sm truncate" title={localFileName || version.filename || asset.title}>{localFileName || version.filename || asset.title}</span>
-                       {getSourceBadge()}
-                   </div>
-                   <div className="flex items-center gap-2">
-                       <div className="relative flex items-center gap-1">
-                            {/* VERSION SELECTOR DROPDOWN */}
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setShowVersionSelector(!showVersionSelector)}
-                                    className="shrink-0 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/30 transition-colors"
-                                >
-                                    v{version.versionNumber}
-                                    <ChevronDown size={10} />
-                                </button>
-                                {showVersionSelector && (
-                                    <div className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                                        <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Switch Version</div>
-                                        {asset.versions.map((v, idx) => (
+                        {/* UNIFIED FILENAME & VERSION DROPDOWN */}
+                       <div className="relative group/title">
+                            <button 
+                                onClick={() => setShowVersionSelector(!showVersionSelector)}
+                                className="flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 p-1.5 rounded-lg transition-colors text-left"
+                            >
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-xs md:text-sm truncate max-w-[200px] md:max-w-[400px]" title={localFileName || version.filename || asset.title}>
+                                            {localFileName || version.filename || asset.title}
+                                        </span>
+                                        <div className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-md text-[10px] font-bold border border-indigo-100 dark:border-indigo-500/20">
+                                            v{version.versionNumber} <ChevronDown size={10} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+
+                            {/* VERSION DROPDOWN CONTENT */}
+                            {showVersionSelector && (
+                                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl z-50 py-2 max-h-80 overflow-y-auto">
+                                    <div className="px-4 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800/50 mb-1">Select Version</div>
+                                    {asset.versions.map((v, idx) => {
+                                        const isCurrent = idx === currentVersionIdx;
+                                        return (
                                             <button 
                                                 key={v.id} 
                                                 onClick={() => handleSwitchVersion(idx)} 
-                                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 flex justify-between ${idx === currentVersionIdx ? 'text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-900/10' : 'text-zinc-600 dark:text-zinc-300'}`}
+                                                className={`w-full text-left px-4 py-3 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800/50 flex justify-between items-center transition-colors group/item ${isCurrent ? 'bg-indigo-50 dark:bg-indigo-900/10' : ''}`}
                                             >
-                                                <span>Version {v.versionNumber}</span>
-                                                {idx === currentVersionIdx && <CheckCircle size={10} />}
+                                                <div className="flex flex-col gap-0.5 overflow-hidden">
+                                                    <div className={`font-bold truncate ${isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                                                        {v.filename || `Version ${v.versionNumber}`}
+                                                    </div>
+                                                    <div className="text-[10px] text-zinc-400">{v.uploadedAt}</div>
+                                                </div>
+                                                {isCurrent && <CheckCircle size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />}
                                             </button>
-                                        ))}
-                                    </div>
-                                )}
-                                {showVersionSelector && <div className="fixed inset-0 z-40" onClick={() => setShowVersionSelector(false)}></div>}
-                            </div>
-
-                            {/* COMPARE SELECTOR */}
-                            {asset.versions.length > 1 && (
-                                <div className="relative">
-                                    <button onClick={() => setShowCompareMenu(!showCompareMenu)} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${compareVersionIdx !== null ? 'bg-indigo-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}>{compareVersionIdx !== null ? `vs v${compareVersion?.versionNumber}` : 'Compare'} <ChevronDown size={10} /></button>
-                                    {showCompareMenu && (
-                                        <div className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl z-50 py-1">
-                                            <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Compare With</div>
-                                            <button onClick={() => handleSelectCompareVersion(null)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300">None (Single View)</button>
-                                            <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-1"></div>
-                                            {asset.versions.map((v, idx) => (idx !== currentVersionIdx && (<button key={v.id} onClick={() => handleSelectCompareVersion(idx)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 flex justify-between ${compareVersionIdx === idx ? 'text-indigo-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}><span>Version {v.versionNumber}</span>{compareVersionIdx === idx && <CheckCircle size={10} />}</button>)))}
-                                        </div>
-                                    )}
-                                    {showCompareMenu && <div className="fixed inset-0 z-40" onClick={() => setShowCompareMenu(false)}></div>}
+                                        );
+                                    })}
                                 </div>
                             )}
+                            {showVersionSelector && <div className="fixed inset-0 z-40" onClick={() => setShowVersionSelector(false)}></div>}
                        </div>
+                       
+                       {getSourceBadge()}
+                   </div>
+                   
+                   <div className="flex items-center gap-2">
+                       {/* COMPARE SELECTOR */}
+                       {asset.versions.length > 1 && (
+                            <div className="relative">
+                                <button onClick={() => setShowCompareMenu(!showCompareMenu)} className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors border ${compareVersionIdx !== null ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-transparent hover:border-zinc-300 dark:hover:border-zinc-600'}`}>
+                                    {compareVersionIdx !== null ? `vs v${compareVersion?.versionNumber}` : 'Compare'} <ChevronDown size={10} />
+                                </button>
+                                {showCompareMenu && (
+                                    <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 py-2">
+                                        <div className="px-4 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Compare With</div>
+                                        <button onClick={() => handleSelectCompareVersion(null)} className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300">None (Single View)</button>
+                                        <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1"></div>
+                                        {asset.versions.map((v, idx) => (idx !== currentVersionIdx && (
+                                            <button key={v.id} onClick={() => handleSelectCompareVersion(idx)} className={`w-full text-left px-4 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 flex justify-between ${compareVersionIdx === idx ? 'text-indigo-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}>
+                                                <span>Version {v.versionNumber}</span>{compareVersionIdx === idx && <CheckCircle size={12} />}
+                                            </button>
+                                        )))}
+                                    </div>
+                                )}
+                                {showCompareMenu && <div className="fixed inset-0 z-40" onClick={() => setShowCompareMenu(false)}></div>}
+                            </div>
+                        )}
                        
                        {isSyncing ? <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 animate-pulse text-[10px]" title={t('player.syncing')}><Cloud size={12} /></div> : <div className="flex items-center gap-1 text-green-500 dark:text-green-500/80 text-[10px]" title={t('player.saved')}><CheckCircle size={12} /></div>}
                        
