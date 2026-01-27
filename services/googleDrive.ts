@@ -1,3 +1,4 @@
+
 // Service to handle Google Drive API interactions
 // Now powered by Clerk for Authentication
 
@@ -270,7 +271,7 @@ export const GoogleDriveService = {
       // we have to rely on the calling component to handle token refresh logic 
       // or use a fallback.
       
-      const apiKey = (import.meta as any).env.VITE_GOOGLE_API_KEY;
+      const apiKey = (import.meta as any).env?.VITE_GOOGLE_API_KEY;
       if (apiKey) {
          return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
       }
