@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { User, UserRole } from '../types';
-import { LogOut, ShieldCheck, Mail, Crown, AlertCircle, HardDrive, CheckCircle, CloudOff, XCircle } from 'lucide-react';
+import { LogOut, ShieldCheck, Mail, Crown, AlertCircle, HardDrive, CheckCircle, XCircle } from 'lucide-react';
 import { RoadmapBlock } from './RoadmapBlock';
 import { useLanguage } from '../services/i18n';
 import { GoogleDriveService } from '../services/googleDrive';
+import { useUser } from '@clerk/clerk-react';
 
 interface ProfileProps {
   currentUser: User;
@@ -22,8 +23,19 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
   const isFounder = currentUser.role === UserRole.ADMIN;
   const isGuest = currentUser.role === UserRole.GUEST;
   const { t } = useLanguage();
-  // Use isConnected() (localStorage based) for initial UI state to show persistence
-  const [isDriveConnected, setIsDriveConnected] = useState(GoogleDriveService.isConnected());
+  const { user } = useUser();
+  
+  // Drive Scope Check
+  // Fix: provider should be 'google', not 'oauth_google' (which is the strategy name)
+  const googleAccount = user?.externalAccounts.find(a => a.provider === 'google');
+  // Check for the specific scope required for file uploads
+  const hasDriveScope = googleAccount?.approvedScopes?.includes('https://www.googleapis.com/auth/drive.file');
+  
+  const [isDriveConnected, setIsDriveConnected] = useState(!!hasDriveScope);
+
+  useEffect(() => {
+      setIsDriveConnected(!!hasDriveScope);
+  }, [hasDriveScope]);
 
   // Get Client ID from Environment Variables (Vite)
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
@@ -58,21 +70,38 @@ export const Profile: React.FC<ProfileProps> = ({ currentUser, onLogout, onMigra
      if (GOOGLE_CLIENT_ID) {
          GoogleDriveService.init(GOOGLE_CLIENT_ID);
      }
-     
-     const handleTokenUpdate = () => {
-         // Update state based on the persistent flag
-         setIsDriveConnected(GoogleDriveService.isConnected());
-     };
-     window.addEventListener('drive-token-updated', handleTokenUpdate);
-     return () => window.removeEventListener('drive-token-updated', handleTokenUpdate);
   }, [GOOGLE_CLIENT_ID]);
 
-  const handleConnectDrive = () => {
-      GoogleDriveService.authorize();
+  const handleConnectDrive = async () => {
+      if (!user) return;
+
+      const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+      
+      try {
+          if (googleAccount) {
+              // Re-authorize to add the missing scope
+              await googleAccount.reauthorize({
+                  additionalScopes: [DRIVE_SCOPE],
+                  redirectUrl: window.location.href
+              });
+          } else {
+              // Connect new Google account with the scope
+              await user.createExternalAccount({
+                  strategy: 'oauth_google',
+                  redirectUrl: window.location.href,
+                  additionalScopes: [DRIVE_SCOPE]
+              });
+          }
+      } catch (e) {
+          console.error("Failed to authorize Drive scope", e);
+      }
   };
 
   const handleDisconnectDrive = () => {
-      GoogleDriveService.disconnect();
+      // Since we can't easily revoke scopes via client-side Clerk without removing the account,
+      // we just show a message or logic. For now, removing the account is too destructive if it's the primary login.
+      // We will just disable the UI state locally or warn the user.
+      alert("To disconnect fully, please manage your account connections in the security settings or revoke access in your Google Account permissions.");
   };
 
   return (
