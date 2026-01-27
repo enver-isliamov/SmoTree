@@ -602,7 +602,18 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                     {viewMode === 'side-by-side' && <div className="absolute top-4 left-4 z-10 bg-black/60 text-white px-2 py-1 rounded text-xs font-bold pointer-events-none">v{version.versionNumber}</div>}
                     
                     {/* VIDEO ELEMENT */}
-                    <video ref={videoRef} src={localFileSrc || driveUrl || version.url} className="w-full h-full object-contain pointer-events-none" onTimeUpdate={handleTimeUpdate} onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setVideoError(false); setIsFpsDetected(false); setIsVerticalVideo(e.currentTarget.videoHeight > e.currentTarget.videoWidth); }} onError={handleVideoError} onEnded={() => setIsPlaying(false)} playsInline controls={false} />
+                    <video 
+                        ref={videoRef} 
+                        src={localFileSrc || driveUrl || version.url} 
+                        className="w-full h-full object-contain pointer-events-none" 
+                        onTimeUpdate={handleTimeUpdate} 
+                        onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setVideoError(false); setIsFpsDetected(false); setIsVerticalVideo(e.currentTarget.videoHeight > e.currentTarget.videoWidth); }} 
+                        onError={handleVideoError} 
+                        onEnded={() => setIsPlaying(false)} 
+                        playsInline 
+                        controls={false}
+                        crossOrigin="anonymous" // IMPORTANT: Allows playing from Google Drive API with headers
+                    />
                 
                 </div>
                 {viewMode === 'side-by-side' && compareVersion && (<div className="relative w-full h-full flex items-center justify-center overflow-hidden border-l border-zinc-800"><div className="absolute top-4 right-4 z-10 bg-black/60 text-indigo-400 px-2 py-1 rounded text-xs font-bold pointer-events-none">v{compareVersion.versionNumber}</div><video ref={compareVideoRef} src={compareVersion.url} className="w-full h-full object-contain pointer-events-none" muted playsInline controls={false} /></div>)}

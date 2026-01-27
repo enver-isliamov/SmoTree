@@ -199,10 +199,13 @@ export const GoogleDriveService = {
       // REQUIRES: VITE_GOOGLE_API_KEY in .env
       const apiKey = (import.meta as any).env.VITE_GOOGLE_API_KEY;
       if (apiKey) {
+         // Debug to confirm key is loaded
+         console.log("Using Public Drive API Key for playback");
          return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
       }
 
       // 3. Last resort fallback (Unreliable for large files due to virus scan interstitial)
+      console.warn("No API Key found for Guest Playback. Falling back to web link (unreliable).");
       return `https://drive.google.com/uc?export=download&id=${fileId}`;
   }
 };
