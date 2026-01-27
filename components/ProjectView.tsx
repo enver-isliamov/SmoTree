@@ -97,6 +97,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const isLocked = project.isLocked;
 
   // Filter Assets for Restricted Mode
+  // If restrictedAssetId matches ONLY one asset, show it.
   const visibleAssets = restrictedAssetId 
     ? project.assets.filter(a => a.id === restrictedAssetId)
     : project.assets;

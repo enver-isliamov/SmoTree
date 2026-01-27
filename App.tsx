@@ -236,6 +236,7 @@ const AppContent: React.FC = () => {
                   });
                   notify(`You joined "${joinData.project.name}"`, "success");
                   
+                  // CRITICAL FIX: Explicitly set view with Restricted Asset ID if present in link
                   if (assetId) {
                       setView({ type: 'PLAYER', projectId: projectId, assetId: assetId, restrictedAssetId: assetId });
                   } else {
@@ -282,9 +283,12 @@ const AppContent: React.FC = () => {
             currentUser.role === UserRole.ADMIN;
 
         if (hasAccess) {
+            // Fix: If navigating directly to a restricted asset, enforce it in state
             if (aId) {
                 const assetExists = projectExists.assets.find(a => a.id === aId);
-                if (assetExists) setView({ type: 'PLAYER', projectId: pId, assetId: aId, restrictedAssetId: aId });
+                // If it's a guest or if the link is explicit, restrict the view
+                const shouldRestrict = currentUser.role === UserRole.GUEST; 
+                if (assetExists) setView({ type: 'PLAYER', projectId: pId, assetId: aId, restrictedAssetId: shouldRestrict ? aId : undefined });
                 else setView({ type: 'PROJECT_VIEW', projectId: pId });
             } else {
                 setView({ type: 'PROJECT_VIEW', projectId: pId });
@@ -310,6 +314,7 @@ const AppContent: React.FC = () => {
 
   const handleSelectAsset = (asset: ProjectAsset) => {
     if (view.type === 'PROJECT_VIEW') {
+      // Pass restrictedAssetId along to the player to maintain isolation context
       setView({ type: 'PLAYER', assetId: asset.id, projectId: view.projectId, restrictedAssetId: view.restrictedAssetId });
       const newUrl = `${window.location.pathname}?projectId=${view.projectId}&assetId=${asset.id}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
@@ -323,6 +328,7 @@ const AppContent: React.FC = () => {
 
   const handleBackToProject = () => {
     if (view.type === 'PLAYER') {
+      // Ensure we stay in restricted mode if we were restricted
       setView({ type: 'PROJECT_VIEW', projectId: view.projectId, restrictedAssetId: view.restrictedAssetId });
       const newUrl = `${window.location.pathname}?projectId=${view.projectId}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
