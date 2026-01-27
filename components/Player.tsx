@@ -333,24 +333,25 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
       // Update Project Data
       const uA = project.assets.map(a => a.id === asset.id ? { ...a, versions: uV, currentVersionIndex: newIdx } : a);
-      onUpdateProject({ ...project, assets: uA });
       
-      // CRITICAL: Reset ALL error states for the new version load
+      // CRITICAL: Reset ALL error states for the new version load BEFORE triggering update
       setDriveUrl(null); 
       setDriveFileMissing(false);
       setVideoError(false);
       setDriveUrlRetried(false);
-      setLoadingDrive(false);
+      setLoadingDrive(true); // Show loading while next one preps
       
       // Set new index to trigger reload
       setCurrentVersionIdx(newIdx);
+      
+      onUpdateProject({ ...project, assets: uA });
       notify("Version removed", "info");
   };
 
   useEffect(() => {
     // NOTIFY USER ON VERSION LOAD
     if (version) {
-        notify(`Loaded Version ${version.versionNumber}: ${version.filename || 'Video'}`, "success");
+        // notify(`Loaded Version ${version.versionNumber}: ${version.filename || 'Video'}`, "success"); // Removed to reduce noise on switch
     }
 
     setIsPlaying(false); setCurrentTime(0); setSelectedCommentId(null);
@@ -359,7 +360,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     // STRICT RESET OF ERROR STATES ON VERSION CHANGE
     setVideoError(false); 
     setDriveFileMissing(false);
-    setDriveUrlRetried(false);
+    setDriveUrlRetried(false); // Reset Retry Flag
     setDriveUrl(null); 
     setLoadingDrive(false);
     
@@ -452,16 +453,20 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       if (loadingDrive) return;
 
       if (!localFileSrc && !driveFileMissing) {
-          // Attempt Drive Fallback if using API link and it failed (CORS/403)
-          if (driveUrl && driveUrl.includes('googleapis.com') && version.googleDriveId && !driveUrlRetried) {
-              console.warn("API link failed (likely 403/CORS). Switching to UC fallback link...");
+          // Attempt Drive Fallback Logic (Auto-Fallback)
+          if (version.storageType === 'drive' && version.googleDriveId && !driveUrlRetried) {
+              console.warn("Primary API link failed (likely CORS). Switching to UC fallback link...");
               setDriveUrlRetried(true);
               setDriveUrl(`https://drive.google.com/uc?export=download&id=${version.googleDriveId}`);
               
-              // Try to reload video with new URL
-              if (videoRef.current) {
-                  videoRef.current.load();
-              }
+              // Force retry in the video element
+              setTimeout(() => {
+                if (videoRef.current) {
+                    videoRef.current.load();
+                    // Optionally auto-play if it was meant to be playing
+                    if (isPlaying) videoRef.current.play().catch(() => {});
+                }
+              }, 100);
           } else {
               setVideoError(true);
           }
@@ -688,7 +693,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
                        <div className="relative group/title">
                             <button 
                                 onClick={() => setShowVersionSelector(!showVersionSelector)}
-                                className="flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 p-1.5 rounded-lg transition-colors text-left"
+                                className="flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 p-1.5 px-3 rounded-lg transition-colors text-left border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                             >
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -704,7 +709,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
 
                             {/* VERSION DROPDOWN CONTENT */}
                             {showVersionSelector && (
-                                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl z-50 py-2 max-h-80 overflow-y-auto">
+                                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl z-50 py-2 max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                                     <div className="px-4 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800/50 mb-1">Select Version</div>
                                     {asset.versions.map((v, idx) => {
                                         const isCurrent = idx === currentVersionIdx;

@@ -57,7 +57,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
       if (GOOGLE_CLIENT_ID) {
           GoogleDriveService.init(GOOGLE_CLIENT_ID);
-          // Try to restore session state
+          // Try to restore session state immediately
           GoogleDriveService.restoreSession();
       }
   }, [GOOGLE_CLIENT_ID]);
