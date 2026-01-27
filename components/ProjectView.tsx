@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Project, ProjectAsset, User, UserRole, StorageType } from '../types';
-import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, History, Lock, Cloud, HardDrive } from 'lucide-react';
+import { ChevronLeft, Upload, Clock, Loader2, Copy, Check, X, Clapperboard, ChevronRight, Link as LinkIcon, Trash2, UserPlus, Info, History, Lock, Cloud, HardDrive, AlertTriangle } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 import { generateId } from '../services/utils';
 import { ToastType } from './Toast';
@@ -33,7 +33,6 @@ const generateVideoThumbnail = (file: File): Promise<string> => {
 
     video.onloadedmetadata = () => {
       // Seek to 1s or 20% of video to capture a meaningful frame
-      // Ensure we don't seek past duration
       const seekTime = Math.min(1.0, video.duration / 2);
       video.currentTime = seekTime;
     };
@@ -41,14 +40,13 @@ const generateVideoThumbnail = (file: File): Promise<string> => {
     video.onseeked = () => {
       try {
         const canvas = document.createElement('canvas');
-        // Fixed thumbnail size (16:9 aspect ratio)
         canvas.width = 480;
         canvas.height = 270;
         
         const ctx = canvas.getContext('2d');
         if (ctx) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality JPEG
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
             resolve(dataUrl);
         } else {
             resolve(fallback);
@@ -72,7 +70,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const { t } = useLanguage();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isDeletingAsset, setIsDeletingAsset] = useState<string | null>(null);
+  
+  // Delete State
+  const [deleteModalState, setDeleteModalState] = useState<{ isOpen: boolean, asset: ProjectAsset | null }>({ isOpen: false, asset: null });
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [uploadingVersionFor, setUploadingVersionFor] = useState<string | null>(null);
   const [useDriveStorage, setUseDriveStorage] = useState(false);
   const [isDriveReady, setIsDriveReady] = useState(GoogleDriveService.isAuthenticated());
@@ -86,16 +88,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const versionInputRef = useRef<HTMLInputElement>(null);
   
-  // SAAS UPDATE:
-  // Permission Check based on Project Team.
   const isGuest = currentUser.role === UserRole.GUEST;
-  
   const isProjectMember = project.team.some(m => m.id === currentUser.id);
   const isProjectOwner = project.ownerId === currentUser.id;
   
   // Can Upload/Delete? Owner OR Team Member (Non-Guest)
   const canEditProject = !isGuest && (isProjectOwner || isProjectMember) && !restrictedAssetId;
-  
   const isLocked = project.isLocked;
 
   // Filter Assets for Restricted Mode
@@ -144,8 +142,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     setUploadProgress(0);
 
     try {
-      // 1. Generate Thumbnail immediately
       const thumbnailDataUrl = await generateVideoThumbnail(file);
+      const assetTitle = file.name.replace(/\.[^/.]+$/, "");
 
       let assetUrl = '';
       let googleDriveId = undefined;
@@ -153,18 +151,26 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       let isLocalFallback = false;
       const token = localStorage.getItem('smotree_auth_token');
 
-      // 2. Upload Logic
+      // Upload Logic
       if (useDriveStorage && isDriveReady) {
            try {
-               notify("Uploading to Google Drive...", "info");
-               const folderId = await GoogleDriveService.ensureAppFolder();
-               const result = await GoogleDriveService.uploadFile(file, folderId, (p) => setUploadProgress(p));
+               notify("Preparing Drive Folders...", "info");
+               // 1. Root -> Project
+               const appFolder = await GoogleDriveService.ensureAppFolder();
+               const projectFolder = await GoogleDriveService.ensureFolder(project.name, appFolder);
+               // 2. Project -> Asset
+               const assetFolder = await GoogleDriveService.ensureFolder(assetTitle, projectFolder);
+               
+               // 3. Rename File: AssetName_v1.ext
+               const ext = file.name.split('.').pop();
+               const niceName = `${assetTitle}_v1.${ext}`;
+
+               notify("Uploading to Drive...", "info");
+               const result = await GoogleDriveService.uploadFile(file, assetFolder, (p) => setUploadProgress(p), niceName);
                
                googleDriveId = result.id;
                storageType = 'drive';
-               // For Drive, we don't have a direct permanent public URL. 
-               // We put a placeholder or blank. The Player will resolve it dynamically.
-               assetUrl = ''; 
+               assetUrl = ''; // Drive uses ID
            } catch (driveErr) {
                console.error("Drive upload failed", driveErr);
                notify("Drive upload failed. Falling back to local.", "error");
@@ -200,8 +206,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
 
       const newAsset: ProjectAsset = {
         id: generateId(),
-        title: file.name.replace(/\.[^/.]+$/, ""),
-        thumbnail: thumbnailDataUrl, // Use generated thumbnail
+        title: assetTitle,
+        thumbnail: thumbnailDataUrl,
         currentVersionIndex: 0,
         versions: [
           {
@@ -262,13 +268,22 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         // Upload Logic
         if (useDriveStorage && isDriveReady) {
              try {
-                 notify("Uploading version to Drive...", "info");
-                 const folderId = await GoogleDriveService.ensureAppFolder();
-                 const result = await GoogleDriveService.uploadFile(file, folderId, (p) => setUploadProgress(p));
+                 notify("Finding Drive Folder...", "info");
+                 const appFolder = await GoogleDriveService.ensureAppFolder();
+                 const projectFolder = await GoogleDriveService.ensureFolder(project.name, appFolder);
+                 // We assume asset folder name matches asset title. If renamed, it creates new folder.
+                 const assetFolder = await GoogleDriveService.ensureFolder(targetAsset.title, projectFolder);
+
+                 const ext = file.name.split('.').pop();
+                 const niceName = `${targetAsset.title}_v${nextVersionNum}.${ext}`;
+
+                 notify("Uploading version...", "info");
+                 const result = await GoogleDriveService.uploadFile(file, assetFolder, (p) => setUploadProgress(p), niceName);
                  googleDriveId = result.id;
                  storageType = 'drive';
                  assetUrl = '';
              } catch (e) {
+                 console.error("Drive upload failed", e);
                  isLocalFallback = true;
              }
         } else {
@@ -338,42 +353,52 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
       }
   };
 
-  const handleDeleteAsset = async (e: React.MouseEvent, asset: ProjectAsset) => {
-    e.stopPropagation();
-    if (!confirm(t('pv.delete_asset_confirm'))) return;
+  const confirmDeleteAsset = async (deleteFromDrive: boolean) => {
+    const asset = deleteModalState.asset;
+    if (!asset) return;
 
-    setIsDeletingAsset(asset.id);
+    setIsDeleting(true);
 
-    // 1. Collect Blob URLs (Only Vercel Blobs can be deleted via our API)
-    // Drive files are not deleted automatically for safety, or we could add logic to delete them via API too.
-    const urlsToDelete: string[] = [];
-    asset.versions.forEach(v => {
-        if (v.storageType === 'vercel' && v.url.startsWith('http')) {
-            urlsToDelete.push(v.url);
+    try {
+        // 1. Delete from Drive if requested
+        if (deleteFromDrive && isDriveReady) {
+            notify("Deleting files from Drive...", "info");
+            for (const v of asset.versions) {
+                if (v.storageType === 'drive' && v.googleDriveId) {
+                    await GoogleDriveService.deleteFile(v.googleDriveId);
+                }
+            }
         }
-    });
 
-    // 2. Delete Blobs
-    if (urlsToDelete.length > 0) {
-        try {
+        // 2. Delete Vercel Blobs (always cleanup cloud storage if possible)
+        const urlsToDelete: string[] = [];
+        asset.versions.forEach(v => {
+            if (v.storageType === 'vercel' && v.url.startsWith('http')) {
+                urlsToDelete.push(v.url);
+            }
+        });
+
+        if (urlsToDelete.length > 0) {
             const token = localStorage.getItem('smotree_auth_token');
             await fetch('/api/delete', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : ''
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
                 body: JSON.stringify({ urls: urlsToDelete })
             });
-        } catch (err) {
-            console.error("Failed to delete blobs", err);
         }
-    }
 
-    const updatedAssets = project.assets.filter(a => a.id !== asset.id);
-    onUpdateProject({ ...project, assets: updatedAssets });
-    setIsDeletingAsset(null);
-    notify(t('common.success'), "info");
+        // 3. Update State
+        const updatedAssets = project.assets.filter(a => a.id !== asset.id);
+        onUpdateProject({ ...project, assets: updatedAssets });
+        notify(t('common.success'), "success");
+
+    } catch (e) {
+        console.error(e);
+        notify("Error during deletion", "error");
+    } finally {
+        setIsDeleting(false);
+        setDeleteModalState({ isOpen: false, asset: null });
+    }
   };
 
   const handleShareProject = () => {
@@ -395,20 +420,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
   const handleAddVersionClick = (e: React.MouseEvent, assetId: string) => {
       e.stopPropagation();
       setUploadingVersionFor(assetId);
-      // Wait for state to settle then click
       setTimeout(() => versionInputRef.current?.click(), 0);
   };
 
   const handleRemoveMember = (memberId: string) => {
-      // ONLY Project Owner can remove members
       if (!isProjectOwner) return;
-
-      if (memberId === project.ownerId) {
-          notify(t('common.error'), "error");
-          return;
-      }
+      if (memberId === project.ownerId) { notify(t('common.error'), "error"); return; }
       if (!confirm(t('pv.remove_confirm'))) return;
-
       const updatedTeam = project.team.filter(m => m.id !== memberId);
       onUpdateProject({ ...project, team: updatedTeam });
       notify(t('common.success'), "info");
@@ -428,7 +446,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // Helper to determine display role
   const getDisplayRole = (member: User) => {
       if (member.id === project.ownerId) return t('pv.role.owner');
       if (member.role === UserRole.GUEST) return t('pv.role.guest');
@@ -439,13 +456,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
     <div className="flex flex-col h-screen bg-zinc-950">
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-2 md:px-4 shrink-0 z-20">
         <div className="flex items-center gap-2 overflow-hidden flex-1">
-          
           <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-white shrink-0 p-1 mr-1">
               <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-lg shrink-0 border border-zinc-700">
                 <Clapperboard size={16} className="text-zinc-400" />
               </div>
           </button>
-
           <div className="flex flex-col truncate">
             <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider flex items-center gap-1">
                 SmoTree <span className="text-zinc-600">/</span> {isGuest ? t('dash.shared_projects') : <span className="cursor-pointer hover:text-zinc-200 transition-colors" onClick={onBack}>{t('nav.dashboard')}</span>}
@@ -458,9 +473,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          
           <LanguageSelector />
-
           {!restrictedAssetId && (
             <div 
               onClick={() => setIsParticipantsModalOpen(true)}
@@ -475,7 +488,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
               </div>
             </div>
           )}
-          
           {!isGuest && !isLocked && !restrictedAssetId && (
             <>
               <div className="h-6 w-px bg-zinc-800 mx-1"></div>
@@ -492,7 +504,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
         </div>
       </header>
 
-      {/* LOCKED BANNER */}
       {isLocked && (
           <div className="bg-red-900/20 border-b border-red-900/30 text-red-400 text-xs py-1 text-center font-medium flex items-center justify-center gap-2">
               <Lock size={12} />
@@ -517,7 +528,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                     <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect}/>
                     <input type="file" ref={versionInputRef} className="hidden" accept="video/*" onChange={handleVersionFileSelect}/>
                     
-                    {/* Storage Toggle */}
                     <button
                         onClick={toggleStorage}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${useDriveStorage && isDriveReady ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}
@@ -585,11 +595,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
                                         <History size={12} />
                                     </button>
                                     <button 
-                                        onClick={(e) => handleDeleteAsset(e, asset)}
+                                        onClick={(e) => { e.stopPropagation(); setDeleteModalState({ isOpen: true, asset: asset }); }}
                                         className="p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md backdrop-blur-sm transition-colors"
                                         title={t('pv.delete_asset')}
                                     >
-                                        {isDeletingAsset === asset.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                        <Trash2 size={12} />
                                     </button>
                                 </>
                             )}
@@ -616,6 +626,58 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ project, currentUser, 
           </div>
       </div>
 
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteModalState.isOpen && deleteModalState.asset && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative">
+                  <div className="flex items-center gap-3 mb-4 text-red-500">
+                      <AlertTriangle size={32} />
+                      <h3 className="text-lg font-bold text-white">Delete Asset?</h3>
+                  </div>
+                  <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+                      You are about to delete <strong>{deleteModalState.asset.title}</strong>. 
+                      How would you like to proceed?
+                  </p>
+                  
+                  <div className="space-y-3">
+                      {isDriveReady && (
+                          <button 
+                            onClick={() => confirmDeleteAsset(true)} 
+                            disabled={isDeleting}
+                            className="w-full flex items-center justify-between p-4 bg-red-900/20 hover:bg-red-900/40 border border-red-900/50 rounded-xl text-left transition-colors group"
+                          >
+                              <div>
+                                  <div className="font-bold text-red-400 text-sm mb-0.5">Delete Everywhere</div>
+                                  <div className="text-[10px] text-red-300/60">Remove from dashboard & trash Drive files</div>
+                              </div>
+                              <Trash2 size={18} className="text-red-500 group-hover:scale-110 transition-transform"/>
+                          </button>
+                      )}
+                      
+                      <button 
+                        onClick={() => confirmDeleteAsset(false)}
+                        disabled={isDeleting} 
+                        className="w-full flex items-center justify-between p-4 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl text-left transition-colors group"
+                      >
+                          <div>
+                              <div className="font-bold text-zinc-200 text-sm mb-0.5">Remove from Dashboard</div>
+                              <div className="text-[10px] text-zinc-500">Files remain in your storage</div>
+                          </div>
+                          <X size={18} className="text-zinc-400 group-hover:text-white transition-colors"/>
+                      </button>
+                  </div>
+
+                  <button 
+                    onClick={() => setDeleteModalState({ isOpen: false, asset: null })}
+                    className="mt-6 w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 font-medium"
+                  >
+                      Cancel
+                  </button>
+              </div>
+          </div>
+      )}
+
+       {/* Share & Participants Modals remain unchanged ... */}
        {(isShareModalOpen || isParticipantsModalOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl relative p-6">

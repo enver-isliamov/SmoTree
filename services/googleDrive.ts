@@ -86,52 +86,89 @@ export const GoogleDriveService = {
   },
 
   /**
+   * Helper to find or create a folder inside a parent folder.
+   */
+  ensureFolder: async (folderName: string, parentId?: string): Promise<string> => {
+      if (!accessToken) throw new Error("No access token");
+
+      // Build query
+      let query = `mimeType='application/vnd.google-apps.folder' and name='${folderName.replace(/'/g, "\\'")}' and trashed=false`;
+      if (parentId) {
+          query += ` and '${parentId}' in parents`;
+      }
+
+      // 1. Search
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const data = await searchRes.json();
+
+      if (data.files && data.files.length > 0) {
+          return data.files[0].id;
+      }
+
+      // 2. Create
+      const metadata: any = {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder'
+      };
+      if (parentId) {
+          metadata.parents = [parentId];
+      }
+
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(metadata)
+      });
+      const createData = await createRes.json();
+      return createData.id;
+  },
+
+  /**
    * Finds the SmoTree.App folder or creates it if it doesn't exist.
    */
   ensureAppFolder: async (): Promise<string> => {
     // If we have flag but no token, try to prompt user or fail
     if (!accessToken) {
-        // In a real app, we might trigger a prompt here, but for now throw to UI
         throw new Error("Drive Token Expired. Please reconnect in Profile.");
     }
+    return GoogleDriveService.ensureFolder(APP_FOLDER_NAME);
+  },
 
-    // 1. Search for folder
-    const searchUrl = `https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and name='${APP_FOLDER_NAME}' and trashed=false&fields=files(id)`;
-    
-    const res = await fetch(searchUrl, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-    });
-    const data = await res.json();
-
-    if (data.files && data.files.length > 0) {
-        return data.files[0].id;
-    }
-
-    // 2. Create folder if not found
-    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            name: APP_FOLDER_NAME,
-            mimeType: 'application/vnd.google-apps.folder'
-        })
-    });
-    const createData = await createRes.json();
-    return createData.id;
+  /**
+   * Deletes (trashes) a file from Google Drive.
+   */
+  deleteFile: async (fileId: string): Promise<void> => {
+      if (!accessToken) return; // Fail silently if no token, user can delete manually later
+      
+      try {
+          // We use update to set trashed=true instead of DELETE to avoid permanent data loss accidents
+          await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
+              method: 'PATCH',
+              headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ trashed: true })
+          });
+      } catch (e) {
+          console.error("Failed to delete Drive file", e);
+      }
   },
 
   /**
    * Uploads a file using the Resumable Upload protocol.
    */
-  uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void): Promise<{ id: string, name: string }> => {
+  uploadFile: async (file: File, folderId: string, onProgress?: (percent: number) => void, customName?: string): Promise<{ id: string, name: string }> => {
      if (!accessToken) throw new Error("No access token");
 
      // Step 1: Initiate Resumable Upload Session
      const metadata = {
-         name: file.name,
+         name: customName || file.name,
          parents: [folderId]
      };
 
@@ -178,6 +215,7 @@ export const GoogleDriveService = {
                      const response = JSON.parse(xhr.responseText);
                      
                      // Step 3: Make file Public (Anyone with link can read)
+                     // Note: "Anyone with link" is safer for simple sharing without complex auth flows for viewers
                      try {
                         await fetch(`https://www.googleapis.com/drive/v3/files/${response.id}/permissions`, {
                             method: 'POST',
