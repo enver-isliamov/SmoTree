@@ -381,16 +381,68 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
   };
 
   const handleTimeUpdate = () => { if (!isScrubbing) setCurrentTime(videoRef.current?.currentTime || 0); };
-  const handleVideoError = () => { if (!localFileSrc) setVideoError(true); };
   
+  const handleVideoError = () => {
+      if (!localFileSrc) {
+          // Attempt Drive Fallback if using API link and it failed (CORS/403)
+          if (driveUrl && driveUrl.includes('googleapis.com') && version.googleDriveId) {
+              // Switch to UC link as a Hail Mary for simple playback
+              console.warn("API link failed, trying fallback UC link...");
+              setDriveUrl(`https://drive.google.com/uc?export=download&id=${version.googleDriveId}`);
+          } else {
+              setVideoError(true);
+          }
+      }
+  };
+  
+  // -- RE-IMPLEMENTED PRECISE SCRUBBING LOGIC --
   const handlePointerDown = (e: React.PointerEvent) => {
     isDragRef.current = false;
-    // ... pointer logic ...
+    scrubStartDataRef.current = {
+        x: e.clientX,
+        time: currentTime,
+        wasPlaying: isPlaying
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
-  const handlePointerMove = (e: React.PointerEvent) => { isDragRef.current = true; };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+      // Trigger drag state if moved more than 5 pixels
+      if (!isDragRef.current && scrubStartDataRef.current && Math.abs(e.clientX - scrubStartDataRef.current.x) > 5) {
+          isDragRef.current = true;
+          setIsScrubbing(true);
+          if (isPlaying) {
+              setIsPlaying(false);
+              videoRef.current?.pause();
+          }
+      }
+
+      if (isDragRef.current && scrubStartDataRef.current && videoRef.current) {
+          const deltaX = e.clientX - scrubStartDataRef.current.x;
+          // Precision: 10 pixels = 1 second (approx). Adjust multiplier for sensitivity.
+          // 0.1 means 100px drag moves video by 10 seconds.
+          const deltaT = deltaX * 0.1; 
+          const newTime = Math.max(0, Math.min(duration, scrubStartDataRef.current.time + deltaT));
+          
+          videoRef.current.currentTime = newTime;
+          setCurrentTime(newTime);
+          if (compareVideoRef.current) compareVideoRef.current.currentTime = newTime;
+      }
+  };
+
   const handlePointerUp = (e: React.PointerEvent) => {
-      if (!isDragRef.current && e.button === 0) togglePlay();
+      if (isDragRef.current && scrubStartDataRef.current) {
+          // If we were scrubbing, resume playback if it was playing before
+          if (scrubStartDataRef.current.wasPlaying) togglePlay();
+      } else if (e.button === 0) {
+          // If it was just a click (no drag), toggle play/pause
+          togglePlay();
+      }
+      
       isDragRef.current = false;
+      setIsScrubbing(false);
+      scrubStartDataRef.current = null;
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
   
   const toggleFullScreen = () => {
@@ -436,6 +488,10 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
     syncCommentAction('create', { id: cId, text: newCommentText, timestamp: markerInPoint !== null ? markerInPoint : currentTime, duration: markerOutPoint && markerInPoint ? markerOutPoint - markerInPoint : undefined, status: CommentStatus.OPEN, authorName: currentUser.name });
     setNewCommentText(''); setMarkerInPoint(null); setMarkerOutPoint(null);
     setTimeout(() => { document.getElementById(`comment-${cId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
+    
+    // FIX: Blur input to allow spacebar to control playback again
+    sidebarInputRef.current?.blur();
+    playerContainerRef.current?.focus();
   };
   
   const handleDeleteComment = (id: string) => { if (confirm(t('pv.delete_asset_confirm'))) syncCommentAction('delete', { id }); };
@@ -624,7 +680,7 @@ export const Player: React.FC<PlayerProps> = ({ asset, project, currentUser, onB
       {/* The rest of the player component logic... */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
         {/* VIDEO CONTAINER */}
-        <div ref={playerContainerRef} className={`flex-1 flex flex-col bg-black lg:border-r border-zinc-800 group/fullscreen overflow-hidden transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-[100] w-screen h-screen' : 'relative'}`}>
+        <div ref={playerContainerRef} className={`flex-1 flex flex-col bg-black lg:border-r border-zinc-800 group/fullscreen overflow-hidden transition-all duration-300 outline-none ${isFullscreen ? 'fixed inset-0 z-[100] w-screen h-screen' : 'relative'}`} tabIndex={-1}>
           <div className="flex-1 relative w-full h-full flex items-center justify-center bg-zinc-950 overflow-hidden group/player">
              
              {/* ... Overlays ... */}
